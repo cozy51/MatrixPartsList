@@ -48,6 +48,8 @@ export type ParsedDrawing = {
   category: string;
   /** 図番から導いた品番。組立図など、図番と品番が異なる場合だけ値が入る。 */
   partNo: string;
+  /** 図番から導いた品番のすべて。同じ基本番号の品番が複数ある場合に複数入る。 */
+  partNos: string[];
 };
 
 /** 拡張子から種別を決める。社内システムの図面（PDF・DXF）と3Dモデル（eDrawings）に対応する。 */
@@ -116,15 +118,28 @@ export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
 }
 
 /**
- * 図番から品番を導く。候補が2つある場合は、部品表に実在する品番を優先し、
- * 判断できないときは機械図面の組図（先頭9桁 + `0`）として扱う。
+ * 図番に結び付ける品番を決める。
+ *
+ * 1. 候補（先頭10桁／先頭9桁 + `0`）が部品表にあれば、それを使う。
+ * 2. どちらも部品表になければ、同じ基本番号（先頭9桁）の品番を探す。図面や
+ *    3Dモデルが新品番で登録され、部品表には旧品番が載っている場合に対応する。
+ *    例: 3Dモデル `RJ0MT017440`（新品番 `RJ0MT01744`）と部品表の `RJ0MT01742`。
+ * 3. それでも見つからなければ、機械図面の組図（先頭9桁 + `0`）として扱う。
  */
-export function partNoFromDrawingNo(drawingNo: string, knownPartNos: Iterable<string> = []): string {
+export function partNosForDrawing(drawingNo: string, knownPartNos: Iterable<string> = []): string[] {
   const candidates = partNoCandidatesFromDrawingNo(drawingNo);
-  if (!candidates.length) return '';
-  const known = new Set([...knownPartNos].map(drawingKey));
-  return candidates.find(candidate => known.has(candidate)) ?? candidates[candidates.length - 1];
+  if (!candidates.length) return [];
+  const known = [...new Set([...knownPartNos].map(drawingKey))];
+  const exact = candidates.filter(candidate => known.includes(candidate));
+  if (exact.length) return exact;
+  const base = normalizeDrawingNo(drawingNo).slice(0, 9);
+  const sameBase = known.filter(partNo => partNo.length === 10 && partNo.startsWith(base));
+  return sameBase.length ? sameBase : [candidates[candidates.length - 1]];
 }
+
+/** 図番から導いた代表の品番。候補の選び方は partNosForDrawing と同じ。 */
+export const partNoFromDrawingNo = (drawingNo: string, knownPartNos: Iterable<string> = []): string =>
+  partNosForDrawing(drawingNo, knownPartNos)[0] ?? '';
 
 /** クリップボードの文字列からURLだけを取り出す。前後に説明文が付いていてもよい。 */
 export function extractUrl(text: string): string {
@@ -187,10 +202,12 @@ export function parseDrawingUrl(url: string, knownPartNos: Iterable<string> = []
   const fileUrl = resolveFileUrl(url);
   const fileName = fileNameOf(fileUrl);
   const parsed = parseDrawingFileName(fileName);
+  const partNos = partNosForDrawing(parsed.drawingNo, knownPartNos);
   return {
     url, fileUrl, fileName, ...parsed,
     category: detectDrawingCategory(parsed.drawingNo),
-    partNo: partNoFromDrawingNo(parsed.drawingNo, knownPartNos),
+    partNo: partNos[0] ?? '',
+    partNos,
   };
 }
 
@@ -287,7 +304,7 @@ export function buildDrawingLink(parsed: ParsedDrawing, existing?: DrawingLink):
     category: existing?.category?.trim() || parsed.category,
     fileName: parsed.fileName,
     url: parsed.url,
-    partNos: mergePartNos(existing?.partNos ?? [], parsed.drawingNo ? [parsed.drawingNo] : [], parsed.partNo ? [parsed.partNo] : []),
+    partNos: mergePartNos(existing?.partNos ?? [], parsed.drawingNo ? [parsed.drawingNo] : [], parsed.partNos ?? (parsed.partNo ? [parsed.partNo] : [])),
     note: existing?.note ?? '',
     updatedAt: new Date().toISOString(),
   };

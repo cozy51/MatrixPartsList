@@ -22,6 +22,7 @@ import {
   parseDrawingClipboardAll,
   parseDrawingFileName,
   partNoCandidatesFromDrawingNo,
+  partNosForDrawing,
   registerDrawings,
   partNoFromDrawingNo,
   removeDrawing,
@@ -101,6 +102,7 @@ describe('parseDrawingClipboard', () => {
       fileType: 'PDF',
       category: '部品図',
       partNo: '',
+      partNos: [],
     });
   });
 
@@ -137,7 +139,7 @@ describe('まとめ貼り付けと自動登録', () => {
     expect(entry).toMatchObject({ drawingNo: 'HH110A00410', category: '組立図', partNos: ['HH110A00410', 'HH110A0040'] });
     expect(isRegisterable(entry)).toBe(true);
     // 図番を判定できないリンクは自動登録せず、確認へ回す。
-    const unknown = buildDrawingLink({ url: 'https://example.com/', fileUrl: 'https://example.com/', fileName: '', drawingNo: '', docNo: '', fileType: 'その他', category: '', partNo: '' });
+    const unknown = buildDrawingLink({ url: 'https://example.com/', fileUrl: 'https://example.com/', fileName: '', drawingNo: '', docNo: '', fileType: 'その他', category: '', partNo: '', partNos: [] });
     expect(isRegisterable(unknown)).toBe(false);
   });
 
@@ -243,6 +245,16 @@ describe('図面区分と図番からの品番', () => {
     // 10桁目が0なら、どちらの数え方でも同じ品番になる。
     expect(partNoCandidatesFromDrawingNo('HH110A00400')).toEqual(['HH110A0040']);
     expect(partNoCandidatesFromDrawingNo('HH110A5060')).toEqual([]);
+  });
+
+  it('候補が部品表にないときは、同じ基本番号の品番へ結び付ける', () => {
+    // 3Dモデルが新品番 RJ0MT01744 で登録され、部品表には旧品番 RJ0MT01742 がある場合。
+    expect(partNosForDrawing('RJ0MT017440', ['RJ0MT01742'])).toEqual(['RJ0MT01742']);
+    expect(partNoFromDrawingNo('RJ0MT017440', ['RJ0MT01742'])).toBe('RJ0MT01742');
+    // 候補そのものが部品表にあるときは広げない（別Verの品番へは付けない）。
+    expect(partNosForDrawing('HH010080430', ['HH01008043', 'HH01008041'])).toEqual(['HH01008043']);
+    // 基本番号が違う品番は対象にしない。
+    expect(partNosForDrawing('RJ0MT017440', ['RJ0MT09992'])).toEqual(['RJ0MT01740']);
   });
 
   it('電気図面は、部品表に実在する品番を優先して選ぶ', () => {
