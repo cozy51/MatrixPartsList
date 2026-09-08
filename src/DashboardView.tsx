@@ -48,7 +48,7 @@ export default function DashboardView({ lists, onOpenUnit, onNoteChange }: Props
     <div className="machine-tree">{MACHINES.map(machine => {
       const machineLists = lists.filter(list => list.machineId === machine.id);
       return <section className="machine-branch" key={machine.id}>
-        <div className="machine-node"><span className="tree-icon" aria-hidden="true">▾</span><div><b>{machine.label}</b><small>{machine.modes.length} ユニット</small></div><div className="machine-node-actions"><strong>{machineLists.length}件</strong><button type="button" onClick={() => exportMachinePartsLists(machine, lists)}>Excel DL</button></div></div>
+        <div className="machine-node"><span className="tree-icon" aria-hidden="true">▾</span><div><b>{machine.label}</b><small>{machine.modes.length} ユニット</small></div><div className="machine-node-actions"><strong>{machineLists.length}件</strong><button className="excel" type="button" onClick={() => exportMachinePartsLists(machine, lists)}>Excel DL</button></div></div>
         <ul>{machine.modes.map(mode => {
           const unitLists = sortPartsLists(machineLists.filter(list => list.modeId === mode.id));
           const unitKey = `${machine.id}-${mode.id}`;

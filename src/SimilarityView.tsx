@@ -72,7 +72,7 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange }
           <span className="similarity-chevron" aria-hidden="true">⌄</span>
         </button>
         {detail && <div className="similarity-details">
-          <div className="similarity-details-actions"><span>{plLabel(base)} と {plLabel(result.list)} の比較結果</span><button type="button" onClick={() => exportComparison(base, result.list, detail, result.score)}>Excel出力</button></div>
+          <div className="similarity-details-actions"><span>{plLabel(base)} と {plLabel(result.list)} の比較結果</span><button className="excel" type="button" onClick={() => exportComparison(base, result.list, detail, result.score)}>Excel出力</button></div>
           <DetailSection title="共通部品" parts={detail.common} tone="common" />
           <DetailSection title={`${plLabel(base)} のみ`} parts={detail.baseOnly} tone="base" />
           <DetailSection title={`${plLabel(result.list)} のみ`} parts={detail.targetOnly} tone="target" />
