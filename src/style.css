@@ -579,6 +579,15 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 /* `Z` で始まる購入品は、部品表で見分けられるよう濃い緑の太字にする。 */
 td.purchased-part > span { color: #0f6b3d; font-weight: 800; }
 
+/* 部品図は10桁目が違っても互換。同じ基本番号（先頭9桁）の部品を結び付けて示す。 */
+tr.is-compat td[data-column="partNo"] { box-shadow: inset 3px 0 0 #c4b5fd; }
+.compat-no b { color: #6d28d9; font-weight: 850; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+.compat-badge { margin-left: 5px; padding: 0 4px; border: 1px solid #c4b5fd; border-radius: 4px; color: #6d28d9; background: #f5f2ff; font-size: 9px; font-weight: 800; letter-spacing: .04em; vertical-align: 1px; }
+td.use-compat { color: #7c3aed; background: #f8f5ff; font-size: 15px; font-weight: 800; }
+.compat-legend { margin: 0 0 10px; padding: 8px 12px; border: 1px solid #e6e0fb; border-radius: 8px; background: #faf8ff; color: #5b5570; font-size: 12px; }
+.compat-legend b { color: #6d28d9; }
+.compat-legend i { color: #7c3aed; font-size: 14px; font-style: normal; font-weight: 800; }
+
 /* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。
    組立図と部品図は図面リンクタブの区分バッジと同じ配色で見分けられるようにする。 */
 .drawing-link { display: inline-block; margin-left: 4px; padding: 1px 4px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 9px; font-weight: 800; letter-spacing: 0; text-decoration: none; vertical-align: 1px; }
