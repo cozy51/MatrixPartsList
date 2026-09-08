@@ -97,7 +97,8 @@ th.plhead {
   border-radius: 6px;
   font: inherit;
 }
-.version-input input:placeholder-shown { border-color: #dc3545; background: #fff6f7; }
+.version-input input:placeholder-shown, .version-input input.is-invalid { border-color: #dc3545; background: #fff6f7; }
+.version-message { grid-column: 1 / -1; color: #bd2634; font-size: 13px; font-weight: 700; }
 
 .standard-badge {
   display: inline-block;

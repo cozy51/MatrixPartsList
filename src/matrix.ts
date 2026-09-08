@@ -22,7 +22,8 @@ export function sortPartsLists(lists: PartsList[]): PartsList[] {
   });
 }
 
-export const isStandardPl = (plNo: string): boolean => /^HH1/i.test(plNo.trim());
+/** 機種コードが `HH1`・`HJ0` のPLは標準PL。一覧とヘッダーに `STD` を表示する。 */
+export const isStandardPl = (plNo: string): boolean => /^(HH1|HJ0)/i.test(plNo.trim());
 
 /** `Z` で始まる品番は購入品。部品表で見分けられるよう色を変える。 */
 export const isPurchasedPart = (partNo: string): boolean => /^Z/i.test(partNo.trim());

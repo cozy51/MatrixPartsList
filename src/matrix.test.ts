@@ -30,10 +30,13 @@ const list = (plNo: string): PartsList => ({
 });
 
 describe('reference workbook ordering', () => {
-  it('identifies HH1 prefixes as standard PLs', () => {
+  it('identifies HH1 and HJ0 prefixes as standard PLs', () => {
     expect(isStandardPl('HH11000010')).toBe(true);
     expect(isStandardPl('hh110A0010')).toBe(true);
+    expect(isStandardPl('HJ02100010')).toBe(true);
+    expect(isStandardPl(' hj09301010 ')).toBe(true);
     expect(isStandardPl('HH3101K810')).toBe(false);
+    expect(isStandardPl('HJ12100010')).toBe(false);
   });
   it('bulk-selects only lists in the active mode', () => {
     const first = list('A'), second = list('B');
