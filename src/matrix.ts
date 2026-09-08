@@ -53,13 +53,16 @@ export function buildQuantityConflicts(parts: Part[]): Map<string, string[]> {
 }
 
 /**
- * 部品図（品番の9文字目が `5`・`6`）は、10桁目が違っても互換性があります。
- * 10桁目を除いた先頭9桁を「基本番号」として、互換の部品をまとめます。
+ * 部品図（9文字目が `5`・`6`）と組立図の `4` は、10桁目が違っても互換性が
+ * あります。10桁目を除いた先頭9桁を「基本番号」として、互換の部品をまとめます。
+ * PL（`1`）は10桁目が違えば別のユニットなので、CAD IDの方で扱います。
  */
+const COMPATIBLE_CATEGORY_CODES = new Set(['4', '5', '6']);
+
 export function compatibleBaseNo(partNo: string): string {
   const value = partNo.trim().toUpperCase();
   if (!/^[A-Z][A-Z0-9]{9}$/.test(value)) return '';
-  return value[8] === '5' || value[8] === '6' ? value.slice(0, 9) : '';
+  return COMPATIBLE_CATEGORY_CODES.has(value[8]) ? value.slice(0, 9) : '';
 }
 
 /** 基本番号ごとに品番をまとめる。10桁目だけが違う品番が2つ以上あるものだけを返す。 */

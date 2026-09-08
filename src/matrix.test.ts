@@ -162,8 +162,11 @@ describe('部品図の互換（10桁目の違い）', () => {
     expect(compatibleBaseNo('hj06158061')).toBe('HJ0615806');
     // 9文字目が5の部品図も対象。
     expect(compatibleBaseNo('HJ06158550')).toBe('HJ0615855');
-    // 組立図（1・4）とPL（1）は対象外。
-    expect(compatibleBaseNo('HH110A0040')).toBe('');
+    // 9文字目が4の組立図も、部品図と同じく10桁目の違いで互換。
+    expect(compatibleBaseNo('HD1DG01444')).toBe('HD1DG0144');
+    expect(compatibleBaseNo('HD1DG01445')).toBe('HD1DG0144');
+    expect(compatibleBaseNo('HH110A0040')).toBe('HH110A004');
+    // PL（9文字目が1）は10桁目が違えば別のユニットなので対象外。
     expect(compatibleBaseNo('HH11004010')).toBe('');
     // 購入品や11桁の図番も対象外。
     expect(compatibleBaseNo('Z076048100')).toBe('');
@@ -176,6 +179,8 @@ describe('部品図の互換（10桁目の違い）', () => {
       part('105', 'HJ06159060'), part('80', 'Z076048100'), part('101', '+'),
     ]);
     expect([...groups.keys()]).toEqual(['HJ0615806']);
+    // 組立図（9文字目が4）も同じようにまとめる。
+    expect(buildCompatibleGroups([part('18', 'HD1DG01444'), part('18', 'HD1DG01445')]).get('HD1DG0144')).toEqual(['HD1DG01444', 'HD1DG01445']);
     // 品番は昇順にそろえて返す。
     expect(groups.get('HJ0615806')).toEqual(['HJ06158060', 'HJ06158061']);
   });
