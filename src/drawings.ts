@@ -96,13 +96,19 @@ export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { ca
   drawing.category?.trim() || detectDrawingCategory(drawing.drawingNo);
 
 /**
+ * 11桁の図番。10桁目はVerで、`0`〜`9` の次は `A`・`B`・`C` と英字へ繰り上がる
+ * （`HH1230201C0`）。11桁目は枚数で、こちらは必ず数字。
+ */
+const DRAWING_NO_11 = /^[A-Z][A-Z0-9]{9}\d$/;
+
+/**
  * 図番の12桁目は用紙サイズ（`4` = A4）を表し、図面そのものを指す番号ではない。
  * 例: `HD1AG0064204` は図番 `HD1AG006420`（11桁目 `0` が1枚目）＋ 用紙サイズ `4`。
  * 画面には出さず、品番の判定にも使わないため、11桁までを図番として扱う。
  */
 export function normalizeDrawingNo(value: string): string {
   const key = drawingKey(value);
-  return /^[A-Z][A-Z0-9]{8}\d{3}$/.test(key) ? key.slice(0, 11) : key;
+  return /^[A-Z][A-Z0-9]{9}\d{2}$/.test(key) ? key.slice(0, 11) : key;
 }
 
 /**
@@ -110,13 +116,15 @@ export function normalizeDrawingNo(value: string): string {
  * 図番だけでは見分けられないため、両方を候補として持つ。
  *
  * - 機械図面の組図: 品番の10桁目は `0` のままで、図番の10桁目がVer、11桁目が
- *   枚数（品番 `HH110A0040` → 図番 `HH110A00410`）。
+ *   枚数（品番 `HH110A0040` → 図番 `HH110A00410`）。Verは `9` の次が `A` の
+ *   英字になるため、10桁目は数字とは限らない（品番 `HH12302010` → 図番
+ *   `HH1230201C0`）。
  * - 電気図面: 外注のため品番そのものの10桁目を改訂で上げるので、図番はその
  *   品番に枚数の1桁を足した形になる（品番 `HH01008043` → 図番 `HH010080430`）。
  */
 export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
   const value = normalizeDrawingNo(drawingNo);
-  if (!/^[A-Z][A-Z0-9]{8}\d{2}$/.test(value)) return [];
+  if (!DRAWING_NO_11.test(value)) return [];
   return [...new Set([value.slice(0, 10), `${value.slice(0, 9)}0`])];
 }
 
@@ -264,7 +272,7 @@ export const drawingsForPart = (index: Map<string, DrawingLink[]>, partNo: strin
  */
 export function drawingSheetNo(drawingNo: string): number {
   const value = normalizeDrawingNo(drawingNo);
-  return /^[A-Z][A-Z0-9]{8}\d{2}$/.test(value) ? Number(value[10]) : -1;
+  return DRAWING_NO_11.test(value) ? Number(value[10]) : -1;
 }
 
 export function drawingSheetLabel(drawingNo: string): string {

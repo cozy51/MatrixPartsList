@@ -470,3 +470,28 @@ describe('同じ図番・同じ種別で複数ファイルあるとき', () => {
     expect(drawingsForPart(index, 'HH12100540').map(item => item.id)).toEqual(['easm-1', 'easm-2']);
   });
 });
+
+describe('Verが英字の図番（9の次はA）', () => {
+  it('10桁目が英字でも、図番として読み取って品番へ結び付ける', () => {
+    // 品番 HH12302010 の組図。10桁目のVerが C、11桁目の 0〜4 が枚数。
+    expect(partNoCandidatesFromDrawingNo('HH1230201C0')).toEqual(['HH1230201C', 'HH12302010']);
+    expect(partNosForDrawing('HH1230201C0', ['HH12302010'])).toEqual(['HH12302010']);
+    expect(partNoFromDrawingNo('HH1230201C4', ['HH12302010'])).toBe('HH12302010');
+    // 用紙サイズ付きの12桁も、Verが英字のまま11桁へそろえる。
+    expect(normalizeDrawingNo('HH1230201C04')).toBe('HH1230201C0');
+  });
+
+  it('枚数も英字のVerを飛ばして読み取る', () => {
+    expect(drawingSheetLabel('HH1230201C0')).toBe('1枚目');
+    expect(drawingSheetLabel('HH1230201C4')).toBe('5枚目');
+  });
+
+  it('リンクからそのまま登録できる', () => {
+    const base = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HH1';
+    const { next, done, pending } = registerDrawings([], [0, 1, 2, 3, 4].map(n => `${base}/538257${n}_HH1230201C${n}.pdf`).join('\n'), ['HH12302010']);
+    expect(pending).toEqual([]);
+    expect(done).toHaveLength(5);
+    expect(next).toHaveLength(5);
+    expect(next[0]).toMatchObject({ drawingNo: 'HH1230201C0', category: '組立図', partNos: ['HH1230201C0', 'HH12302010'] });
+  });
+});
