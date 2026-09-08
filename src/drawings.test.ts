@@ -4,11 +4,18 @@ import {
   buildPartDrawingIndex,
   detectDrawingCategory,
   drawingCategoryOf,
+  cadIdFor,
   drawingsForPart,
+  drawingsForPartWithCadId,
   extractUrl,
   extractUrls,
   findExistingDrawing,
+  drawingTypeRank,
+  isModelType,
+  isPlNumber,
   isRegisterable,
+  removeCadId,
+  upsertCadId,
   mergePartNos,
   normalizeDrawingNo,
   parseDrawingClipboard,
@@ -71,6 +78,11 @@ describe('parseDrawingFileName', () => {
 
   it('recognises DXF files', () => {
     expect(parseDrawingFileName('4397264_HH110A5060.dxf').fileType).toBe('DXF');
+  });
+
+  it('3Dモデル（eDrawings）の種別を判定する', () => {
+    expect(parseDrawingFileName('5031809_HH11105B120.easm')).toEqual({ drawingNo: 'HH11105B120', docNo: '5031809', fileType: 'EASM' });
+    expect(parseDrawingFileName('5031809_HH11105B120.EPRT').fileType).toBe('EPRT');
   });
 
   it('falls back to the whole base name', () => {
@@ -156,6 +168,34 @@ describe('まとめ貼り付けと自動登録', () => {
     const kept = upsertDrawing(registered, buildDrawingLink(parsed, { ...first, note: '流用元あり' }));
     expect(kept).toHaveLength(1);
     expect(kept[0].note).toBe('流用元あり');
+  });
+});
+
+describe('3Dモデル', () => {
+  it('図面と3Dモデルを見分ける', () => {
+    expect(isModelType('EASM')).toBe(true);
+    expect(isModelType('easm')).toBe(true);
+    expect(isModelType('PDF')).toBe(false);
+  });
+
+  it('表示順は 図面 → 3Dモデル → その他', () => {
+    expect(['EASM', 'その他', 'DXF', 'PDF'].sort((a, b) => drawingTypeRank(a) - drawingTypeRank(b))).toEqual(['PDF', 'DXF', 'EASM', 'その他']);
+  });
+
+  it('3Dモデルのリンクも同じ手順で取り込める', () => {
+    const parsed = parseDrawingClipboard('https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/eDrawings/HH1/5031809_HH11105B120.easm', ['HH11105B10']);
+    expect(parsed).toMatchObject({ drawingNo: 'HH11105B120', docNo: '5031809', fileType: 'EASM', partNo: 'HH11105B10' });
+    const entry = buildDrawingLink(parsed!);
+    expect(isRegisterable(entry)).toBe(true);
+    expect(entry.partNos).toEqual(['HH11105B120', 'HH11105B10']);
+  });
+
+  it('同じ図番でも、図面と3Dモデルは別レコードとして残す', () => {
+    const pdf = drawing({ id: 'pdf', drawingNo: 'HH11105B120', fileType: 'PDF' });
+    const model = drawing({ id: 'easm', drawingNo: 'HH11105B120', fileType: 'EASM' });
+    const result = upsertDrawing([pdf], model);
+    expect(result.map(item => item.fileType)).toEqual(['PDF', 'EASM']);
+    expect(sortDrawings(result).map(item => item.fileType)).toEqual(['PDF', 'EASM']);
   });
 });
 
@@ -289,8 +329,52 @@ describe('helpers', () => {
     expect(searchDrawings(drawings, '')).toHaveLength(2);
   });
 
-  it('sorts by drawing number and file type', () => {
-    const drawings = [drawing({ id: 'b', drawingNo: 'HH2' }), drawing({ id: 'c', drawingNo: 'HH1', fileType: 'DXF' }), drawing({ id: 'a', drawingNo: 'HH1' })];
-    expect(sortDrawings(drawings).map(item => item.id)).toEqual(['c', 'a', 'b']);
+  it('図番順に並べ、同じ図番では PDF → DXF → 3Dモデル の順にする', () => {
+    const drawings = [
+      drawing({ id: 'b', drawingNo: 'HH2' }),
+      drawing({ id: 'c', drawingNo: 'HH1', fileType: 'DXF' }),
+      drawing({ id: 'd', drawingNo: 'HH1', fileType: 'EASM' }),
+      drawing({ id: 'a', drawingNo: 'HH1' }),
+    ];
+    expect(sortDrawings(drawings).map(item => item.id)).toEqual(['a', 'c', 'd', 'b']);
+  });
+});
+
+describe('CAD ID（図面の流用）', () => {
+  const cadIds = [{ partNo: 'HH11002010', cadId: 'HH11001010', updatedAt: '2026-01-01T00:00:00.000Z' }];
+
+  it('CAD IDを登録できるのはPL（9文字目が1）だけ', () => {
+    expect(isPlNumber('HH11002010')).toBe(true);
+    expect(isPlNumber('hh11001010')).toBe(true);
+    // 9文字目が4・6の番号（組図・部品図）は対象外。
+    expect(isPlNumber('HH110A0040')).toBe(false);
+    expect(isPlNumber('HH110A5060')).toBe(false);
+    // 11桁の図番も対象外。
+    expect(isPlNumber('HH110A00410')).toBe(false);
+  });
+
+  it('品番ごとに1件だけ持ち、登録し直すと上書きする', () => {
+    const updated = upsertCadId(cadIds, { partNo: 'hh11002010', cadId: 'HH11003010', updatedAt: '2026-02-01T00:00:00.000Z' });
+    expect(updated).toHaveLength(1);
+    expect(cadIdFor(updated, 'HH11002010')).toBe('HH11003010');
+    expect(removeCadId(updated, 'HH11002010')).toEqual([]);
+    expect(cadIdFor(cadIds, 'HH99999010')).toBe('');
+  });
+
+  it('CAD IDの図面を流用として返す', () => {
+    const shared = drawing({ id: 'shared', drawingNo: 'HH11001010', partNos: ['HH11001010'] });
+    const index = buildPartDrawingIndex([shared]);
+    const resolved = drawingsForPartWithCadId(index, cadIds, 'HH11002010');
+    expect(resolved).toEqual([{ drawing: shared, viaCadId: 'HH11001010' }]);
+    // CAD IDを持たない品番はそのまま。
+    expect(drawingsForPartWithCadId(index, cadIds, 'HH11001010')).toEqual([{ drawing: shared }]);
+  });
+
+  it('自分の図面を先に、CAD IDからの流用を後に並べ、重複は除く', () => {
+    const own = drawing({ id: 'own', drawingNo: 'HH11002010', partNos: ['HH11002010'] });
+    const shared = drawing({ id: 'shared', drawingNo: 'HH11001010', partNos: ['HH11001010', 'HH11002010'] });
+    const resolved = drawingsForPartWithCadId(buildPartDrawingIndex([own, shared]), cadIds, 'HH11002010');
+    // 対象品番に直接登録済みの図面は、流用としては重ねて返さない。
+    expect(resolved.map(item => [item.drawing.id, item.viaCadId ?? ''])).toEqual([['own', ''], ['shared', '']]);
   });
 });

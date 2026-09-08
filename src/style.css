@@ -567,6 +567,9 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawing-type { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #fdecec; color: #b4232d; font-size: 12px; font-weight: 750; }
 .drawing-type.dxf { background: #e4f1ff; color: #1f5fa8; }
 .drawing-type.dwg { background: #eef7e4; color: #3d7a20; }
+/* 3Dモデル（eDrawings）は図面と別色にする。 */
+.drawing-type.easm, .drawing-type.eprt, .drawing-type.edrw,
+.drawing-type.sldasm, .drawing-type.sldprt, .drawing-type.step, .drawing-type.iges { background: #f2eafd; color: #6b3fa0; }
 .drawing-actions { display: flex; flex-wrap: wrap; gap: 6px; white-space: nowrap; }
 .drawing-actions button { padding: 5px 10px; font-size: 12px; }
 .drawing-open { display: inline-block; padding: 5px 12px; border-radius: 8px; background: #5865e8; color: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
@@ -577,18 +580,36 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawing-link { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 10px; font-weight: 800; letter-spacing: .02em; text-decoration: none; vertical-align: 1px; }
 .drawing-link.is-assembly { background: #c7ebdd; color: #0b5c4a; }
 .drawing-link.is-part { background: #ffdfb5; color: #8a4a0b; }
+.drawing-link.is-model { background: #ece1fc; color: #5b34a8; }
 .drawing-link:hover { background: #5865e8; color: #fff; }
 .drawing-link.is-assembly:hover { background: #14755f; color: #fff; }
 /* PL列ヘッダーは背景が淡い緑のため、バッジは白地にして見分けやすくする。 */
 th.plhead .drawing-link { background: #fff; }
 th.plhead .drawing-link:hover { background: #14755f; color: #fff; }
 
-/* PL列の幅を広げたくないため、STDと図面のバッジはPL番号の下へ折り返す。 */
+/* PL列の幅を広げたくないため、STDと図面のバッジはPL番号の下へ折り返す。
+   バッジが増えても列が広がらないよう、バッジ行そのものにも折り返しを許す。 */
 th.plhead { min-width: 140px; }
-.pl-head-badges { display: block; margin-top: 4px; line-height: 1; }
-.pl-head-badges:empty { display: none; }
-.pl-head-badges .standard-marker { margin: 0; vertical-align: 0; }
-.pl-head-badges .drawing-link { margin-left: 4px; vertical-align: 0; }
-.pl-head-badges .standard-marker + .drawing-link { margin-left: 5px; }
+.pl-badges { display: block; margin-top: 4px; line-height: 1.9; }
+.pl-badges:empty { display: none; }
+.pl-badges .standard-marker { margin: 0; vertical-align: 0; }
+.pl-badges .drawing-link { margin-left: 4px; vertical-align: 0; }
+.pl-badges .standard-marker + .drawing-link { margin-left: 5px; }
+th.plhead .pl-badges { max-width: 120px; margin: 4px auto 0; white-space: normal; }
+/* 左の登録済みPL一覧でも、同じバッジからPDF・DXF・3Dモデルを開ける。 */
+.pl .pl-badges { margin: 5px 0 2px; white-space: normal; }
+.pl .pl-badges .drawing-link:first-child { margin-left: 0; }
 .drawing-link.is-part:hover { background: #a2621a; color: #fff; }
+.drawing-link.is-model:hover { background: #5b34a8; color: #fff; }
+/* CAD IDから流用した図面は、破線と CAD の印で区別する。 */
+.drawing-link.is-cadid { border: 1px dashed currentColor; padding: 0 4px; }
+.drawing-link.is-cadid i { margin-left: 3px; font-size: 8px; font-style: normal; font-weight: 800; letter-spacing: .04em; opacity: .85; }
+
+.cadid-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 14px; border: 1px solid #dfe4ee; border-radius: 10px; background: #f8f9ff; }
+.cadid-form label { display: block; font-size: 13px; font-weight: 750; color: #475467; }
+.cadid-form input { width: 200px; margin-top: 5px; padding: 9px 11px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; font: inherit; font-size: 14px; }
+.cadid-arrow { padding-bottom: 10px; color: #8a93a4; font-size: 18px; font-weight: 800; }
+.cadid-table { margin-top: 10px; }
+.drawing-chip.is-cadid { background: #eef7ff; color: #1f5fa8; border: 1px dashed #7fb0e0; }
+.cadid-missing { color: #b4232d; font-size: 12px; }
 @media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }
