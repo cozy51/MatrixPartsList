@@ -579,5 +579,8 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawing-link.is-part { background: #ffdfb5; color: #8a4a0b; }
 .drawing-link:hover { background: #5865e8; color: #fff; }
 .drawing-link.is-assembly:hover { background: #14755f; color: #fff; }
+/* PL列ヘッダーは背景が淡い緑のため、バッジは白地にして見分けやすくする。 */
+th.plhead .drawing-link { background: #fff; }
+th.plhead .drawing-link:hover { background: #14755f; color: #fff; }
 .drawing-link.is-part:hover { background: #a2621a; color: #fff; }
 @media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }
