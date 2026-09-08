@@ -7,6 +7,7 @@ import {
   cadIdFor,
   drawingsForPart,
   drawingSheetLabel,
+  drawingSheetName,
   drawingSheetNo,
   drawingsForPartWithCadId,
   extractUrl,
@@ -77,7 +78,7 @@ describe('resolveFileUrl', () => {
 
 describe('parseDrawingFileName', () => {
   it('separates the drawing number from the internal document number', () => {
-    expect(parseDrawingFileName('4397264_HH110A5060.pdf')).toEqual({ drawingNo: 'HH110A5060', docNo: '4397264', fileType: 'PDF' });
+    expect(parseDrawingFileName('4397264_HH110A5060.pdf')).toEqual({ drawingNo: 'HH110A5060', docNo: '4397264', sheetNo: '', fileType: 'PDF' });
   });
 
   it('recognises DXF files', () => {
@@ -85,7 +86,10 @@ describe('parseDrawingFileName', () => {
   });
 
   it('3Dモデル（eDrawings）の種別を判定する', () => {
-    expect(parseDrawingFileName('5031809_HH11105B120.easm')).toEqual({ drawingNo: 'HH11105B120', docNo: '5031809', fileType: 'EASM' });
+    expect(parseDrawingFileName('5031809_HH11105B120.easm')).toEqual({ drawingNo: 'HH11105B120', docNo: '5031809', sheetNo: '', fileType: 'EASM' });
+    // 同じ図番のeDrawingsが複数あるときは、ファイル名末尾の連番で見分ける。
+    expect(parseDrawingFileName('4658515_HH121005400_1.easm')).toEqual({ drawingNo: 'HH121005400', docNo: '4658515', sheetNo: '1', fileType: 'EASM' });
+    expect(parseDrawingFileName('4658515_HH121005400_2.easm')).toEqual({ drawingNo: 'HH121005400', docNo: '4658515', sheetNo: '2', fileType: 'EASM' });
     expect(parseDrawingFileName('5031809_HH11105B120.EPRT').fileType).toBe('EPRT');
   });
 
@@ -102,6 +106,7 @@ describe('parseDrawingClipboard', () => {
       fileName: '4397264_HH110A5060.pdf',
       drawingNo: 'HH110A5060',
       docNo: '4397264',
+      sheetNo: '',
       fileType: 'PDF',
       category: '部品図',
       partNo: '',
@@ -142,7 +147,7 @@ describe('まとめ貼り付けと自動登録', () => {
     expect(entry).toMatchObject({ drawingNo: 'HH110A00410', category: '組立図', partNos: ['HH110A00410', 'HH110A0040'] });
     expect(isRegisterable(entry)).toBe(true);
     // 図番を判定できないリンクは自動登録せず、確認へ回す。
-    const unknown = buildDrawingLink({ url: 'https://example.com/', fileUrl: 'https://example.com/', fileName: '', drawingNo: '', docNo: '', fileType: 'その他', category: '', partNo: '', partNos: [] });
+    const unknown = buildDrawingLink({ url: 'https://example.com/', fileUrl: 'https://example.com/', fileName: '', drawingNo: '', docNo: '', sheetNo: '', fileType: 'その他', category: '', partNo: '', partNos: [] });
     expect(isRegisterable(unknown)).toBe(false);
   });
 
@@ -418,5 +423,50 @@ describe('同じ種別の図面が複数枚あるとき', () => {
 
   it('CAD IDから流用した図面もまとめる', () => {
     expect(groupDrawingsByType([{ drawing: sheet(0), viaCadId: 'HJ021000140' }])[0].items[0].viaCadId).toBe('HJ021000140');
+  });
+});
+
+describe('同じ図番・同じ種別で複数ファイルあるとき', () => {
+  const easm = (sheet: string) => ({
+    id: `easm-${sheet}`,
+    drawingNo: 'HH121005400',
+    docNo: '4658515',
+    sheetNo: sheet,
+    fileType: 'EASM',
+    fileName: `4658515_HH121005400_${sheet}.easm`,
+    url: `https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/eDrawings/HH1/4658515_HH121005400_${sheet}.easm`,
+    partNos: ['HH121005400'],
+    note: '',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  });
+
+  it('連番が違えば上書きせず、別の図面として残す', () => {
+    const registered = upsertDrawing(upsertDrawing([], easm('1')), easm('2'));
+    expect(registered.map(item => item.fileName)).toEqual(['4658515_HH121005400_1.easm', '4658515_HH121005400_2.easm']);
+    // 同じ連番を取り込み直したときは、これまでどおり更新にする。
+    expect(upsertDrawing(registered, { ...easm('2'), id: 'other', note: '流用' })).toHaveLength(2);
+  });
+
+  it('取り込みで2件とも登録する', () => {
+    const base = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/eDrawings/HH1';
+    const { next, done } = registerDrawings([], `${base}/4658515_HH121005400_1.easm\n${base}/4658515_HH121005400_2.easm`, ['HH12100540']);
+    expect(next).toHaveLength(2);
+    expect(done.every(item => item.isNew)).toBe(true);
+    expect(next.map(item => item.sheetNo)).toEqual(['1', '2']);
+  });
+
+  it('連番から「n枚目」を求め、種別ごとにまとめて並べる', () => {
+    expect(drawingSheetName(easm('1'))).toBe('1枚目');
+    expect(drawingSheetName(easm('2'))).toBe('2枚目');
+    // 連番がなければ、これまでどおり図番の11桁目を使う。
+    expect(drawingSheetName({ drawingNo: 'HJ021000151' })).toBe('2枚目');
+    const groups = groupDrawingsByType([{ drawing: easm('2') }, { drawing: easm('1') }]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].items.map(item => item.drawing.sheetNo)).toEqual(['1', '2']);
+  });
+
+  it('同じ品番から2件とも引ける', () => {
+    const index = buildPartDrawingIndex([easm('1'), easm('2')]);
+    expect(drawingsForPart(index, 'HH12100540').map(item => item.id)).toEqual(['easm-1', 'easm-2']);
   });
 });

@@ -10,6 +10,7 @@ import {
   isAutoRegisterEnabled,
   isOpenableUrl,
   mergePartNos,
+  drawingSheetName,
   normalizeDrawingNo,
   parseDrawingClipboard,
   parseDrawingClipboardAll,
@@ -303,7 +304,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
     {listed.length ? <div className="drawings-table"><table>
       <thead><tr><th>図番</th><th>区分</th><th>種別</th><th>対象品番</th><th>管理番号</th><th>備考</th><th>操作</th></tr></thead>
       <tbody>{listed.map(drawing => <tr key={drawing.id}>
-        <td><b>{normalizeDrawingNo(drawing.drawingNo)}</b><small>{drawing.fileName}</small></td>
+        <td><span className="drawing-no-line"><b>{normalizeDrawingNo(drawing.drawingNo)}</b>{drawing.sheetNo?.trim() && <span className="drawing-sheet">{drawingSheetName(drawing)}</span>}</span><small>{drawing.fileName}</small></td>
         <td>{drawingCategoryOf(drawing) ? <span className={`drawing-category ${drawingCategoryOf(drawing) === '組立図' ? 'assembly' : 'part'}`}>{drawingCategoryOf(drawing)}</span> : '—'}</td>
         <td><span className={`drawing-type ${drawing.fileType.toLowerCase()}`}>{drawing.fileType}</span></td>
         <td>{drawing.partNos.map(partNo => <span className={`drawing-chip ${normalizeDrawingNo(partNo) === normalizeDrawingNo(drawing.drawingNo) ? '' : 'is-alias'}`} key={partNo}>{normalizeDrawingNo(partNo)}</span>)}</td>
