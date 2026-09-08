@@ -251,6 +251,40 @@ export function buildPartDrawingIndex(drawings: DrawingLink[]): Map<string, Draw
 export const drawingsForPart = (index: Map<string, DrawingLink[]>, partNo: string): DrawingLink[] =>
   index.get(drawingKey(partNo)) ?? [];
 
+/**
+ * 図番の11桁目は枚数を表し、`0` が1枚目。同じ図面が複数枚に分かれている場合に、
+ * 「1枚目」「2枚目」として選べるようにする。
+ */
+export function drawingSheetNo(drawingNo: string): number {
+  const value = normalizeDrawingNo(drawingNo);
+  return /^[A-Z][A-Z0-9]{8}\d{2}$/.test(value) ? Number(value[10]) : -1;
+}
+
+export function drawingSheetLabel(drawingNo: string): string {
+  const sheet = drawingSheetNo(drawingNo);
+  return sheet >= 0 ? `${sheet + 1}枚目` : '';
+}
+
+/**
+ * 同じ種別（PDF・DXF・3Dモデル）の図面をひとまとめにする。複数枚ある場合は
+ * バッジを1つにして、そこから枚数を選べるようにするために使う。
+ */
+export function groupDrawingsByType(items: ResolvedDrawing[]): { fileType: string; items: ResolvedDrawing[] }[] {
+  const groups = new Map<string, ResolvedDrawing[]>();
+  for (const item of items) {
+    const key = item.drawing.fileType.trim().toUpperCase() || 'その他';
+    const found = groups.get(key);
+    if (found) found.push(item); else groups.set(key, [item]);
+  }
+  return [...groups.entries()]
+    .map(([fileType, list]) => ({
+      fileType,
+      items: [...list].sort((a, b) => drawingSheetNo(a.drawing.drawingNo) - drawingSheetNo(b.drawing.drawingNo)
+        || drawingKey(a.drawing.drawingNo).localeCompare(drawingKey(b.drawing.drawingNo))),
+    }))
+    .sort((a, b) => drawingTypeRank(a.fileType) - drawingTypeRank(b.fileType));
+}
+
 /** CAD IDを登録できるのはPL（9文字目が `1` の10桁番号）だけ。 */
 export function isPlNumber(no: string): boolean {
   const value = normalizeDrawingNo(no);

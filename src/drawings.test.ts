@@ -6,10 +6,13 @@ import {
   drawingCategoryOf,
   cadIdFor,
   drawingsForPart,
+  drawingSheetLabel,
+  drawingSheetNo,
   drawingsForPartWithCadId,
   extractUrl,
   extractUrls,
   findExistingDrawing,
+  groupDrawingsByType,
   drawingTypeRank,
   isModelType,
   isPlNumber,
@@ -388,5 +391,32 @@ describe('CAD ID（図面の流用）', () => {
     const resolved = drawingsForPartWithCadId(buildPartDrawingIndex([own, shared]), cadIds, 'HH11002010');
     // 対象品番に直接登録済みの図面は、流用としては重ねて返さない。
     expect(resolved.map(item => [item.drawing.id, item.viaCadId ?? ''])).toEqual([['own', ''], ['shared', '']]);
+  });
+});
+
+describe('同じ種別の図面が複数枚あるとき', () => {
+  const sheet = (n: number) => drawing({ id: `sheet-${n}`, drawingNo: `HJ02100015${n}`, fileName: `409616${n}_HJ02100015${n}.pdf`, partNos: ['HJ021000150'] });
+
+  it('図番の11桁目から「n枚目」を求める', () => {
+    expect(drawingSheetNo('HJ021000150')).toBe(0);
+    expect(drawingSheetLabel('HJ021000150')).toBe('1枚目');
+    expect(drawingSheetLabel('HJ021000154')).toBe('5枚目');
+    // 用紙サイズ付きの12桁でも、11桁に直してから見る。
+    expect(drawingSheetLabel('HD1AG0064204')).toBe('1枚目');
+    // 10桁の品番には枚数がない。
+    expect(drawingSheetNo('HH110A5060')).toBe(-1);
+    expect(drawingSheetLabel('HH110A5060')).toBe('');
+  });
+
+  it('種別ごとにまとめ、枚数の順に並べる', () => {
+    const model = drawing({ id: 'model', drawingNo: 'HJ021000150', fileType: 'EASM', fileName: '5409416_HJ0210001500.easm' });
+    const groups = groupDrawingsByType([sheet(2), model, sheet(0), sheet(1)].map(item => ({ drawing: item })));
+    // 種別はPDFを先に、同じ種別の中は1枚目から並べる。
+    expect(groups.map(group => [group.fileType, group.items.length])).toEqual([['PDF', 3], ['EASM', 1]]);
+    expect(groups[0].items.map(item => item.drawing.id)).toEqual(['sheet-0', 'sheet-1', 'sheet-2']);
+  });
+
+  it('CAD IDから流用した図面もまとめる', () => {
+    expect(groupDrawingsByType([{ drawing: sheet(0), viaCadId: 'HJ021000140' }])[0].items[0].viaCadId).toBe('HJ021000140');
   });
 });
