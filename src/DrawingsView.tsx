@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
+  DRAWING_CATEGORIES,
+  detectDrawingCategory,
+  drawingCategoryOf,
   drawingKey,
   isOpenableUrl,
   mergePartNos,
   parseDrawingClipboard,
+  partNoFromDrawingNo,
   removeDrawing,
   searchDrawings,
   sortDrawings,
@@ -24,12 +28,13 @@ type Draft = Omit<DrawingLink, 'updatedAt'> & { isNew: boolean };
 const FILE_TYPES = ['PDF', 'DXF', 'DWG', 'TIFF', 'その他'];
 
 const emptyDraft = (): Draft => ({
-  id: crypto.randomUUID(), drawingNo: '', docNo: '', fileType: 'PDF', fileName: '', url: '', partNos: [], note: '', isNew: true,
+  id: crypto.randomUUID(), drawingNo: '', docNo: '', fileType: 'PDF', category: '', fileName: '', url: '', partNos: [], note: '', isNew: true,
 });
 
 function exportDrawings(drawings: DrawingLink[]) {
   const rows = sortDrawings(drawings).map(drawing => ({
     図番: drawing.drawingNo,
+    区分: drawingCategoryOf(drawing),
     種別: drawing.fileType,
     対象品番: drawing.partNos.join(' / '),
     管理番号: drawing.docNo,
@@ -38,8 +43,8 @@ function exportDrawings(drawings: DrawingLink[]) {
     備考: drawing.note,
     更新日時: drawing.updatedAt.slice(0, 19).replace('T', ' '),
   }));
-  const sheet = XLSX.utils.json_to_sheet(rows, { header: ['図番', '種別', '対象品番', '管理番号', 'ファイル名', 'リンク', '備考', '更新日時'] });
-  sheet['!cols'] = [{ wch: 16 }, { wch: 8 }, { wch: 30 }, { wch: 12 }, { wch: 28 }, { wch: 60 }, { wch: 24 }, { wch: 20 }];
+  const sheet = XLSX.utils.json_to_sheet(rows, { header: ['図番', '区分', '種別', '対象品番', '管理番号', 'ファイル名', 'リンク', '備考', '更新日時'] });
+  sheet['!cols'] = [{ wch: 16 }, { wch: 9 }, { wch: 8 }, { wch: 30 }, { wch: 12 }, { wch: 28 }, { wch: 60 }, { wch: 24 }, { wch: 20 }];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, '図面リンク');
   XLSX.writeFile(workbook, '図面リンク一覧.xlsx');
@@ -75,9 +80,11 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
       drawingNo: parsed.drawingNo,
       docNo: parsed.docNo,
       fileType: parsed.fileType,
+      category: existing?.category?.trim() || parsed.category,
       fileName: parsed.fileName,
       url: parsed.url,
-      partNos: mergePartNos(existing?.partNos ?? [], parsed.drawingNo ? [parsed.drawingNo] : []),
+      // 組立図は図番と品番が異なるため、図番から導いた品番も初期値へ入れる。
+      partNos: mergePartNos(existing?.partNos ?? [], parsed.drawingNo ? [parsed.drawingNo] : [], parsed.partNo ? [parsed.partNo] : []),
       note: existing?.note ?? '',
       isNew: !existing,
     });
@@ -116,6 +123,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
       drawingNo: draft.drawingNo.trim(),
       docNo: draft.docNo.trim(),
       fileType: draft.fileType.trim() || 'その他',
+      category: draft.category?.trim() || '',
       fileName: draft.fileName.trim(),
       url: draft.url.trim(),
       partNos,
@@ -175,6 +183,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
       <div className="drawing-form-grid">
         <label><span>図番</span><input value={draft.drawingNo} placeholder="必須" onChange={event => setDraft({ ...draft, drawingNo: event.target.value })} /></label>
         <label><span>種別</span><select value={draft.fileType} onChange={event => setDraft({ ...draft, fileType: event.target.value })}>{[...new Set([draft.fileType, ...FILE_TYPES])].filter(Boolean).map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+        <label><span>区分</span><select value={draft.category?.trim() || detectDrawingCategory(draft.drawingNo)} onChange={event => setDraft({ ...draft, category: event.target.value })}><option value="">未設定</option>{DRAWING_CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}</select></label>
         <label><span>管理番号</span><input value={draft.docNo} placeholder="自動取得" onChange={event => setDraft({ ...draft, docNo: event.target.value })} /></label>
         <label className="drawing-form-wide"><span>リンク</span><input value={draft.url} placeholder="https://..." onChange={event => {
           const url = event.target.value;
@@ -195,6 +204,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
               onBlur={() => addPartNos(partNoInput)}
             />
             <button type="button" onClick={() => addPartNos(draft.drawingNo)} disabled={!draft.drawingNo.trim()}>図番と同じ</button>
+            <button type="button" onClick={() => addPartNos(partNoFromDrawingNo(draft.drawingNo))} disabled={!partNoFromDrawingNo(draft.drawingNo)} title="11桁の図番から、対応する10桁の品番を追加します">図番から品番</button>
           </div>
           <datalist id="drawing-part-options">{partNoOptions.map(partNo => <option key={partNo} value={partNo} />)}</datalist>
         </div>
@@ -213,9 +223,10 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
     </div>
 
     {listed.length ? <div className="drawings-table"><table>
-      <thead><tr><th>図番</th><th>種別</th><th>対象品番</th><th>管理番号</th><th>備考</th><th>操作</th></tr></thead>
+      <thead><tr><th>図番</th><th>区分</th><th>種別</th><th>対象品番</th><th>管理番号</th><th>備考</th><th>操作</th></tr></thead>
       <tbody>{listed.map(drawing => <tr key={drawing.id}>
         <td><b>{drawing.drawingNo}</b><small>{drawing.fileName}</small></td>
+        <td>{drawingCategoryOf(drawing) ? <span className={`drawing-category ${drawingCategoryOf(drawing) === '組立図' ? 'assembly' : 'part'}`}>{drawingCategoryOf(drawing)}</span> : '—'}</td>
         <td><span className={`drawing-type ${drawing.fileType.toLowerCase()}`}>{drawing.fileType}</span></td>
         <td>{drawing.partNos.map(partNo => <span className={`drawing-chip ${drawingKey(partNo) === drawingKey(drawing.drawingNo) ? '' : 'is-alias'}`} key={partNo}>{partNo}</span>)}</td>
         <td>{drawing.docNo || '—'}</td>

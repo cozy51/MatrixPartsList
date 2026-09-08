@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPartDrawingIndex,
+  detectDrawingCategory,
+  drawingCategoryOf,
   drawingsForPart,
   extractUrl,
   mergePartNos,
   parseDrawingClipboard,
   parseDrawingFileName,
+  partNoFromDrawingNo,
   removeDrawing,
   resolveFileUrl,
   searchDrawings,
@@ -76,11 +79,44 @@ describe('parseDrawingClipboard', () => {
       drawingNo: 'HH110A5060',
       docNo: '4397264',
       fileType: 'PDF',
+      category: '部品図',
+      partNo: '',
     });
+  });
+
+  it('組立図のリンクからは、図番と対応する品番の両方を得る', () => {
+    const parsed = parseDrawingClipboard('https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HH1/5053111_HH110A00410.pdf');
+    expect(parsed).toMatchObject({ drawingNo: 'HH110A00410', docNo: '5053111', category: '組立図', partNo: 'HH110A0040' });
   });
 
   it('returns undefined without a URL', () => {
     expect(parseDrawingClipboard('図面が見つかりません')).toBeUndefined();
+  });
+});
+
+describe('図面区分と図番からの品番', () => {
+  it('9文字目のコードで組立図と部品図を見分ける', () => {
+    expect(detectDrawingCategory('HH110A0040')).toBe('組立図');
+    expect(detectDrawingCategory('HH110A00410')).toBe('組立図');
+    expect(detectDrawingCategory('HH11000010')).toBe('組立図');
+    expect(detectDrawingCategory('HH110A5060')).toBe('部品図');
+    expect(detectDrawingCategory('HH3101AQ52')).toBe('部品図');
+    expect(detectDrawingCategory('Z074963100')).toBe('');
+    expect(detectDrawingCategory('HH110')).toBe('');
+  });
+
+  it('登録済みの区分を優先する', () => {
+    expect(drawingCategoryOf(drawing({ drawingNo: 'HH110A5060' }))).toBe('部品図');
+    expect(drawingCategoryOf(drawing({ drawingNo: 'HH110A5060', category: '組立図' }))).toBe('組立図');
+  });
+
+  it('11桁の図番から10桁の品番を導く', () => {
+    // 図番 = 品番の先頭9桁 + Ver + 枚数。品番の10桁目は0のまま。
+    expect(partNoFromDrawingNo('HH110A00410')).toBe('HH110A0040');
+    expect(partNoFromDrawingNo('hh110a00421')).toBe('HH110A0040');
+    // 10桁の図番（図番＝品番）は変換しない。
+    expect(partNoFromDrawingNo('HH110A5060')).toBe('');
+    expect(partNoFromDrawingNo('')).toBe('');
   });
 });
 
@@ -93,6 +129,16 @@ describe('part index', () => {
     expect(drawingsForPart(index, 'hh110a5060').map(item => item.id)).toEqual(['id-1', 'id-2']);
     expect(drawingsForPart(index, 'HH110A5061').map(item => item.id)).toEqual(['id-2']);
     expect(drawingsForPart(index, 'HH0000000')).toEqual([]);
+  });
+
+  it('11桁の図番で登録した組立図を、10桁の品番から引ける', () => {
+    const assembly = drawing({ id: 'asm', drawingNo: 'HH110A00410', partNos: ['HH110A00410'] });
+    const index = buildPartDrawingIndex([assembly]);
+    expect(drawingsForPart(index, 'HH110A0040').map(item => item.id)).toEqual(['asm']);
+    expect(drawingsForPart(index, 'HH110A00410').map(item => item.id)).toEqual(['asm']);
+    // 同じ図面を二重に返さない。
+    const both = buildPartDrawingIndex([drawing({ id: 'asm2', drawingNo: 'HH110A00410', partNos: ['HH110A00410', 'HH110A0040'] })]);
+    expect(drawingsForPart(both, 'HH110A0040')).toHaveLength(1);
   });
 });
 
