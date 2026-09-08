@@ -3,11 +3,11 @@
 /* Keep every frozen information column contiguous. Explicit widths and matching
    offsets prevent the gaps that appeared between 風船, 品番, Ver. and 数量. */
 th:nth-child(1), td:nth-child(1) { left: 0; width: 72px; min-width: 72px; max-width: 72px; }
-th:nth-child(2), td:nth-child(2) { left: 72px; width: 130px; min-width: 130px; max-width: 130px; }
-th:nth-child(3), td:nth-child(3) { left: 202px; width: 56px; min-width: 56px; max-width: 56px; }
-th:nth-child(4), td:nth-child(4) { left: 258px; width: 300px; min-width: 300px; max-width: 300px; }
-th:nth-child(5), td:nth-child(5) { left: 558px; width: 66px; min-width: 66px; max-width: 66px; }
-th:nth-child(6), td:nth-child(6) { left: 624px; width: 150px; min-width: 150px; max-width: 150px; }
+th:nth-child(2), td:nth-child(2) { left: 72px; width: 168px; min-width: 168px; max-width: 168px; }
+th:nth-child(3), td:nth-child(3) { left: 240px; width: 56px; min-width: 56px; max-width: 56px; }
+th:nth-child(4), td:nth-child(4) { left: 296px; width: 300px; min-width: 300px; max-width: 300px; }
+th:nth-child(5), td:nth-child(5) { left: 596px; width: 66px; min-width: 66px; max-width: 66px; }
+th:nth-child(6), td:nth-child(6) { left: 662px; width: 150px; min-width: 150px; max-width: 150px; }
 th[data-column="version"], td[data-column="version"] { text-align: center; }
 
 /* Readability: the application is primarily used on desktop monitors, so avoid
@@ -502,3 +502,58 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .settings-machine-counts > div { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-radius: 8px; background: #f3f5ff; }
 .settings-machine-counts strong { color: #4651bc; }
 .settings-modal .modal-actions { margin-top: 22px; }
+
+/* 図面リンクタブ。図番と品番は一致しないことがあるため、両方を並べて確認できる
+   レイアウトにしています。 */
+.drawings-view { min-height: 0; overflow: auto; padding: 18px; background: #fff; border: 1px solid #e2e6ed; border-radius: 10px; }
+.drawings-capture { padding: 16px; border: 1px solid #dfe4ee; border-radius: 10px; background: #f8f9ff; }
+.drawings-capture-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.drawings-capture h2 { margin: 0; font-size: 19px; }
+.drawings-capture p { margin: 5px 0 0; max-width: 720px; color: #667085; font-size: 13px; line-height: 1.6; }
+.drawings-capture-actions { display: flex; gap: 8px; white-space: nowrap; }
+.drawings-paste { width: 100%; min-height: 62px; margin-top: 12px; padding: 10px 12px; border: 1px solid #cfd6e3; border-radius: 8px; font: inherit; font-size: 13px; resize: vertical; }
+.drawings-message { margin-top: 12px; padding: 9px 13px; border-radius: 8px; background: #e9f7f1; color: #14755f; font-size: 13px; }
+
+.drawing-form { margin-top: 14px; padding: 16px; border: 1px solid #c3cbf5; border-radius: 10px; background: #fff; box-shadow: 0 6px 18px #5865e814; }
+.drawing-form h3 { margin: 0 0 12px; font-size: 16px; }
+.drawing-form-grid { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px 14px; }
+.drawing-form-wide { grid-column: 1 / -1; }
+.drawing-form label, .drawing-form-label { display: block; font-size: 13px; font-weight: 750; color: #475467; }
+.drawing-form-label small { display: block; margin-top: 2px; font-weight: 600; color: #8a93a4; }
+.drawing-form input, .drawing-form select { width: 100%; margin-top: 5px; padding: 9px 11px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; font: inherit; font-size: 14px; }
+.drawing-part-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 6px; padding: 7px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; }
+.drawing-part-chips input { flex: 1; min-width: 150px; margin: 0; border: 0; padding: 4px 6px; }
+.drawing-part-chips button { padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+.drawing-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+.drawing-chip { display: inline-flex; align-items: center; gap: 5px; margin: 2px 4px 2px 0; padding: 3px 9px; border-radius: 999px; background: #eef0ff; color: #4651bc; font-size: 12px; font-weight: 700; }
+.drawing-chip.is-alias { background: #fff0e5; color: #a65322; }
+.drawing-chip button { border: 0; padding: 0 2px; background: transparent; color: inherit; font-size: 13px; line-height: 1; }
+
+.drawings-list-head { display: flex; align-items: center; gap: 12px; margin: 22px 0 10px; }
+.drawings-list-head > div:first-child { margin-right: auto; }
+.drawings-list-head h3 { margin: 0; font-size: 17px; }
+.drawings-list-head p { margin: 3px 0 0; color: #8992a3; font-size: 13px; }
+.drawings-list-head .search { width: 260px; }
+.drawings-empty { padding: 26px; border: 1px dashed #b8c2da; border-radius: 10px; color: #667085; text-align: center; }
+
+/* 図面一覧はマトリックスの固定列レイアウトを引き継がないよう打ち消す。 */
+.drawings-table { overflow: auto; border: 1px solid #e2e6ed; border-radius: 9px; }
+.drawings-table table { width: 100%; }
+.drawings-table th, .drawings-table td { position: static; max-width: none; padding: 9px 12px; background: #fff; white-space: normal; vertical-align: top; }
+.drawings-table th:nth-child(n), .drawings-table td:nth-child(n) { left: auto !important; width: auto !important; min-width: 0 !important; max-width: none !important; }
+.drawings-table th { position: sticky; top: 0; z-index: 1; background: #eef0ff; color: #4651bc; text-align: left; white-space: nowrap; }
+.drawings-table td b { display: block; }
+.drawings-table td small { display: block; margin-top: 2px; color: #8a93a4; font-size: 12px; word-break: break-all; }
+.drawing-type { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #fdecec; color: #b4232d; font-size: 12px; font-weight: 750; }
+.drawing-type.dxf { background: #e4f1ff; color: #1f5fa8; }
+.drawing-type.dwg { background: #eef7e4; color: #3d7a20; }
+.drawing-actions { display: flex; flex-wrap: wrap; gap: 6px; white-space: nowrap; }
+.drawing-actions button { padding: 5px 10px; font-size: 12px; }
+.drawing-open { display: inline-block; padding: 5px 12px; border-radius: 8px; background: #5865e8; color: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
+.drawing-open.is-disabled { background: #d8dee9; color: #7b8493; cursor: not-allowed; }
+
+/* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。 */
+.drawing-link { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 10px; font-weight: 800; letter-spacing: .02em; text-decoration: none; vertical-align: 1px; }
+.drawing-link:hover { background: #5865e8; color: #fff; }
+@media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }
