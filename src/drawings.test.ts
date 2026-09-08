@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildDrawingLink,
   buildPartDrawingIndex,
   detectDrawingCategory,
   drawingCategoryOf,
   drawingsForPart,
   extractUrl,
+  extractUrls,
+  findExistingDrawing,
+  isRegisterable,
   mergePartNos,
   parseDrawingClipboard,
+  parseDrawingClipboardAll,
   parseDrawingFileName,
   partNoFromDrawingNo,
   removeDrawing,
@@ -91,6 +96,41 @@ describe('parseDrawingClipboard', () => {
 
   it('returns undefined without a URL', () => {
     expect(parseDrawingClipboard('図面が見つかりません')).toBeUndefined();
+  });
+});
+
+describe('まとめ貼り付けと自動登録', () => {
+  const ASSEMBLY = 'https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HH1/5053111_HH110A00410.pdf';
+  const PART = 'https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HH0/2898465_HH01002L61_4.pdf';
+
+  it('複数行のリンクを重複なく取り出す', () => {
+    expect(extractUrls(`${ASSEMBLY}\n${PART}\n${ASSEMBLY}`)).toEqual([ASSEMBLY, PART]);
+    expect(extractUrls('リンクなし')).toEqual([]);
+  });
+
+  it('まとめて貼り付けた分をすべて下書きへ変換する', () => {
+    expect(parseDrawingClipboardAll(`${ASSEMBLY} ${PART}`).map(item => item.drawingNo)).toEqual(['HH110A00410', 'HH01002L61']);
+  });
+
+  it('確認なしで登録できるレコードを組み立てる', () => {
+    const entry = buildDrawingLink(parseDrawingClipboardAll(ASSEMBLY)[0]);
+    expect(entry).toMatchObject({ drawingNo: 'HH110A00410', category: '組立図', partNos: ['HH110A00410', 'HH110A0040'] });
+    expect(isRegisterable(entry)).toBe(true);
+    // 図番を判定できないリンクは自動登録せず、確認へ回す。
+    const unknown = buildDrawingLink({ url: 'https://example.com/', fileUrl: 'https://example.com/', fileName: '', drawingNo: '', docNo: '', fileType: 'その他', category: '', partNo: '' });
+    expect(isRegisterable(unknown)).toBe(false);
+  });
+
+  it('取り込み直しは既存レコードの更新になる', () => {
+    const parsed = parseDrawingClipboardAll(PART)[0];
+    const first = buildDrawingLink(parsed);
+    const registered = upsertDrawing([], first);
+    const existing = findExistingDrawing(registered, parsed);
+    expect(existing?.id).toBe(first.id);
+    // 備考など、手で入れた内容は引き継ぐ。
+    const kept = upsertDrawing(registered, buildDrawingLink(parsed, { ...first, note: '流用元あり' }));
+    expect(kept).toHaveLength(1);
+    expect(kept[0].note).toBe('流用元あり');
   });
 });
 

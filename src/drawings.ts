@@ -76,8 +76,13 @@ export function partNoFromDrawingNo(drawingNo: string): string {
 
 /** クリップボードの文字列からURLだけを取り出す。前後に説明文が付いていてもよい。 */
 export function extractUrl(text: string): string {
-  const found = text.match(/https?:\/\/[^\s"'<>]+/i)?.[0] ?? '';
-  return found.replace(/[)\]},.;、。]+$/, '');
+  return extractUrls(text)[0] ?? '';
+}
+
+/** 複数行に貼り付けられたリンクをまとめて取り出す。重複は1件にする。 */
+export function extractUrls(text: string): string[] {
+  const found = (text ?? '').match(/https?:\/\/[^\s"'<>]+/gi) ?? [];
+  return [...new Set(found.map(url => url.replace(/[)\]},.;、。]+$/, '')))];
 }
 
 /**
@@ -125,10 +130,8 @@ export function parseDrawingFileName(fileName: string): { drawingNo: string; doc
   };
 }
 
-/** クリップボードの文字列を図面リンクの下書きへ変換する。URLがなければ undefined。 */
-export function parseDrawingClipboard(text: string): ParsedDrawing | undefined {
-  const url = extractUrl(text ?? '');
-  if (!url) return undefined;
+/** 1件のリンクを図面リンクの下書きへ変換する。 */
+export function parseDrawingUrl(url: string): ParsedDrawing {
   const fileUrl = resolveFileUrl(url);
   const fileName = fileNameOf(fileUrl);
   const parsed = parseDrawingFileName(fileName);
@@ -138,6 +141,16 @@ export function parseDrawingClipboard(text: string): ParsedDrawing | undefined {
     partNo: partNoFromDrawingNo(parsed.drawingNo),
   };
 }
+
+/** クリップボードの文字列を図面リンクの下書きへ変換する。URLがなければ undefined。 */
+export function parseDrawingClipboard(text: string): ParsedDrawing | undefined {
+  const url = extractUrl(text ?? '');
+  return url ? parseDrawingUrl(url) : undefined;
+}
+
+/** 貼り付けられた文字列に含まれるリンクをすべて下書きへ変換する。 */
+export const parseDrawingClipboardAll = (text: string): ParsedDrawing[] =>
+  extractUrls(text).map(parseDrawingUrl);
 
 export const isOpenableUrl = (url: string): boolean => /^https?:\/\//i.test(url.trim());
 
@@ -164,6 +177,34 @@ export function buildPartDrawingIndex(drawings: DrawingLink[]): Map<string, Draw
 
 export const drawingsForPart = (index: Map<string, DrawingLink[]>, partNo: string): DrawingLink[] =>
   index.get(drawingKey(partNo)) ?? [];
+
+/** 図番と種別が一致する既存の図面。取り込み直しは新規ではなく更新として扱う。 */
+export const findExistingDrawing = (drawings: DrawingLink[], parsed: ParsedDrawing): DrawingLink | undefined =>
+  drawings.find(drawing => drawing.url === parsed.url
+    || (drawingKey(drawing.drawingNo) === drawingKey(parsed.drawingNo) && drawingKey(drawing.fileType) === drawingKey(parsed.fileType)));
+
+/**
+ * 取り込んだ内容から、そのまま登録できる図面リンクを組み立てる。組立図は図番と
+ * 品番が異なるため、図番から導いた品番も対象品番へ入れる。
+ */
+export function buildDrawingLink(parsed: ParsedDrawing, existing?: DrawingLink): DrawingLink {
+  return {
+    id: existing?.id ?? crypto.randomUUID(),
+    drawingNo: parsed.drawingNo,
+    docNo: parsed.docNo,
+    fileType: parsed.fileType,
+    category: existing?.category?.trim() || parsed.category,
+    fileName: parsed.fileName,
+    url: parsed.url,
+    partNos: mergePartNos(existing?.partNos ?? [], parsed.drawingNo ? [parsed.drawingNo] : [], parsed.partNo ? [parsed.partNo] : []),
+    note: existing?.note ?? '',
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** 図番・リンク・対象品番がそろっていれば、確認なしで登録できる。 */
+export const isRegisterable = (entry: Pick<DrawingLink, 'drawingNo' | 'url' | 'partNos'>): boolean =>
+  Boolean(entry.drawingNo.trim() && entry.url.trim() && entry.partNos.length);
 
 /** 品番の重複を除いて統合する。表記は先に登録された側を保持する。 */
 export function mergePartNos(...groups: string[][]): string[] {
