@@ -95,7 +95,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
    * 複数のリンクをまとめて貼り付けた場合は、その全件を順に処理する。
    */
   const intake = (text: string) => {
-    const parsedList = parseDrawingClipboardAll(text);
+    const parsedList = parseDrawingClipboardAll(text, partNoOptions);
     if (!parsedList.length) {
       setError('リンク（http/https）が見つかりません。社内システムでPDF・DXFのリンクをコピーしてください。');
       return false;
@@ -260,7 +260,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
         <label className="drawing-form-wide"><span>リンク</span><input value={draft.url} placeholder="https://..." onChange={event => {
           const url = event.target.value;
           // 手入力でリンクを差し替えたときも、空欄の項目だけは自動判定を補う。
-          const parsed = parseDrawingClipboard(url);
+          const parsed = parseDrawingClipboard(url, partNoOptions);
           setDraft({ ...draft, url, fileName: parsed?.fileName ?? '', drawingNo: draft.drawingNo || (parsed?.drawingNo ?? ''), docNo: draft.docNo || (parsed?.docNo ?? '') });
         }} /></label>
         <div className="drawing-form-wide">
@@ -276,7 +276,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
               onBlur={() => addPartNos(partNoInput)}
             />
             <button type="button" onClick={() => addPartNos(draft.drawingNo)} disabled={!draft.drawingNo.trim()}>図番と同じ</button>
-            <button type="button" onClick={() => addPartNos(partNoFromDrawingNo(draft.drawingNo))} disabled={!partNoFromDrawingNo(draft.drawingNo)} title="11桁の図番から、対応する10桁の品番を追加します">図番から品番</button>
+            <button type="button" onClick={() => addPartNos(partNoFromDrawingNo(draft.drawingNo, partNoOptions))} disabled={!partNoFromDrawingNo(draft.drawingNo, partNoOptions)} title="11桁の図番から、対応する10桁の品番を追加します">図番から品番</button>
           </div>
           <datalist id="drawing-part-options">{partNoOptions.map(partNo => <option key={partNo} value={partNo} />)}</datalist>
         </div>

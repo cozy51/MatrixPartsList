@@ -568,7 +568,12 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawing-open { display: inline-block; padding: 5px 12px; border-radius: 8px; background: #5865e8; color: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
 .drawing-open.is-disabled { background: #d8dee9; color: #7b8493; cursor: not-allowed; }
 
-/* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。 */
+/* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。
+   組立図と部品図は図面リンクタブの区分バッジと同じ配色で見分けられるようにする。 */
 .drawing-link { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 10px; font-weight: 800; letter-spacing: .02em; text-decoration: none; vertical-align: 1px; }
+.drawing-link.is-assembly { background: #c7ebdd; color: #0b5c4a; }
+.drawing-link.is-part { background: #ffdfb5; color: #8a4a0b; }
 .drawing-link:hover { background: #5865e8; color: #fff; }
+.drawing-link.is-assembly:hover { background: #14755f; color: #fff; }
+.drawing-link.is-part:hover { background: #a2621a; color: #fff; }
 @media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }

@@ -65,13 +65,29 @@ export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { ca
   drawing.category?.trim() || detectDrawingCategory(drawing.drawingNo);
 
 /**
- * 組立図では図番が「品番の先頭9桁 + Ver + 枚数」の11桁になり、品番の10桁目は
- * 0 に据え置かれる。例: 品番 HH110A0040 に対して図番 HH110A00410（Ver 1・
- * 1枚目）。部品表からリンクできるよう、11桁の図番から10桁の品番を導く。
+ * 11桁の図番に対応する10桁の品番の候補を返す。11桁になる理由は2通りあり、
+ * 図番だけでは見分けられないため、両方を候補として持つ。
+ *
+ * - 機械図面の組図: 品番の10桁目は `0` のままで、図番の10桁目がVer、11桁目が
+ *   枚数（品番 `HH110A0040` → 図番 `HH110A00410`）。
+ * - 電気図面: 外注のため品番そのものの10桁目を改訂で上げるので、図番はその
+ *   品番に枚数の1桁を足した形になる（品番 `HH01008043` → 図番 `HH010080430`）。
  */
-export function partNoFromDrawingNo(drawingNo: string): string {
+export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
   const value = drawingKey(drawingNo);
-  return /^[A-Z][A-Z0-9]{8}\d{2}$/.test(value) ? `${value.slice(0, 9)}0` : '';
+  if (!/^[A-Z][A-Z0-9]{8}\d{2}$/.test(value)) return [];
+  return [...new Set([value.slice(0, 10), `${value.slice(0, 9)}0`])];
+}
+
+/**
+ * 図番から品番を導く。候補が2つある場合は、部品表に実在する品番を優先し、
+ * 判断できないときは機械図面の組図（先頭9桁 + `0`）として扱う。
+ */
+export function partNoFromDrawingNo(drawingNo: string, knownPartNos: Iterable<string> = []): string {
+  const candidates = partNoCandidatesFromDrawingNo(drawingNo);
+  if (!candidates.length) return '';
+  const known = new Set([...knownPartNos].map(drawingKey));
+  return candidates.find(candidate => known.has(candidate)) ?? candidates[candidates.length - 1];
 }
 
 /** クリップボードの文字列からURLだけを取り出す。前後に説明文が付いていてもよい。 */
@@ -130,27 +146,27 @@ export function parseDrawingFileName(fileName: string): { drawingNo: string; doc
   };
 }
 
-/** 1件のリンクを図面リンクの下書きへ変換する。 */
-export function parseDrawingUrl(url: string): ParsedDrawing {
+/** 1件のリンクを図面リンクの下書きへ変換する。品番の候補は部品表の品番で絞る。 */
+export function parseDrawingUrl(url: string, knownPartNos: Iterable<string> = []): ParsedDrawing {
   const fileUrl = resolveFileUrl(url);
   const fileName = fileNameOf(fileUrl);
   const parsed = parseDrawingFileName(fileName);
   return {
     url, fileUrl, fileName, ...parsed,
     category: detectDrawingCategory(parsed.drawingNo),
-    partNo: partNoFromDrawingNo(parsed.drawingNo),
+    partNo: partNoFromDrawingNo(parsed.drawingNo, knownPartNos),
   };
 }
 
 /** クリップボードの文字列を図面リンクの下書きへ変換する。URLがなければ undefined。 */
-export function parseDrawingClipboard(text: string): ParsedDrawing | undefined {
+export function parseDrawingClipboard(text: string, knownPartNos: Iterable<string> = []): ParsedDrawing | undefined {
   const url = extractUrl(text ?? '');
-  return url ? parseDrawingUrl(url) : undefined;
+  return url ? parseDrawingUrl(url, knownPartNos) : undefined;
 }
 
 /** 貼り付けられた文字列に含まれるリンクをすべて下書きへ変換する。 */
-export const parseDrawingClipboardAll = (text: string): ParsedDrawing[] =>
-  extractUrls(text).map(parseDrawingUrl);
+export const parseDrawingClipboardAll = (text: string, knownPartNos: Iterable<string> = []): ParsedDrawing[] =>
+  extractUrls(text).map(url => parseDrawingUrl(url, knownPartNos));
 
 export const isOpenableUrl = (url: string): boolean => /^https?:\/\//i.test(url.trim());
 
@@ -170,7 +186,11 @@ export function buildPartDrawingIndex(drawings: DrawingLink[]): Map<string, Draw
   };
   for (const drawing of drawings) {
     for (const partNo of drawing.partNos) add(partNo, drawing);
-    for (const no of [drawing.drawingNo, ...drawing.partNos]) add(partNoFromDrawingNo(no), drawing);
+    // 図番だけで登録された図面も引けるよう、11桁の図番から導いた品番の候補を
+    // すべて索引へ入れる（機械図面の組図と電気図面で導き方が異なるため）。
+    for (const no of [drawing.drawingNo, ...drawing.partNos]) {
+      for (const candidate of partNoCandidatesFromDrawingNo(no)) add(candidate, drawing);
+    }
   }
   return index;
 }

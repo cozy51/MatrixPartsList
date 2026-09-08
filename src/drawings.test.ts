@@ -13,6 +13,7 @@ import {
   parseDrawingClipboard,
   parseDrawingClipboardAll,
   parseDrawingFileName,
+  partNoCandidatesFromDrawingNo,
   partNoFromDrawingNo,
   removeDrawing,
   resolveFileUrl,
@@ -151,12 +152,28 @@ describe('図面区分と図番からの品番', () => {
   });
 
   it('11桁の図番から10桁の品番を導く', () => {
-    // 図番 = 品番の先頭9桁 + Ver + 枚数。品番の10桁目は0のまま。
+    // 機械図面の組図: 図番 = 品番の先頭9桁 + Ver + 枚数。品番の10桁目は0のまま。
     expect(partNoFromDrawingNo('HH110A00410')).toBe('HH110A0040');
     expect(partNoFromDrawingNo('hh110a00421')).toBe('HH110A0040');
     // 10桁の図番（図番＝品番）は変換しない。
     expect(partNoFromDrawingNo('HH110A5060')).toBe('');
     expect(partNoFromDrawingNo('')).toBe('');
+  });
+
+  it('11桁の図番には機械図面と電気図面の2通りの品番候補がある', () => {
+    expect(partNoCandidatesFromDrawingNo('HH010080430')).toEqual(['HH01008043', 'HH01008040']);
+    // 10桁目が0なら、どちらの数え方でも同じ品番になる。
+    expect(partNoCandidatesFromDrawingNo('HH110A00400')).toEqual(['HH110A0040']);
+    expect(partNoCandidatesFromDrawingNo('HH110A5060')).toEqual([]);
+  });
+
+  it('電気図面は、部品表に実在する品番を優先して選ぶ', () => {
+    // 電気図面は品番はそのままで、図番の11桁目を上げる（HH01008043 → HH010080430）。
+    expect(partNoFromDrawingNo('HH010080430', ['HH01008043', 'HH01008041'])).toBe('HH01008043');
+    // 機械図面の組図は、先頭9桁 + 0 の品番が実在する。
+    expect(partNoFromDrawingNo('HH110A00410', ['HH110A0040'])).toBe('HH110A0040');
+    // どちらも実在しなければ、従来どおり機械図面の組図として扱う。
+    expect(partNoFromDrawingNo('HH010080430', ['ZZ00000000'])).toBe('HH01008040');
   });
 });
 
@@ -179,6 +196,13 @@ describe('part index', () => {
     // 同じ図面を二重に返さない。
     const both = buildPartDrawingIndex([drawing({ id: 'asm2', drawingNo: 'HH110A00410', partNos: ['HH110A00410', 'HH110A0040'] })]);
     expect(drawingsForPart(both, 'HH110A0040')).toHaveLength(1);
+  });
+
+  it('電気図面の11桁図番も、10桁の品番から引ける', () => {
+    // 図番 HH010080430（電気図面）は品番 HH01008043 のもの。
+    const electric = drawing({ id: 'ele', drawingNo: 'HH010080430', partNos: ['HH010080430'] });
+    const index = buildPartDrawingIndex([electric]);
+    expect(drawingsForPart(index, 'HH01008043').map(item => item.id)).toEqual(['ele']);
   });
 });
 
