@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, calculatePlSimilarities, compatibleBaseNo, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isPurchasedPart, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isPurchasedPart, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -187,5 +187,31 @@ describe('部品図の互換（10桁目の違い）', () => {
     // 注記行（風船C）は数えない。
     expect(index.get('HJ0615806')).toEqual(['HJ06158061']);
     expect(index.get('HJ0615906')).toEqual(['HJ06159060']);
+  });
+});
+
+describe('同じ部品で個数だけが違う行', () => {
+  const withQuantity = (balloon: string, partNo: string, quantity: string, name = partNo) => ({ ...part(balloon, partNo), quantity, name });
+
+  it('個数が2通り以上ある部品だけをまとめ、個数は昇順で返す', () => {
+    const conflicts = buildQuantityConflicts([
+      withQuantity('17', 'HH13026060', '2'),
+      withQuantity('17', 'HH13026060', '1'),
+      withQuantity('17', 'HH13008060', '3'),
+      // 補材は品名まで同じものだけを1つとみなす。
+      withQuantity('17', '+', '3', 'HCZr M4X8'),
+      withQuantity('17', '+', '1', 'HCZr M4X8'),
+      withQuantity('16', '+', '6', 'HC M3X6'),
+    ]);
+    expect(conflicts.size).toBe(2);
+    expect(conflicts.get(partKeyWithoutQuantity(withQuantity('17', 'HH13026060', '1')))).toEqual(['1', '2']);
+    expect(conflicts.get(partKeyWithoutQuantity(withQuantity('17', '+', '1', 'HCZr M4X8')))).toEqual(['1', '3']);
+    // 個数が1通りだけの部品は対象外。
+    expect(conflicts.get(partKeyWithoutQuantity(withQuantity('17', 'HH13008060', '3')))).toBeUndefined();
+  });
+
+  it('風船番号が違えば別の部品として扱う', () => {
+    const conflicts = buildQuantityConflicts([withQuantity('17', 'HH13026060', '1'), withQuantity('18', 'HH13026060', '2')]);
+    expect(conflicts.size).toBe(0);
   });
 });

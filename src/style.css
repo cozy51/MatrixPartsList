@@ -594,9 +594,17 @@ tr.is-compat td[data-column="partNo"] { box-shadow: inset 3px 0 0 #c4b5fd; }
 .compat-no b { color: #6d28d9; font-weight: 850; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
 .compat-badge { margin-left: 5px; padding: 0 4px; border: 1px solid #c4b5fd; border-radius: 4px; color: #6d28d9; background: #f5f2ff; font-size: 9px; font-weight: 800; letter-spacing: .04em; vertical-align: 1px; }
 td.use-compat { color: #7c3aed; background: #f8f5ff; font-size: 15px; font-weight: 800; }
-.compat-legend { margin: 0 0 10px; padding: 8px 12px; border: 1px solid #e6e0fb; border-radius: 8px; background: #faf8ff; color: #5b5570; font-size: 12px; }
+.compat-legend { display: grid; gap: 4px; margin: 0 0 10px; padding: 8px 12px; border: 1px solid #e6e0fb; border-radius: 8px; background: #faf8ff; color: #5b5570; font-size: 12px; }
+.compat-legend p { margin: 0; }
 .compat-legend b { color: #6d28d9; }
 .compat-legend i { color: #7c3aed; font-size: 14px; font-style: normal; font-weight: 800; }
+.compat-legend em { color: #a35a00; font-style: normal; font-weight: 800; }
+
+/* 同じ部品なのに個数だけが違う行は、数量を強調して拾い漏らしを防ぐ。 */
+td.qty-diff { background: #fff6e8 !important; box-shadow: inset 3px 0 0 #f0a03c; }
+td.qty-diff > span { color: #a35a00; font-weight: 850; }
+td.qty-diff > span::after { content: '≠'; margin-left: 4px; font-size: 11px; font-weight: 800; opacity: .8; }
+tbody tr:hover td.qty-diff { background: #ffeed4 !important; }
 
 /* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。
    組立図と部品図は図面リンクタブの区分バッジと同じ配色で見分けられるようにする。 */
