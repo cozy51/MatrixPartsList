@@ -505,6 +505,10 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 
 /* 図面リンクタブ。図番と品番は一致しないことがあるため、両方を並べて確認できる
    レイアウトにしています。 */
+.drawing-capture { white-space: nowrap; border-color: #b9c1f0; background: #f2f4ff; color: #3947c6; font-weight: 700; }
+.drawing-capture:hover { border-color: #5865e8; background: #e6e9ff; }
+.drawing-notice { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 10px 14px; border-radius: 8px; background: #e9f7f1; color: #14755f; font-size: 13px; font-weight: 650; }
+.drawing-notice button { margin-left: auto; border: 0; padding: 0 4px; background: transparent; color: inherit; }
 .drawings-view { min-height: 0; overflow: auto; padding: 18px; background: #fff; border: 1px solid #e2e6ed; border-radius: 10px; }
 .drawings-capture { padding: 16px; border: 1px solid #dfe4ee; border-radius: 10px; background: #f8f9ff; }
 .drawings-capture-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }

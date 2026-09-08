@@ -7,14 +7,16 @@ import {
   drawingCategoryOf,
   drawingKey,
   findExistingDrawing,
+  isAutoRegisterEnabled,
   isOpenableUrl,
-  isRegisterable,
   mergePartNos,
   normalizeDrawingNo,
   parseDrawingClipboard,
   parseDrawingClipboardAll,
   partNoFromDrawingNo,
+  registerDrawings,
   removeDrawing,
+  setAutoRegisterEnabled,
   searchDrawings,
   sortDrawings,
   upsertDrawing,
@@ -27,12 +29,14 @@ type Props = {
   onChange: (drawings: DrawingLink[]) => void;
   /** 登録済みPLの品番。対象品番の入力候補として使う。 */
   knownPartNos: string[];
+  /** 他の画面から引き継いだ取り込み文字列。確認が必要なリンクを受け取る。 */
+  intakeText?: string;
+  onIntakeHandled?: () => void;
 };
 
 type Draft = Omit<DrawingLink, 'updatedAt'> & { isNew: boolean };
 
 const FILE_TYPES = ['PDF', 'DXF', 'DWG', 'TIFF', 'その他'];
-const AUTO_REGISTER_KEY = 'matrix-parts-list.drawings.auto-register';
 
 /** 今回の取り込みで登録・更新した図面。まとめて貼り付けたときの控えとして表示する。 */
 type Registered = { id: string; label: string; status: '登録' | '更新' };
@@ -60,7 +64,7 @@ function exportDrawings(drawings: DrawingLink[]) {
   XLSX.writeFile(workbook, '図面リンク一覧.xlsx');
 }
 
-export default function DrawingsView({ drawings, onChange, knownPartNos }: Props) {
+export default function DrawingsView({ drawings, onChange, knownPartNos, intakeText, onIntakeHandled }: Props) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [partNoInput, setPartNoInput] = useState('');
   const [pasted, setPasted] = useState('');
@@ -68,16 +72,14 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [recent, setRecent] = useState<Registered[]>([]);
-  const [autoRegister, setAutoRegister] = useState(() => {
-    try { return localStorage.getItem(AUTO_REGISTER_KEY) !== 'off'; } catch { return true; }
-  });
+  const [autoRegister, setAutoRegister] = useState(isAutoRegisterEnabled);
 
   const listed = useMemo(() => sortDrawings(searchDrawings(drawings, search)), [drawings, search]);
   const partNoOptions = useMemo(() => [...new Set(knownPartNos.filter(partNo => partNo && partNo !== '+'))].sort(), [knownPartNos]);
 
   const changeAutoRegister = (value: boolean) => {
     setAutoRegister(value);
-    try { localStorage.setItem(AUTO_REGISTER_KEY, value ? 'on' : 'off'); } catch { /* 保存できなくても動作は変えない */ }
+    setAutoRegisterEnabled(value);
   };
 
   /**
@@ -108,24 +110,16 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
       if (parsedList.length > 1) setError(`自動登録が無効のため、${parsedList.length}件のうち先頭の1件だけを読み込みました。`);
       return true;
     }
-    let next = drawings;
-    const done: Registered[] = [];
-    const pending: ParsedDrawing[] = [];
-    for (const parsed of parsedList) {
-      const existing = findExistingDrawing(next, parsed);
-      const entry = buildDrawingLink(parsed, existing);
-      if (!isRegisterable(entry)) { pending.push(parsed); continue; }
-      next = upsertDrawing(next, entry);
-      done.push({
-        id: entry.id,
-        label: `${entry.drawingNo}（${drawingCategoryOf(entry) || '区分なし'}・${entry.fileType}）`,
-        status: existing ? '更新' : '登録',
-      });
-    }
+    const { next, done, pending } = registerDrawings(drawings, text, partNoOptions);
     if (done.length) {
       onChange(next);
-      setRecent(current => [...done, ...current].slice(0, 20));
-      const added = done.filter(item => item.status === '登録').length;
+      const registered: Registered[] = done.map(({ drawing, isNew }) => ({
+        id: drawing.id,
+        label: `${drawing.drawingNo}（${drawingCategoryOf(drawing) || '区分なし'}・${drawing.fileType}）`,
+        status: isNew ? '登録' : '更新',
+      }));
+      setRecent(current => [...registered, ...current].slice(0, 20));
+      const added = done.filter(item => item.isNew).length;
       setMessage(`${done.length}件を自動登録しました（新規 ${added}件 / 更新 ${done.length - added}件）。`);
       setPasted('');
     }
@@ -135,6 +129,15 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
     }
     return true;
   };
+
+  // マトリックス部品表から引き継いだ取り込みを、この画面で処理する。
+  useEffect(() => {
+    if (!intakeText?.trim()) return;
+    intake(intakeText);
+    onIntakeHandled?.();
+    // 引き継ぎは受け取ったときだけ処理する。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intakeText]);
 
   const captureFromClipboard = async () => {
     try {

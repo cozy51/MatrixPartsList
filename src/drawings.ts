@@ -264,6 +264,45 @@ export function upsertDrawing(drawings: DrawingLink[], entry: DrawingLink): Draw
 export const removeDrawing = (drawings: DrawingLink[], id: string): DrawingLink[] =>
   drawings.filter(drawing => drawing.id !== id);
 
+/** 自動登録の設定はブラウザーに保存し、どの画面から取り込んでも同じ扱いにする。 */
+export const DRAWING_AUTO_REGISTER_KEY = 'matrix-parts-list.drawings.auto-register';
+
+export function isAutoRegisterEnabled(): boolean {
+  try { return localStorage.getItem(DRAWING_AUTO_REGISTER_KEY) !== 'off'; } catch { return true; }
+}
+
+export function setAutoRegisterEnabled(value: boolean) {
+  try { localStorage.setItem(DRAWING_AUTO_REGISTER_KEY, value ? 'on' : 'off'); } catch { /* 保存できなくても動作は変えない */ }
+}
+
+export type DrawingIntakeResult = {
+  /** 登録後の図面リンク一覧。 */
+  next: DrawingLink[];
+  /** 登録・更新できたもの。 */
+  done: { drawing: DrawingLink; isNew: boolean }[];
+  /** 図番を判定できず、確認が必要なもの。 */
+  pending: ParsedDrawing[];
+};
+
+/**
+ * 貼り付けやクリップボードの文字列から図面リンクを取り込む。図番・リンク・
+ * 対象品番がそろったものだけ登録し、判定できなかったものは確認へ回す。
+ * 図面リンクタブとマトリックス部品表のどちらから取り込んでも同じ結果になる。
+ */
+export function registerDrawings(drawings: DrawingLink[], text: string, knownPartNos: Iterable<string> = []): DrawingIntakeResult {
+  let next = drawings;
+  const done: { drawing: DrawingLink; isNew: boolean }[] = [];
+  const pending: ParsedDrawing[] = [];
+  for (const parsed of parseDrawingClipboardAll(text, knownPartNos)) {
+    const existing = findExistingDrawing(next, parsed);
+    const entry = buildDrawingLink(parsed, existing);
+    if (!isRegisterable(entry)) { pending.push(parsed); continue; }
+    next = upsertDrawing(next, entry);
+    done.push({ drawing: entry, isNew: !existing });
+  }
+  return { next, done, pending };
+}
+
 /** 図番・管理番号・品番・ファイル名・備考を対象にした絞り込み。 */
 export function searchDrawings(drawings: DrawingLink[], query: string): DrawingLink[] {
   const needle = query.trim().toLowerCase();

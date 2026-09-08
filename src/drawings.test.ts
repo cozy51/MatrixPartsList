@@ -15,6 +15,7 @@ import {
   parseDrawingClipboardAll,
   parseDrawingFileName,
   partNoCandidatesFromDrawingNo,
+  registerDrawings,
   partNoFromDrawingNo,
   removeDrawing,
   resolveFileUrl,
@@ -126,6 +127,23 @@ describe('まとめ貼り付けと自動登録', () => {
     // 図番を判定できないリンクは自動登録せず、確認へ回す。
     const unknown = buildDrawingLink({ url: 'https://example.com/', fileUrl: 'https://example.com/', fileName: '', drawingNo: '', docNo: '', fileType: 'その他', category: '', partNo: '' });
     expect(isRegisterable(unknown)).toBe(false);
+  });
+
+  it('登録できるものだけ登録し、判定できないものは確認へ回す', () => {
+    const result = registerDrawings([], `${ASSEMBLY}\n${PART}\nhttps://example.com/`, ['HH110A0040']);
+    expect(result.done.map(item => item.drawing.drawingNo)).toEqual(['HH110A00410', 'HH01002L61']);
+    expect(result.done.every(item => item.isNew)).toBe(true);
+    expect(result.next).toHaveLength(2);
+    expect(result.pending).toHaveLength(1);
+    // 図番から導いた品番は、部品表に実在する側を選ぶ。
+    expect(result.done[0].drawing.partNos).toContain('HH110A0040');
+  });
+
+  it('同じリンクを取り込み直すと更新になり、登録件数は増えない', () => {
+    const first = registerDrawings([], ASSEMBLY);
+    const second = registerDrawings(first.next, ASSEMBLY);
+    expect(second.next).toHaveLength(1);
+    expect(second.done.map(item => item.isNew)).toEqual([false]);
   });
 
   it('取り込み直しは既存レコードの更新になる', () => {
