@@ -96,10 +96,13 @@ export function buildBalloonGroups(parts: Part[]): { index: number; start: boole
   });
 }
 
+/** 品番が `+` の行は補材（端材）。同じ風船番号の中では最後に並べる。 */
+export const isSupplementPart = (partNo: string): boolean => partNo.trim() === '' || partNo.trim() === '+';
+
 /**
  * Match the workbook's primary sort: numeric balloons first in ascending order.
- * Returning zero for an equal balloon intentionally preserves first appearance
- * order within each balloon (Array#sort is stable in supported browsers).
+ * 同じ風船番号の中は品番の昇順に並べ、補材（`+`）は最後へ置く。補材どうしは
+ * 読み込んだ順のまま（Array#sort is stable in supported browsers）。
  */
 export function sortPartsByBalloon(parts: Part[]): Part[] {
   return parts
@@ -115,9 +118,23 @@ export function sortPartsByBalloon(parts: Part[]): Part[] {
         const compared = natural.compare(a.part.balloon, b.part.balloon);
         if (compared) return compared;
       }
+      const compared = comparePartNos(a.part.partNo, b.part.partNo);
+      if (compared) return compared;
       return a.index - b.index;
     })
     .map(({ part }) => part);
+}
+
+/** 品番の昇順。補材（`+`）は品番を持たないため、常に後ろへ回す。 */
+function comparePartNos(a: string, b: string): number {
+  const leftSupplement = isSupplementPart(a);
+  const rightSupplement = isSupplementPart(b);
+  if (leftSupplement !== rightSupplement) return leftSupplement ? 1 : -1;
+  if (leftSupplement) return 0;
+  // 固定書式の品番はExcelの昇順（文字コード順）と同じ並びになる。
+  const left = a.trim().toUpperCase();
+  const right = b.trim().toUpperCase();
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function balloonRank(balloon: string): { group: number; value: number } {

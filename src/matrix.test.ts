@@ -84,13 +84,24 @@ describe('reference workbook ordering', () => {
     ]);
   });
 
-  it('keeps supplements separate by balloon and preserves source-list order', () => {
+  it('風船番号ごとに補材（+）を最後へ置く', () => {
     const first = list('HH110A0010');
     first.parts = [part('2', 'ring'), part('1', '+')];
     const second = list('HH11000010');
     second.parts = [part('1', 'block'), part('2', '+')];
     expect(collectPartsInSourceOrder([first, second]).map(({ balloon, partNo }) => `${balloon}:${partNo}`)).toEqual([
-      '1:+', '1:block', '2:ring', '2:+',
+      '1:block', '1:+', '2:ring', '2:+',
+    ]);
+  });
+
+  it('同じ風船番号の中は品番の昇順に並べ、補材は最後にする', () => {
+    const first = list('HH110A0010');
+    first.parts = [part('26', 'HJ02172061'), part('26', '+'), part('25', 'Z080670700')];
+    const second = list('HH11000010');
+    // 別のPLで先に現れた品番でも、同じ風船番号の中では品番の昇順に並べる。
+    second.parts = [part('26', 'HJ02128060'), part('26', '+')];
+    expect(collectPartsInSourceOrder([first, second]).map(({ balloon, partNo }) => `${balloon}:${partNo}`)).toEqual([
+      '25:Z080670700', '26:HJ02128060', '26:HJ02172061', '26:+',
     ]);
   });
 
