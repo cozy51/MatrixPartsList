@@ -27,6 +27,43 @@ export const isStandardPl = (plNo: string): boolean => /^HH1/i.test(plNo.trim())
 /** `Z` で始まる品番は購入品。部品表で見分けられるよう色を変える。 */
 export const isPurchasedPart = (partNo: string): boolean => /^Z/i.test(partNo.trim());
 
+/**
+ * 部品図（品番の9文字目が `5`・`6`）は、10桁目が違っても互換性があります。
+ * 10桁目を除いた先頭9桁を「基本番号」として、互換の部品をまとめます。
+ */
+export function compatibleBaseNo(partNo: string): string {
+  const value = partNo.trim().toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{9}$/.test(value)) return '';
+  return value[8] === '5' || value[8] === '6' ? value.slice(0, 9) : '';
+}
+
+/** 基本番号ごとに品番をまとめる。10桁目だけが違う品番が2つ以上あるものだけを返す。 */
+export function buildCompatibleGroups(parts: Part[]): Map<string, string[]> {
+  const groups = collectByBaseNo(parts);
+  for (const [base, partNos] of groups) {
+    if (partNos.length < 2) groups.delete(base);
+    else partNos.sort();
+  }
+  return groups;
+}
+
+/** 1つのPLについて、基本番号 → そのPLにある品番 の索引を作る。互換品の表示に使う。 */
+export const buildListCompatibleIndex = (list: PartsList): Map<string, string[]> =>
+  collectByBaseNo(list.parts.filter(part => part.balloon.toUpperCase() !== 'C'));
+
+function collectByBaseNo(parts: Part[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const part of parts) {
+    const base = compatibleBaseNo(part.partNo);
+    if (!base) continue;
+    const partNo = part.partNo.trim().toUpperCase();
+    const found = groups.get(base);
+    if (!found) groups.set(base, [partNo]);
+    else if (!found.includes(partNo)) found.push(partNo);
+  }
+  return groups;
+}
+
 export const setListsVisibilityByMode = (lists: PartsList[], modeId: string, visible: boolean): PartsList[] =>
   lists.map(list => list.modeId === modeId ? { ...list, visible } : list);
 

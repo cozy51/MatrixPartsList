@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonGroups, calculatePlSimilarities, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isPurchasedPart, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, calculatePlSimilarities, compatibleBaseNo, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isPurchasedPart, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -150,5 +150,39 @@ describe('isPurchasedPart', () => {
     expect(isPurchasedPart('HH110A5060')).toBe(false);
     expect(isPurchasedPart('+')).toBe(false);
     expect(isPurchasedPart('')).toBe(false);
+  });
+});
+
+describe('部品図の互換（10桁目の違い）', () => {
+  it('部品図だけ、先頭9桁を基本番号として扱う', () => {
+    expect(compatibleBaseNo('HJ06158060')).toBe('HJ0615806');
+    expect(compatibleBaseNo('hj06158061')).toBe('HJ0615806');
+    // 9文字目が5の部品図も対象。
+    expect(compatibleBaseNo('HJ06158550')).toBe('HJ0615855');
+    // 組立図（1・4）とPL（1）は対象外。
+    expect(compatibleBaseNo('HH110A0040')).toBe('');
+    expect(compatibleBaseNo('HH11004010')).toBe('');
+    // 購入品や11桁の図番も対象外。
+    expect(compatibleBaseNo('Z076048100')).toBe('');
+    expect(compatibleBaseNo('HJ061580601')).toBe('');
+  });
+
+  it('10桁目だけが違う品番が2つ以上あるときにまとめる', () => {
+    const groups = buildCompatibleGroups([
+      part('102', 'HJ06158061'), part('102', 'HJ06158060'),
+      part('105', 'HJ06159060'), part('80', 'Z076048100'), part('101', '+'),
+    ]);
+    expect([...groups.keys()]).toEqual(['HJ0615806']);
+    // 品番は昇順にそろえて返す。
+    expect(groups.get('HJ0615806')).toEqual(['HJ06158060', 'HJ06158061']);
+  });
+
+  it('PLごとに、そのPLが持つ互換品を引ける', () => {
+    const target = list('HJ06103010');
+    target.parts = [part('102', 'HJ06158061'), part('C', 'HJ06158069'), part('105', 'HJ06159060')];
+    const index = buildListCompatibleIndex(target);
+    // 注記行（風船C）は数えない。
+    expect(index.get('HJ0615806')).toEqual(['HJ06158061']);
+    expect(index.get('HJ0615906')).toEqual(['HJ06159060']);
   });
 });
