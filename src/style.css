@@ -513,6 +513,10 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 
 /* Excel出力はExcelの緑で、図面リンク取得より控えめにする。 */
 button.excel { border-color: #a9d7bd; background: #eff9f3; color: #217346; font-weight: 750; }
+/* 同じ図番・種別でファイルが複数あるとき、何枚目かを一覧でも見分けられるようにする。 */
+.drawing-no-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.drawing-no-line b { display: inline; }
+.drawing-sheet { padding: 1px 6px; border-radius: 9px; background: #eef0ff; color: #4651bc; font-size: 11px; font-weight: 750; white-space: nowrap; }
 button.excel:hover { border-color: #217346; background: #dff2e7; }
 .drawing-notice { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 10px 14px; border-radius: 8px; background: #e9f7f1; color: #14755f; font-size: 13px; font-weight: 650; }
 .drawing-notice button { margin-left: auto; border: 0; padding: 0 4px; background: transparent; color: inherit; }

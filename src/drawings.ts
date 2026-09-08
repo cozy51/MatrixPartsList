@@ -9,6 +9,8 @@ export type DrawingLink = {
   drawingNo: string;
   /** 社内システムが払い出す管理番号（ファイル名の数値部分）。 */
   docNo: string;
+  /** ファイル名の末尾に付く連番（`..._1.easm` の `1`）。同じ図番で複数枚あるときに入る。 */
+  sheetNo?: string;
   /** PDF / DXF など図面ファイルの種別。 */
   fileType: string;
   /** 図面区分（組立図・部品図）。番号から自動判定し、必要なら手で直せる。 */
@@ -44,6 +46,7 @@ export type ParsedDrawing = {
   fileName: string;
   drawingNo: string;
   docNo: string;
+  sheetNo: string;
   fileType: string;
   category: string;
   /** 図番から導いた品番。組立図など、図番と品番が異なる場合だけ値が入る。 */
@@ -184,15 +187,19 @@ function fileNameOf(url: string): string {
  * `4397264_HH110A5060.pdf` のようなファイル名から、英数字が混在するトークンを
  * 図番、数字だけのトークンを社内の管理番号として取り出す。
  */
-export function parseDrawingFileName(fileName: string): { drawingNo: string; docNo: string; fileType: string } {
+export function parseDrawingFileName(fileName: string): { drawingNo: string; docNo: string; sheetNo: string; fileType: string } {
   const extension = fileName.includes('.') ? fileName.split('.').pop()!.toLowerCase() : '';
   const base = extension ? fileName.slice(0, -(extension.length + 1)) : fileName;
   const tokens = base.split(/[_\s-]+/).filter(Boolean);
   const named = tokens.filter(token => /[A-Za-z]/.test(token) && /\d/.test(token));
   const numeric = tokens.filter(token => /^\d+$/.test(token));
+  // 図番の後ろに続く数字は、同じ図番の何枚目かを表す連番（`4658515_HH121005400_2.easm`）。
+  const drawingNoAt = tokens.lastIndexOf(named.at(-1) ?? '');
+  const sheetNo = drawingNoAt >= 0 ? tokens.slice(drawingNoAt + 1).find(token => /^\d+$/.test(token)) ?? '' : '';
   return {
     drawingNo: normalizeDrawingNo(named.at(-1) ?? base),
     docNo: numeric[0] ?? '',
+    sheetNo,
     fileType: FILE_TYPES[extension] ?? (extension ? extension.toUpperCase() : 'その他'),
   };
 }
@@ -266,6 +273,22 @@ export function drawingSheetLabel(drawingNo: string): string {
 }
 
 /**
+ * 何枚目かの並び順。ファイル名の連番（`..._2.easm`）があればそれを優先し、
+ * なければ図番の11桁目を使う。どちらも無ければ -1。
+ */
+export function drawingSheetIndex(drawing: Pick<DrawingLink, 'drawingNo' | 'sheetNo'>): number {
+  const suffix = Number(drawing.sheetNo);
+  if (drawing.sheetNo?.trim() && Number.isFinite(suffix) && suffix > 0) return suffix - 1;
+  return drawingSheetNo(drawing.drawingNo);
+}
+
+/** 「n枚目」の表示。連番と図番のどちらからでも求める。 */
+export function drawingSheetName(drawing: Pick<DrawingLink, 'drawingNo' | 'sheetNo'>): string {
+  const index = drawingSheetIndex(drawing);
+  return index >= 0 ? `${index + 1}枚目` : '';
+}
+
+/**
  * 同じ種別（PDF・DXF・3Dモデル）の図面をひとまとめにする。複数枚ある場合は
  * バッジを1つにして、そこから枚数を選べるようにするために使う。
  */
@@ -279,8 +302,9 @@ export function groupDrawingsByType(items: ResolvedDrawing[]): { fileType: strin
   return [...groups.entries()]
     .map(([fileType, list]) => ({
       fileType,
-      items: [...list].sort((a, b) => drawingSheetNo(a.drawing.drawingNo) - drawingSheetNo(b.drawing.drawingNo)
-        || drawingKey(a.drawing.drawingNo).localeCompare(drawingKey(b.drawing.drawingNo))),
+      items: [...list].sort((a, b) => drawingSheetIndex(a.drawing) - drawingSheetIndex(b.drawing)
+        || drawingKey(a.drawing.drawingNo).localeCompare(drawingKey(b.drawing.drawingNo))
+        || a.drawing.fileName.localeCompare(b.drawing.fileName)),
     }))
     .sort((a, b) => drawingTypeRank(a.fileType) - drawingTypeRank(b.fileType));
 }
@@ -320,10 +344,15 @@ export function drawingsForPartWithCadId(index: Map<string, DrawingLink[]>, cadI
   return [...own, ...borrowed];
 }
 
-/** 図番と種別が一致する既存の図面。取り込み直しは新規ではなく更新として扱う。 */
+/**
+ * 同じ図番・同じ種別でも、ファイル名の連番が違えば別の図面（2枚目・3枚目）。
+ * 上書きしてしまわないよう、連番まで含めて同一かどうかを判断する。
+ */
+export const drawingIdentity = (drawing: Pick<DrawingLink, 'drawingNo' | 'fileType' | 'sheetNo'>): string =>
+  `${drawingKey(drawing.drawingNo)} ${drawingKey(drawing.fileType)} ${(drawing.sheetNo ?? '').trim()}`;
+
 export const findExistingDrawing = (drawings: DrawingLink[], parsed: ParsedDrawing): DrawingLink | undefined =>
-  drawings.find(drawing => drawing.url === parsed.url
-    || (drawingKey(drawing.drawingNo) === drawingKey(parsed.drawingNo) && drawingKey(drawing.fileType) === drawingKey(parsed.fileType)));
+  drawings.find(drawing => drawing.url === parsed.url || drawingIdentity(drawing) === drawingIdentity(parsed));
 
 /**
  * 取り込んだ内容から、そのまま登録できる図面リンクを組み立てる。組立図は図番と
@@ -334,6 +363,7 @@ export function buildDrawingLink(parsed: ParsedDrawing, existing?: DrawingLink):
     id: existing?.id ?? crypto.randomUUID(),
     drawingNo: parsed.drawingNo,
     docNo: parsed.docNo,
+    sheetNo: parsed.sheetNo,
     fileType: parsed.fileType,
     category: existing?.category?.trim() || parsed.category,
     fileName: parsed.fileName,
@@ -362,7 +392,7 @@ export function mergePartNos(...groups: string[][]): string[] {
 
 /** 同じ図番・同じ種別の図面は1件にまとめ、対象品番は既存分と統合する。 */
 export function upsertDrawing(drawings: DrawingLink[], entry: DrawingLink): DrawingLink[] {
-  const identity = (drawing: DrawingLink) => `${drawingKey(drawing.drawingNo)} ${drawingKey(drawing.fileType)}`;
+  const identity = drawingIdentity;
   const key = identity(entry);
   const existing = drawings.find(drawing => drawing.id === entry.id)
     ?? drawings.find(drawing => identity(drawing) === key);
