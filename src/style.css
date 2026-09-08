@@ -597,8 +597,15 @@ th.plhead { min-width: 140px; }
 .pl-badges .standard-marker + .drawing-link { margin-left: 5px; }
 th.plhead .pl-badges { max-width: 120px; margin: 4px auto 0; white-space: normal; }
 /* 左の登録済みPL一覧でも、同じバッジからPDF・DXF・3Dモデルを開ける。
-   STDと同じ行に並べたいので、こちらは折り返さずインラインで表示する。 */
-.pl-badges-inline { display: inline; margin: 0; white-space: normal; }
+   STDと同じ行に収めたいので、インライン表示のうえ余白と文字を詰める。 */
+.pl-badges-inline { display: inline; margin: 0; }
+/* バッジ同士は途中で折り返さない。最大3つ（PDF・DXF・EASM）並んでも収まるよう、
+   左ペインを少し広げ、バッジの余白と文字を詰める。 */
+.pl .pl-badges-inline { white-space: nowrap; }
+.pl .pl-badges-inline .drawing-link { margin-left: 3px; padding: 1px 4px; font-size: 9px; letter-spacing: 0; }
+.pl .standard-badge { margin-left: 5px; padding: 2px 5px; font-size: 10px; }
+.layout { grid-template-columns: 276px 1fr; }
+@media(max-width:900px) { .layout { grid-template-columns: 220px 1fr; } }
 
 /* ツールチップは隣のPL列より前面に出す（列ヘッダーは重なり順を持つため）。 */
 th.plhead:hover, th.plhead:focus-within { z-index: 12; }
