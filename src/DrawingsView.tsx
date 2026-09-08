@@ -297,7 +297,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
     <div className="drawings-list-head">
       <div><h3>登録済み図面リンク</h3><p>{drawings.length} 図面 ・ {new Set(drawings.flatMap(drawing => drawing.partNos.map(drawingKey))).size} 品番</p></div>
       <label className="search-box"><span aria-hidden="true">🔍</span><input className="search" aria-label="図番・品番で検索" placeholder="図番・品番・備考を検索..." value={search} onChange={event => setSearch(event.target.value)} /></label>
-      <button type="button" onClick={() => exportDrawings(drawings)} disabled={!drawings.length}>Excel出力</button>
+      <button className="excel" type="button" onClick={() => exportDrawings(drawings)} disabled={!drawings.length}>Excel出力</button>
     </div>
 
     {listed.length ? <div className="drawings-table"><table>
