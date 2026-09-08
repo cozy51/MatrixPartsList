@@ -65,6 +65,16 @@ export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { ca
   drawing.category?.trim() || detectDrawingCategory(drawing.drawingNo);
 
 /**
+ * 図番の12桁目は用紙サイズ（`4` = A4）を表し、図面そのものを指す番号ではない。
+ * 例: `HD1AG0064204` は図番 `HD1AG006420`（11桁目 `0` が1枚目）＋ 用紙サイズ `4`。
+ * 画面には出さず、品番の判定にも使わないため、11桁までを図番として扱う。
+ */
+export function normalizeDrawingNo(value: string): string {
+  const key = drawingKey(value);
+  return /^[A-Z][A-Z0-9]{8}\d{3}$/.test(key) ? key.slice(0, 11) : key;
+}
+
+/**
  * 11桁の図番に対応する10桁の品番の候補を返す。11桁になる理由は2通りあり、
  * 図番だけでは見分けられないため、両方を候補として持つ。
  *
@@ -74,7 +84,7 @@ export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { ca
  *   品番に枚数の1桁を足した形になる（品番 `HH01008043` → 図番 `HH010080430`）。
  */
 export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
-  const value = drawingKey(drawingNo);
+  const value = normalizeDrawingNo(drawingNo);
   if (!/^[A-Z][A-Z0-9]{8}\d{2}$/.test(value)) return [];
   return [...new Set([value.slice(0, 10), `${value.slice(0, 9)}0`])];
 }
@@ -140,7 +150,7 @@ export function parseDrawingFileName(fileName: string): { drawingNo: string; doc
   const named = tokens.filter(token => /[A-Za-z]/.test(token) && /\d/.test(token));
   const numeric = tokens.filter(token => /^\d+$/.test(token));
   return {
-    drawingNo: (named.at(-1) ?? base).toUpperCase(),
+    drawingNo: normalizeDrawingNo(named.at(-1) ?? base),
     docNo: numeric[0] ?? '',
     fileType: FILE_TYPES[extension] ?? (extension ? extension.toUpperCase() : 'その他'),
   };
@@ -253,6 +263,45 @@ export function upsertDrawing(drawings: DrawingLink[], entry: DrawingLink): Draw
 
 export const removeDrawing = (drawings: DrawingLink[], id: string): DrawingLink[] =>
   drawings.filter(drawing => drawing.id !== id);
+
+/** 自動登録の設定はブラウザーに保存し、どの画面から取り込んでも同じ扱いにする。 */
+export const DRAWING_AUTO_REGISTER_KEY = 'matrix-parts-list.drawings.auto-register';
+
+export function isAutoRegisterEnabled(): boolean {
+  try { return localStorage.getItem(DRAWING_AUTO_REGISTER_KEY) !== 'off'; } catch { return true; }
+}
+
+export function setAutoRegisterEnabled(value: boolean) {
+  try { localStorage.setItem(DRAWING_AUTO_REGISTER_KEY, value ? 'on' : 'off'); } catch { /* 保存できなくても動作は変えない */ }
+}
+
+export type DrawingIntakeResult = {
+  /** 登録後の図面リンク一覧。 */
+  next: DrawingLink[];
+  /** 登録・更新できたもの。 */
+  done: { drawing: DrawingLink; isNew: boolean }[];
+  /** 図番を判定できず、確認が必要なもの。 */
+  pending: ParsedDrawing[];
+};
+
+/**
+ * 貼り付けやクリップボードの文字列から図面リンクを取り込む。図番・リンク・
+ * 対象品番がそろったものだけ登録し、判定できなかったものは確認へ回す。
+ * 図面リンクタブとマトリックス部品表のどちらから取り込んでも同じ結果になる。
+ */
+export function registerDrawings(drawings: DrawingLink[], text: string, knownPartNos: Iterable<string> = []): DrawingIntakeResult {
+  let next = drawings;
+  const done: { drawing: DrawingLink; isNew: boolean }[] = [];
+  const pending: ParsedDrawing[] = [];
+  for (const parsed of parseDrawingClipboardAll(text, knownPartNos)) {
+    const existing = findExistingDrawing(next, parsed);
+    const entry = buildDrawingLink(parsed, existing);
+    if (!isRegisterable(entry)) { pending.push(parsed); continue; }
+    next = upsertDrawing(next, entry);
+    done.push({ drawing: entry, isNew: !existing });
+  }
+  return { next, done, pending };
+}
 
 /** 図番・管理番号・品番・ファイル名・備考を対象にした絞り込み。 */
 export function searchDrawings(drawings: DrawingLink[], query: string): DrawingLink[] {

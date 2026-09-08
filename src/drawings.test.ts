@@ -10,10 +10,12 @@ import {
   findExistingDrawing,
   isRegisterable,
   mergePartNos,
+  normalizeDrawingNo,
   parseDrawingClipboard,
   parseDrawingClipboardAll,
   parseDrawingFileName,
   partNoCandidatesFromDrawingNo,
+  registerDrawings,
   partNoFromDrawingNo,
   removeDrawing,
   resolveFileUrl,
@@ -95,6 +97,11 @@ describe('parseDrawingClipboard', () => {
     expect(parsed).toMatchObject({ drawingNo: 'HH110A00410', docNo: '5053111', category: '組立図', partNo: 'HH110A0040' });
   });
 
+  it('用紙サイズ付きのリンクは、図番から用紙サイズを外して読み取る', () => {
+    const parsed = parseDrawingClipboard('https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HD1/1602903_HD1AG0064204.pdf', ['HD1AG00642']);
+    expect(parsed).toMatchObject({ drawingNo: 'HD1AG006420', docNo: '1602903', category: '組立図', partNo: 'HD1AG00642' });
+  });
+
   it('returns undefined without a URL', () => {
     expect(parseDrawingClipboard('図面が見つかりません')).toBeUndefined();
   });
@@ -120,6 +127,23 @@ describe('まとめ貼り付けと自動登録', () => {
     // 図番を判定できないリンクは自動登録せず、確認へ回す。
     const unknown = buildDrawingLink({ url: 'https://example.com/', fileUrl: 'https://example.com/', fileName: '', drawingNo: '', docNo: '', fileType: 'その他', category: '', partNo: '' });
     expect(isRegisterable(unknown)).toBe(false);
+  });
+
+  it('登録できるものだけ登録し、判定できないものは確認へ回す', () => {
+    const result = registerDrawings([], `${ASSEMBLY}\n${PART}\nhttps://example.com/`, ['HH110A0040']);
+    expect(result.done.map(item => item.drawing.drawingNo)).toEqual(['HH110A00410', 'HH01002L61']);
+    expect(result.done.every(item => item.isNew)).toBe(true);
+    expect(result.next).toHaveLength(2);
+    expect(result.pending).toHaveLength(1);
+    // 図番から導いた品番は、部品表に実在する側を選ぶ。
+    expect(result.done[0].drawing.partNos).toContain('HH110A0040');
+  });
+
+  it('同じリンクを取り込み直すと更新になり、登録件数は増えない', () => {
+    const first = registerDrawings([], ASSEMBLY);
+    const second = registerDrawings(first.next, ASSEMBLY);
+    expect(second.next).toHaveLength(1);
+    expect(second.done.map(item => item.isNew)).toEqual([false]);
   });
 
   it('取り込み直しは既存レコードの更新になる', () => {
@@ -160,6 +184,20 @@ describe('図面区分と図番からの品番', () => {
     expect(partNoFromDrawingNo('')).toBe('');
   });
 
+  it('12桁目の用紙サイズは図番に含めない', () => {
+    // HD1AG0064204 = 図番 HD1AG006420（11桁目 0 が1枚目）+ 用紙サイズ 4（A4）。
+    expect(normalizeDrawingNo('HD1AG0064204')).toBe('HD1AG006420');
+    expect(normalizeDrawingNo('hd1ag0064204')).toBe('HD1AG006420');
+    // 11桁・10桁の図番はそのまま。
+    expect(normalizeDrawingNo('HH110A00410')).toBe('HH110A00410');
+    expect(normalizeDrawingNo('HH110A5060')).toBe('HH110A5060');
+  });
+
+  it('用紙サイズ付きの図番からも品番を導く', () => {
+    expect(partNoCandidatesFromDrawingNo('HD1AG0064204')).toEqual(['HD1AG00642', 'HD1AG00640']);
+    expect(partNoFromDrawingNo('HD1AG0064204', ['HD1AG00642'])).toBe('HD1AG00642');
+  });
+
   it('11桁の図番には機械図面と電気図面の2通りの品番候補がある', () => {
     expect(partNoCandidatesFromDrawingNo('HH010080430')).toEqual(['HH01008043', 'HH01008040']);
     // 10桁目が0なら、どちらの数え方でも同じ品番になる。
@@ -196,6 +234,11 @@ describe('part index', () => {
     // 同じ図面を二重に返さない。
     const both = buildPartDrawingIndex([drawing({ id: 'asm2', drawingNo: 'HH110A00410', partNos: ['HH110A00410', 'HH110A0040'] })]);
     expect(drawingsForPart(both, 'HH110A0040')).toHaveLength(1);
+  });
+
+  it('用紙サイズ付きで登録済みの図面も、10桁の品番から引ける', () => {
+    const sized = drawing({ id: 'sized', drawingNo: 'HD1AG0064204', partNos: ['HD1AG0064204'] });
+    expect(drawingsForPart(buildPartDrawingIndex([sized]), 'HD1AG00642').map(item => item.id)).toEqual(['sized']);
   });
 
   it('電気図面の11桁図番も、10桁の品番から引ける', () => {
