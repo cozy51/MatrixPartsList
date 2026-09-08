@@ -582,5 +582,13 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 /* PL列ヘッダーは背景が淡い緑のため、バッジは白地にして見分けやすくする。 */
 th.plhead .drawing-link { background: #fff; }
 th.plhead .drawing-link:hover { background: #14755f; color: #fff; }
+
+/* PL列の幅を広げたくないため、STDと図面のバッジはPL番号の下へ折り返す。 */
+th.plhead { min-width: 140px; }
+.pl-head-badges { display: block; margin-top: 4px; line-height: 1; }
+.pl-head-badges:empty { display: none; }
+.pl-head-badges .standard-marker { margin: 0; vertical-align: 0; }
+.pl-head-badges .drawing-link { margin-left: 4px; vertical-align: 0; }
+.pl-head-badges .standard-marker + .drawing-link { margin-left: 5px; }
 .drawing-link.is-part:hover { background: #a2621a; color: #fff; }
 @media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }
