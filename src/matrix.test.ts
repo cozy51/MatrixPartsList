@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonGroups, calculatePlSimilarities, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonGroups, calculatePlSimilarities, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isPurchasedPart, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -128,5 +128,16 @@ describe('reference workbook ordering', () => {
     expect(detail.common.map(item => item.partNo)).toEqual(['common']);
     expect(detail.baseOnly.map(item => item.partNo)).toEqual(['base-only']);
     expect(detail.targetOnly.map(item => item.partNo)).toEqual(['target-only']);
+  });
+});
+
+describe('isPurchasedPart', () => {
+  it('Zで始まる品番を購入品として扱う', () => {
+    expect(isPurchasedPart('Z069714560')).toBe(true);
+    expect(isPurchasedPart('z078609500')).toBe(true);
+    expect(isPurchasedPart(' Z074963100 ')).toBe(true);
+    expect(isPurchasedPart('HH110A5060')).toBe(false);
+    expect(isPurchasedPart('+')).toBe(false);
+    expect(isPurchasedPart('')).toBe(false);
   });
 });

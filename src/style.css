@@ -576,6 +576,9 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawing-open { display: inline-block; padding: 5px 12px; border-radius: 8px; background: #5865e8; color: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
 .drawing-open.is-disabled { background: #d8dee9; color: #7b8493; cursor: not-allowed; }
 
+/* `Z` で始まる購入品は、部品表で見分けられるよう濃い緑の太字にする。 */
+td.purchased-part > span { color: #0f6b3d; font-weight: 800; }
+
 /* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。
    組立図と部品図は図面リンクタブの区分バッジと同じ配色で見分けられるようにする。 */
 .drawing-link { display: inline-block; margin-left: 4px; padding: 1px 4px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 9px; font-weight: 800; letter-spacing: 0; text-decoration: none; vertical-align: 1px; }
@@ -630,6 +633,15 @@ th.plhead:hover, th.plhead:focus-within { z-index: 12; }
 .cadid-form label { display: block; font-size: 13px; font-weight: 750; color: #475467; }
 .cadid-form input { width: 200px; margin-top: 5px; padding: 9px 11px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; font: inherit; font-size: 14px; }
 .cadid-arrow { padding-bottom: 10px; color: #8a93a4; font-size: 18px; font-weight: 800; }
+/* 入力がそろってボタンを押せる状態かどうかを、その場で分かるようにする。 */
+.cadid-form input.is-ok { border-color: #27a468; background: #f5fdf9; }
+.cadid-form input.is-invalid { border-color: #d92d3a; background: #fff7f7; }
+.cadid-form button.primary:disabled { background: #ccd2e6; color: #fff; cursor: not-allowed; }
+.cadid-form.is-ready { border-color: #b9c1f0; background: #f2f4ff; }
+.cadid-form.is-ready button.primary { box-shadow: 0 0 0 3px #5865e840; }
+.cadid-hint { flex: 1 0 100%; margin: 2px 0 0; color: #8a93a4; font-size: 13px; }
+.cadid-hint.is-ready { color: #14755f; font-weight: 700; }
+.cadid-hint.is-invalid { color: #b4232d; font-weight: 700; }
 .cadid-table { margin-top: 10px; }
 .drawing-chip.is-cadid { background: #eef7ff; color: #1f5fa8; border: 1px dashed #7fb0e0; }
 .cadid-missing { color: #b4232d; font-size: 12px; }
