@@ -11,6 +11,8 @@ export type DrawingLink = {
   docNo: string;
   /** PDF / DXF など図面ファイルの種別。 */
   fileType: string;
+  /** 図面区分（組立図・部品図）。番号から自動判定し、必要なら手で直せる。 */
+  category?: string;
   fileName: string;
   /** 社内システムからコピーしたリンク。認証のためプロキシURLのまま保持する。 */
   url: string;
@@ -35,12 +37,42 @@ export type ParsedDrawing = {
   drawingNo: string;
   docNo: string;
   fileType: string;
+  category: string;
+  /** 図番から導いた品番。組立図など、図番と品番が異なる場合だけ値が入る。 */
+  partNo: string;
 };
 
 const FILE_TYPES: Record<string, string> = { pdf: 'PDF', dxf: 'DXF', dwg: 'DWG', tif: 'TIFF', tiff: 'TIFF' };
 
 /** 図番・品番の比較は前後の空白と大文字小文字を無視する。 */
 export const drawingKey = (value: string): string => value.trim().toUpperCase().replace(/\s+/g, '');
+
+export const DRAWING_CATEGORIES = ['組立図', '部品図'] as const;
+
+/**
+ * 図番・品番の9文字目は図面区分を表し、1・4が組立図、5・6が部品図になる。
+ * 例: 組立図 HH110A0040 / HH110A00410、部品図 HH110A5060。
+ */
+const CATEGORY_CODES: Record<string, string> = { '1': '組立図', '4': '組立図', '5': '部品図', '6': '部品図' };
+
+export function detectDrawingCategory(no: string): string {
+  const value = drawingKey(no);
+  return value.length >= 9 ? CATEGORY_CODES[value[8]] ?? '' : '';
+}
+
+/** 保存済みの区分を優先し、未設定なら図番から判定する。 */
+export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { category?: string }): string =>
+  drawing.category?.trim() || detectDrawingCategory(drawing.drawingNo);
+
+/**
+ * 組立図では図番が「品番の先頭9桁 + Ver + 枚数」の11桁になり、品番の10桁目は
+ * 0 に据え置かれる。例: 品番 HH110A0040 に対して図番 HH110A00410（Ver 1・
+ * 1枚目）。部品表からリンクできるよう、11桁の図番から10桁の品番を導く。
+ */
+export function partNoFromDrawingNo(drawingNo: string): string {
+  const value = drawingKey(drawingNo);
+  return /^[A-Z][A-Z0-9]{8}\d{2}$/.test(value) ? `${value.slice(0, 9)}0` : '';
+}
 
 /** クリップボードの文字列からURLだけを取り出す。前後に説明文が付いていてもよい。 */
 export function extractUrl(text: string): string {
@@ -99,21 +131,33 @@ export function parseDrawingClipboard(text: string): ParsedDrawing | undefined {
   if (!url) return undefined;
   const fileUrl = resolveFileUrl(url);
   const fileName = fileNameOf(fileUrl);
-  return { url, fileUrl, fileName, ...parseDrawingFileName(fileName) };
+  const parsed = parseDrawingFileName(fileName);
+  return {
+    url, fileUrl, fileName, ...parsed,
+    category: detectDrawingCategory(parsed.drawingNo),
+    partNo: partNoFromDrawingNo(parsed.drawingNo),
+  };
 }
 
 export const isOpenableUrl = (url: string): boolean => /^https?:\/\//i.test(url.trim());
 
-/** 品番から図面を引くための索引。1品番が複数図面を持つ場合は登録順に並ぶ。 */
+/**
+ * 品番から図面を引くための索引。1品番が複数図面を持つ場合は登録順に並ぶ。
+ * 対象品番に加えて、11桁の図番から導いた品番でも引けるようにするため、
+ * 図番＝品番で登録した組立図も部品表からたどれる。
+ */
 export function buildPartDrawingIndex(drawings: DrawingLink[]): Map<string, DrawingLink[]> {
   const index = new Map<string, DrawingLink[]>();
+  const add = (value: string, drawing: DrawingLink) => {
+    const key = drawingKey(value);
+    if (!key) return;
+    const found = index.get(key);
+    if (!found) index.set(key, [drawing]);
+    else if (!found.includes(drawing)) found.push(drawing);
+  };
   for (const drawing of drawings) {
-    for (const partNo of drawing.partNos) {
-      const key = drawingKey(partNo);
-      if (!key) continue;
-      const found = index.get(key);
-      if (found) found.push(drawing); else index.set(key, [drawing]);
-    }
+    for (const partNo of drawing.partNos) add(partNo, drawing);
+    for (const no of [drawing.drawingNo, ...drawing.partNos]) add(partNoFromDrawingNo(no), drawing);
   }
   return index;
 }
@@ -153,7 +197,7 @@ export const removeDrawing = (drawings: DrawingLink[], id: string): DrawingLink[
 export function searchDrawings(drawings: DrawingLink[], query: string): DrawingLink[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return drawings;
-  return drawings.filter(drawing => [drawing.drawingNo, drawing.docNo, drawing.fileName, drawing.note, ...drawing.partNos]
+  return drawings.filter(drawing => [drawing.drawingNo, drawing.docNo, drawing.fileName, drawing.note, drawingCategoryOf(drawing), ...drawing.partNos]
     .join(' ').toLowerCase().includes(needle));
 }
 

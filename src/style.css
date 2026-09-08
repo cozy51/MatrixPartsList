@@ -545,6 +545,9 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawings-table th { position: sticky; top: 0; z-index: 1; background: #eef0ff; color: #4651bc; text-align: left; white-space: nowrap; }
 .drawings-table td b { display: block; }
 .drawings-table td small { display: block; margin-top: 2px; color: #8a93a4; font-size: 12px; word-break: break-all; }
+.drawing-category { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #eef2ff; color: #4054ae; font-size: 12px; font-weight: 750; white-space: nowrap; }
+.drawing-category.assembly { background: #e9f7f1; color: #14755f; }
+.drawing-category.part { background: #fff3df; color: #a2621a; }
 .drawing-type { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #fdecec; color: #b4232d; font-size: 12px; font-weight: 750; }
 .drawing-type.dxf { background: #e4f1ff; color: #1f5fa8; }
 .drawing-type.dwg { background: #eef7e4; color: #3d7a20; }
