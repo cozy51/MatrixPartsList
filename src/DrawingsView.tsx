@@ -93,11 +93,11 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
   };
 
   /**
-   * 貼り付けやクリップボード取得の入口。自動登録が有効なら、図番・リンク・
-   * 対象品番がそろったものはそのまま登録し、判定できなかったものだけ下書きへ出す。
-   * 複数のリンクをまとめて貼り付けた場合は、その全件を順に処理する。
+   * 貼り付けやクリップボード取得の入口。図番・リンク・対象品番がそろったものは
+   * そのまま登録し、判定できなかったものだけ下書きへ出す。複数のリンクをまとめて
+   * 貼り付けた場合は、その全件を順に処理する。
    */
-  const intake = (text: string) => {
+  const intake = (text: string, options: { force?: boolean } = {}) => {
     const parsedList = parseDrawingClipboardAll(text, partNoOptions);
     if (!parsedList.length) {
       setError('リンク（http/https）が見つかりません。社内システムで図面・3Dモデルのリンクをコピーしてください。');
@@ -105,7 +105,9 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
     }
     setError('');
     setMessage('');
-    if (!autoRegister) {
+    // 「クリップボードから取得」は押した時点で登録する操作なので、貼り付け時の
+    // 自動登録の設定に関わらず、そのまま登録する。
+    if (!autoRegister && !options.force) {
       startDraft(parsedList[0]);
       if (parsedList.length > 1) setError(`自動登録が無効のため、${parsedList.length}件のうち先頭の1件だけを読み込みました。`);
       return true;
@@ -142,7 +144,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
   const captureFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      if (intake(text) && !autoRegister) setPasted(text);
+      intake(text, { force: true });
     } catch {
       setError('クリップボードを読み取れませんでした。下の入力欄へ貼り付け（Ctrl+V）してください。');
     }
@@ -232,7 +234,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
       </div>
       <label className="drawings-auto-toggle">
         <input type="checkbox" checked={autoRegister} onChange={event => changeAutoRegister(event.target.checked)} />
-        <span>取得したら自動で登録する<small>図番を判定できなかったものだけ、確認用の入力欄へ出します。</small></span>
+        <span>貼り付けたときも自動で登録する<small>オフにすると、貼り付けた分は確認用の入力欄へ出します。「クリップボードから取得」ボタンは、この設定に関わらずそのまま登録します。</small></span>
       </label>
       <textarea
         className="drawings-paste"

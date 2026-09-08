@@ -325,8 +325,12 @@ export function upsertDrawing(drawings: DrawingLink[], entry: DrawingLink): Draw
 export const removeDrawing = (drawings: DrawingLink[], id: string): DrawingLink[] =>
   drawings.filter(drawing => drawing.id !== id);
 
-/** 自動登録の設定はブラウザーに保存し、どの画面から取り込んでも同じ扱いにする。 */
-export const DRAWING_AUTO_REGISTER_KEY = 'matrix-parts-list.drawings.auto-register';
+/**
+ * 自動登録の設定はブラウザーに保存し、どの画面から取り込んでも同じ扱いにする。
+ * 既定はオン。キーに版を付けているのは、以前オフのまま保存された環境を一度
+ * 既定へ戻すため（以降の変更はこのキーで保存される）。
+ */
+export const DRAWING_AUTO_REGISTER_KEY = 'matrix-parts-list.drawings.auto-register.v2';
 
 export function isAutoRegisterEnabled(): boolean {
   try { return localStorage.getItem(DRAWING_AUTO_REGISTER_KEY) !== 'off'; } catch { return true; }
