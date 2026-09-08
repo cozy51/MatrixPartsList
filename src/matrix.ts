@@ -24,6 +24,9 @@ export function sortPartsLists(lists: PartsList[]): PartsList[] {
 
 export const isStandardPl = (plNo: string): boolean => /^HH1/i.test(plNo.trim());
 
+/** `Z` で始まる品番は購入品。部品表で見分けられるよう色を変える。 */
+export const isPurchasedPart = (partNo: string): boolean => /^Z/i.test(partNo.trim());
+
 export const setListsVisibilityByMode = (lists: PartsList[], modeId: string, visible: boolean): PartsList[] =>
   lists.map(list => list.modeId === modeId ? { ...list, visible } : list);
 

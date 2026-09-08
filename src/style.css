@@ -576,6 +576,9 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawing-open { display: inline-block; padding: 5px 12px; border-radius: 8px; background: #5865e8; color: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
 .drawing-open.is-disabled { background: #d8dee9; color: #7b8493; cursor: not-allowed; }
 
+/* `Z` で始まる購入品は、部品表で見分けられるよう濃い緑の太字にする。 */
+td.purchased-part > span { color: #0f6b3d; font-weight: 800; }
+
 /* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。
    組立図と部品図は図面リンクタブの区分バッジと同じ配色で見分けられるようにする。 */
 .drawing-link { display: inline-block; margin-left: 4px; padding: 1px 4px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 9px; font-weight: 800; letter-spacing: 0; text-decoration: none; vertical-align: 1px; }
