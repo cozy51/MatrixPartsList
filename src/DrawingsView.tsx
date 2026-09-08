@@ -10,6 +10,7 @@ import {
   isOpenableUrl,
   isRegisterable,
   mergePartNos,
+  normalizeDrawingNo,
   parseDrawingClipboard,
   parseDrawingClipboardAll,
   partNoFromDrawingNo,
@@ -42,10 +43,10 @@ const emptyDraft = (): Draft => ({
 
 function exportDrawings(drawings: DrawingLink[]) {
   const rows = sortDrawings(drawings).map(drawing => ({
-    図番: drawing.drawingNo,
+    図番: normalizeDrawingNo(drawing.drawingNo),
     区分: drawingCategoryOf(drawing),
     種別: drawing.fileType,
-    対象品番: drawing.partNos.join(' / '),
+    対象品番: drawing.partNos.map(normalizeDrawingNo).join(' / '),
     管理番号: drawing.docNo,
     ファイル名: drawing.fileName,
     リンク: drawing.url,
@@ -180,7 +181,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
     if (!partNos.length) { setError('対象品番を1つ以上入力してください。図番と同じ場合は「図番と同じ」を押します。'); return; }
     const entry: DrawingLink = {
       id: draft.id,
-      drawingNo: draft.drawingNo.trim(),
+      drawingNo: normalizeDrawingNo(draft.drawingNo),
       docNo: draft.docNo.trim(),
       fileType: draft.fileType.trim() || 'その他',
       category: draft.category?.trim() || '',
@@ -297,10 +298,10 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
     {listed.length ? <div className="drawings-table"><table>
       <thead><tr><th>図番</th><th>区分</th><th>種別</th><th>対象品番</th><th>管理番号</th><th>備考</th><th>操作</th></tr></thead>
       <tbody>{listed.map(drawing => <tr key={drawing.id}>
-        <td><b>{drawing.drawingNo}</b><small>{drawing.fileName}</small></td>
+        <td><b>{normalizeDrawingNo(drawing.drawingNo)}</b><small>{drawing.fileName}</small></td>
         <td>{drawingCategoryOf(drawing) ? <span className={`drawing-category ${drawingCategoryOf(drawing) === '組立図' ? 'assembly' : 'part'}`}>{drawingCategoryOf(drawing)}</span> : '—'}</td>
         <td><span className={`drawing-type ${drawing.fileType.toLowerCase()}`}>{drawing.fileType}</span></td>
-        <td>{drawing.partNos.map(partNo => <span className={`drawing-chip ${drawingKey(partNo) === drawingKey(drawing.drawingNo) ? '' : 'is-alias'}`} key={partNo}>{partNo}</span>)}</td>
+        <td>{drawing.partNos.map(partNo => <span className={`drawing-chip ${normalizeDrawingNo(partNo) === normalizeDrawingNo(drawing.drawingNo) ? '' : 'is-alias'}`} key={partNo}>{normalizeDrawingNo(partNo)}</span>)}</td>
         <td>{drawing.docNo || '—'}</td>
         <td>{drawing.note || '—'}</td>
         <td className="drawing-actions">

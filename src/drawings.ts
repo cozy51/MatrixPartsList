@@ -65,6 +65,16 @@ export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { ca
   drawing.category?.trim() || detectDrawingCategory(drawing.drawingNo);
 
 /**
+ * 図番の12桁目は用紙サイズ（`4` = A4）を表し、図面そのものを指す番号ではない。
+ * 例: `HD1AG0064204` は図番 `HD1AG006420`（11桁目 `0` が1枚目）＋ 用紙サイズ `4`。
+ * 画面には出さず、品番の判定にも使わないため、11桁までを図番として扱う。
+ */
+export function normalizeDrawingNo(value: string): string {
+  const key = drawingKey(value);
+  return /^[A-Z][A-Z0-9]{8}\d{3}$/.test(key) ? key.slice(0, 11) : key;
+}
+
+/**
  * 11桁の図番に対応する10桁の品番の候補を返す。11桁になる理由は2通りあり、
  * 図番だけでは見分けられないため、両方を候補として持つ。
  *
@@ -74,7 +84,7 @@ export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { ca
  *   品番に枚数の1桁を足した形になる（品番 `HH01008043` → 図番 `HH010080430`）。
  */
 export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
-  const value = drawingKey(drawingNo);
+  const value = normalizeDrawingNo(drawingNo);
   if (!/^[A-Z][A-Z0-9]{8}\d{2}$/.test(value)) return [];
   return [...new Set([value.slice(0, 10), `${value.slice(0, 9)}0`])];
 }
@@ -140,7 +150,7 @@ export function parseDrawingFileName(fileName: string): { drawingNo: string; doc
   const named = tokens.filter(token => /[A-Za-z]/.test(token) && /\d/.test(token));
   const numeric = tokens.filter(token => /^\d+$/.test(token));
   return {
-    drawingNo: (named.at(-1) ?? base).toUpperCase(),
+    drawingNo: normalizeDrawingNo(named.at(-1) ?? base),
     docNo: numeric[0] ?? '',
     fileType: FILE_TYPES[extension] ?? (extension ? extension.toUpperCase() : 'その他'),
   };
