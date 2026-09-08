@@ -8,6 +8,8 @@ import {
   extractUrl,
   extractUrls,
   findExistingDrawing,
+  drawingTypeRank,
+  isModelType,
   isRegisterable,
   mergePartNos,
   normalizeDrawingNo,
@@ -71,6 +73,11 @@ describe('parseDrawingFileName', () => {
 
   it('recognises DXF files', () => {
     expect(parseDrawingFileName('4397264_HH110A5060.dxf').fileType).toBe('DXF');
+  });
+
+  it('3Dモデル（eDrawings）の種別を判定する', () => {
+    expect(parseDrawingFileName('5031809_HH11105B120.easm')).toEqual({ drawingNo: 'HH11105B120', docNo: '5031809', fileType: 'EASM' });
+    expect(parseDrawingFileName('5031809_HH11105B120.EPRT').fileType).toBe('EPRT');
   });
 
   it('falls back to the whole base name', () => {
@@ -156,6 +163,34 @@ describe('まとめ貼り付けと自動登録', () => {
     const kept = upsertDrawing(registered, buildDrawingLink(parsed, { ...first, note: '流用元あり' }));
     expect(kept).toHaveLength(1);
     expect(kept[0].note).toBe('流用元あり');
+  });
+});
+
+describe('3Dモデル', () => {
+  it('図面と3Dモデルを見分ける', () => {
+    expect(isModelType('EASM')).toBe(true);
+    expect(isModelType('easm')).toBe(true);
+    expect(isModelType('PDF')).toBe(false);
+  });
+
+  it('表示順は 図面 → 3Dモデル → その他', () => {
+    expect(['EASM', 'その他', 'DXF', 'PDF'].sort((a, b) => drawingTypeRank(a) - drawingTypeRank(b))).toEqual(['PDF', 'DXF', 'EASM', 'その他']);
+  });
+
+  it('3Dモデルのリンクも同じ手順で取り込める', () => {
+    const parsed = parseDrawingClipboard('https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/eDrawings/HH1/5031809_HH11105B120.easm', ['HH11105B10']);
+    expect(parsed).toMatchObject({ drawingNo: 'HH11105B120', docNo: '5031809', fileType: 'EASM', partNo: 'HH11105B10' });
+    const entry = buildDrawingLink(parsed!);
+    expect(isRegisterable(entry)).toBe(true);
+    expect(entry.partNos).toEqual(['HH11105B120', 'HH11105B10']);
+  });
+
+  it('同じ図番でも、図面と3Dモデルは別レコードとして残す', () => {
+    const pdf = drawing({ id: 'pdf', drawingNo: 'HH11105B120', fileType: 'PDF' });
+    const model = drawing({ id: 'easm', drawingNo: 'HH11105B120', fileType: 'EASM' });
+    const result = upsertDrawing([pdf], model);
+    expect(result.map(item => item.fileType)).toEqual(['PDF', 'EASM']);
+    expect(sortDrawings(result).map(item => item.fileType)).toEqual(['PDF', 'EASM']);
   });
 });
 
@@ -289,8 +324,13 @@ describe('helpers', () => {
     expect(searchDrawings(drawings, '')).toHaveLength(2);
   });
 
-  it('sorts by drawing number and file type', () => {
-    const drawings = [drawing({ id: 'b', drawingNo: 'HH2' }), drawing({ id: 'c', drawingNo: 'HH1', fileType: 'DXF' }), drawing({ id: 'a', drawingNo: 'HH1' })];
-    expect(sortDrawings(drawings).map(item => item.id)).toEqual(['c', 'a', 'b']);
+  it('図番順に並べ、同じ図番では PDF → DXF → 3Dモデル の順にする', () => {
+    const drawings = [
+      drawing({ id: 'b', drawingNo: 'HH2' }),
+      drawing({ id: 'c', drawingNo: 'HH1', fileType: 'DXF' }),
+      drawing({ id: 'd', drawingNo: 'HH1', fileType: 'EASM' }),
+      drawing({ id: 'a', drawingNo: 'HH1' }),
+    ];
+    expect(sortDrawings(drawings).map(item => item.id)).toEqual(['a', 'c', 'd', 'b']);
   });
 });

@@ -36,7 +36,7 @@ type Props = {
 
 type Draft = Omit<DrawingLink, 'updatedAt'> & { isNew: boolean };
 
-const FILE_TYPES = ['PDF', 'DXF', 'DWG', 'TIFF', 'その他'];
+const FILE_TYPES = ['PDF', 'DXF', 'EASM', 'DWG', 'TIFF', 'その他'];
 
 /** 今回の取り込みで登録・更新した図面。まとめて貼り付けたときの控えとして表示する。 */
 type Registered = { id: string; label: string; status: '登録' | '更新' };
@@ -100,7 +100,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
   const intake = (text: string) => {
     const parsedList = parseDrawingClipboardAll(text, partNoOptions);
     if (!parsedList.length) {
-      setError('リンク（http/https）が見つかりません。社内システムでPDF・DXFのリンクをコピーしてください。');
+      setError('リンク（http/https）が見つかりません。社内システムで図面・3Dモデルのリンクをコピーしてください。');
       return false;
     }
     setError('');
@@ -115,7 +115,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
       onChange(next);
       const registered: Registered[] = done.map(({ drawing, isNew }) => ({
         id: drawing.id,
-        label: `${drawing.drawingNo}（${drawingCategoryOf(drawing) || '区分なし'}・${drawing.fileType}）`,
+        label: `${normalizeDrawingNo(drawing.drawingNo)}（${drawingCategoryOf(drawing) || '区分なし'}・${drawing.fileType}）`,
         status: isNew ? '登録' : '更新',
       }));
       setRecent(current => [...registered, ...current].slice(0, 20));
@@ -223,7 +223,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
       <div className="drawings-capture-head">
         <div>
           <h2>図面リンクの取り込み</h2>
-          <p>社内システムの品番マスタで PDF・DXF のリンクをコピーし、「クリップボードから取得」を押すか、この画面で貼り付け（Ctrl+V）します。図番・区分・対象品番を自動判定し、そろっていればボタンを押さずにそのまま登録します。複数のリンクをまとめて貼り付けても、全件を続けて登録できます。</p>
+          <p>社内システムの品番マスタで、図面（PDF・DXF）や3Dモデル（eDrawings の EASM）のリンクをコピーし、「クリップボードから取得」を押すか、この画面で貼り付け（Ctrl+V）します。図番・種別・区分・対象品番を自動判定し、そろっていればボタンを押さずにそのまま登録します。複数のリンクをまとめて貼り付けても、全件を続けて登録できます。</p>
         </div>
         <div className="drawings-capture-actions">
           <button className="primary" type="button" onClick={() => void captureFromClipboard()}>クリップボードから取得</button>

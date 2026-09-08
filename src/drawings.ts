@@ -42,7 +42,25 @@ export type ParsedDrawing = {
   partNo: string;
 };
 
-const FILE_TYPES: Record<string, string> = { pdf: 'PDF', dxf: 'DXF', dwg: 'DWG', tif: 'TIFF', tiff: 'TIFF' };
+/** 拡張子から種別を決める。社内システムの図面（PDF・DXF）と3Dモデル（eDrawings）に対応する。 */
+const FILE_TYPES: Record<string, string> = {
+  pdf: 'PDF', dxf: 'DXF', dwg: 'DWG', tif: 'TIFF', tiff: 'TIFF',
+  easm: 'EASM', eprt: 'EPRT', edrw: 'EDRW', sldasm: 'SLDASM', sldprt: 'SLDPRT',
+  step: 'STEP', stp: 'STEP', igs: 'IGES', iges: 'IGES',
+};
+
+/** eDrawingsなどの3Dモデル。図面と区別して表示する。 */
+const MODEL_TYPES = new Set(['EASM', 'EPRT', 'EDRW', 'SLDASM', 'SLDPRT', 'STEP', 'IGES']);
+
+export const isModelType = (fileType: string): boolean => MODEL_TYPES.has(fileType.trim().toUpperCase());
+
+/** 表示順は 図面（PDF → DXF → DWG → TIFF）→ 3Dモデル → その他。 */
+export function drawingTypeRank(fileType: string): number {
+  const value = fileType.trim().toUpperCase();
+  const order = ['PDF', 'DXF', 'DWG', 'TIFF'].indexOf(value);
+  if (order >= 0) return order;
+  return isModelType(value) ? 10 : 20;
+}
 
 /** 図番・品番の比較は前後の空白と大文字小文字を無視する。 */
 export const drawingKey = (value: string): string => value.trim().toUpperCase().replace(/\s+/g, '');
@@ -312,5 +330,6 @@ export function searchDrawings(drawings: DrawingLink[], query: string): DrawingL
 }
 
 export const sortDrawings = (drawings: DrawingLink[]): DrawingLink[] =>
-  [...drawings].sort((a, b) =>
-    drawingKey(a.drawingNo).localeCompare(drawingKey(b.drawingNo)) || a.fileType.localeCompare(b.fileType));
+  [...drawings].sort((a, b) => drawingKey(a.drawingNo).localeCompare(drawingKey(b.drawingNo))
+    || drawingTypeRank(a.fileType) - drawingTypeRank(b.fileType)
+    || a.fileType.localeCompare(b.fileType));
