@@ -511,6 +511,18 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawings-capture h2 { margin: 0; font-size: 19px; }
 .drawings-capture p { margin: 5px 0 0; max-width: 720px; color: #667085; font-size: 13px; line-height: 1.6; }
 .drawings-capture-actions { display: flex; gap: 8px; white-space: nowrap; }
+.drawings-auto-toggle { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 13px; font-weight: 750; color: #344054; cursor: pointer; }
+.drawings-auto-toggle input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: #5865e8; }
+.drawings-auto-toggle small { display: block; margin-top: 2px; font-weight: 600; color: #8a93a4; }
+.drawings-recent { margin-top: 12px; padding: 12px 14px; border: 1px solid #dfe4ee; border-radius: 10px; background: #fff; }
+.drawings-recent-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: 14px; }
+.drawings-recent-head button { padding: 4px 10px; font-size: 12px; }
+.drawings-recent ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; max-height: 220px; overflow: auto; }
+.drawings-recent li { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.drawings-recent li > span:nth-child(2) { margin-right: auto; }
+.drawings-recent li button { padding: 3px 9px; font-size: 12px; }
+.drawing-status { display: inline-block; min-width: 44px; padding: 2px 8px; border-radius: 999px; background: #e9f7f1; color: #14755f; font-size: 12px; font-weight: 750; text-align: center; }
+.drawing-status.updated { background: #eef2ff; color: #4054ae; }
 .drawings-paste { width: 100%; min-height: 62px; margin-top: 12px; padding: 10px 12px; border: 1px solid #cfd6e3; border-radius: 8px; font: inherit; font-size: 13px; resize: vertical; }
 .drawings-message { margin-top: 12px; padding: 9px 13px; border-radius: 8px; background: #e9f7f1; color: #14755f; font-size: 13px; }
 
@@ -556,7 +568,12 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .drawing-open { display: inline-block; padding: 5px 12px; border-radius: 8px; background: #5865e8; color: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
 .drawing-open.is-disabled { background: #d8dee9; color: #7b8493; cursor: not-allowed; }
 
-/* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。 */
+/* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。
+   組立図と部品図は図面リンクタブの区分バッジと同じ配色で見分けられるようにする。 */
 .drawing-link { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 10px; font-weight: 800; letter-spacing: .02em; text-decoration: none; vertical-align: 1px; }
+.drawing-link.is-assembly { background: #c7ebdd; color: #0b5c4a; }
+.drawing-link.is-part { background: #ffdfb5; color: #8a4a0b; }
 .drawing-link:hover { background: #5865e8; color: #fff; }
+.drawing-link.is-assembly:hover { background: #14755f; color: #fff; }
+.drawing-link.is-part:hover { background: #a2621a; color: #fff; }
 @media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }

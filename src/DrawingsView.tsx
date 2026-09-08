@@ -1,19 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   DRAWING_CATEGORIES,
+  buildDrawingLink,
   detectDrawingCategory,
   drawingCategoryOf,
   drawingKey,
+  findExistingDrawing,
   isOpenableUrl,
+  isRegisterable,
   mergePartNos,
   parseDrawingClipboard,
+  parseDrawingClipboardAll,
   partNoFromDrawingNo,
   removeDrawing,
   searchDrawings,
   sortDrawings,
   upsertDrawing,
   type DrawingLink,
+  type ParsedDrawing,
 } from './drawings';
 
 type Props = {
@@ -26,6 +31,10 @@ type Props = {
 type Draft = Omit<DrawingLink, 'updatedAt'> & { isNew: boolean };
 
 const FILE_TYPES = ['PDF', 'DXF', 'DWG', 'TIFF', 'その他'];
+const AUTO_REGISTER_KEY = 'matrix-parts-list.drawings.auto-register';
+
+/** 今回の取り込みで登録・更新した図面。まとめて貼り付けたときの控えとして表示する。 */
+type Registered = { id: string; label: string; status: '登録' | '更新' };
 
 const emptyDraft = (): Draft => ({
   id: crypto.randomUUID(), drawingNo: '', docNo: '', fileType: 'PDF', category: '', fileName: '', url: '', partNos: [], note: '', isNew: true,
@@ -57,44 +66,79 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [recent, setRecent] = useState<Registered[]>([]);
+  const [autoRegister, setAutoRegister] = useState(() => {
+    try { return localStorage.getItem(AUTO_REGISTER_KEY) !== 'off'; } catch { return true; }
+  });
 
   const listed = useMemo(() => sortDrawings(searchDrawings(drawings, search)), [drawings, search]);
   const partNoOptions = useMemo(() => [...new Set(knownPartNos.filter(partNo => partNo && partNo !== '+'))].sort(), [knownPartNos]);
 
+  const changeAutoRegister = (value: boolean) => {
+    setAutoRegister(value);
+    try { localStorage.setItem(AUTO_REGISTER_KEY, value ? 'on' : 'off'); } catch { /* 保存できなくても動作は変えない */ }
+  };
+
   /**
-   * 取り込んだリンクから図番を推定する。図番と品番は一致しないことがあるため、
-   * 対象品番は図番の初期値を入れたうえで、利用者が自由に足し引きできるようにする。
+   * 取り込んだリンクを下書きへ入れる。図番と品番は一致しないことがあるため、
+   * 対象品番は初期値を入れたうえで、利用者が自由に足し引きできるようにする。
    */
-  const startDraft = (text: string) => {
-    const parsed = parseDrawingClipboard(text);
-    if (!parsed) {
+  const startDraft = (parsed: ParsedDrawing) => {
+    const existing = findExistingDrawing(drawings, parsed);
+    const entry = buildDrawingLink(parsed, existing);
+    setDraft({ ...entry, isNew: !existing });
+  };
+
+  /**
+   * 貼り付けやクリップボード取得の入口。自動登録が有効なら、図番・リンク・
+   * 対象品番がそろったものはそのまま登録し、判定できなかったものだけ下書きへ出す。
+   * 複数のリンクをまとめて貼り付けた場合は、その全件を順に処理する。
+   */
+  const intake = (text: string) => {
+    const parsedList = parseDrawingClipboardAll(text, partNoOptions);
+    if (!parsedList.length) {
       setError('リンク（http/https）が見つかりません。社内システムでPDF・DXFのリンクをコピーしてください。');
       return false;
     }
     setError('');
     setMessage('');
-    const existing = drawings.find(drawing => drawing.url === parsed.url
-      || (drawingKey(drawing.drawingNo) === drawingKey(parsed.drawingNo) && drawingKey(drawing.fileType) === drawingKey(parsed.fileType)));
-    setDraft({
-      id: existing?.id ?? crypto.randomUUID(),
-      drawingNo: parsed.drawingNo,
-      docNo: parsed.docNo,
-      fileType: parsed.fileType,
-      category: existing?.category?.trim() || parsed.category,
-      fileName: parsed.fileName,
-      url: parsed.url,
-      // 組立図は図番と品番が異なるため、図番から導いた品番も初期値へ入れる。
-      partNos: mergePartNos(existing?.partNos ?? [], parsed.drawingNo ? [parsed.drawingNo] : [], parsed.partNo ? [parsed.partNo] : []),
-      note: existing?.note ?? '',
-      isNew: !existing,
-    });
+    if (!autoRegister) {
+      startDraft(parsedList[0]);
+      if (parsedList.length > 1) setError(`自動登録が無効のため、${parsedList.length}件のうち先頭の1件だけを読み込みました。`);
+      return true;
+    }
+    let next = drawings;
+    const done: Registered[] = [];
+    const pending: ParsedDrawing[] = [];
+    for (const parsed of parsedList) {
+      const existing = findExistingDrawing(next, parsed);
+      const entry = buildDrawingLink(parsed, existing);
+      if (!isRegisterable(entry)) { pending.push(parsed); continue; }
+      next = upsertDrawing(next, entry);
+      done.push({
+        id: entry.id,
+        label: `${entry.drawingNo}（${drawingCategoryOf(entry) || '区分なし'}・${entry.fileType}）`,
+        status: existing ? '更新' : '登録',
+      });
+    }
+    if (done.length) {
+      onChange(next);
+      setRecent(current => [...done, ...current].slice(0, 20));
+      const added = done.filter(item => item.status === '登録').length;
+      setMessage(`${done.length}件を自動登録しました（新規 ${added}件 / 更新 ${done.length - added}件）。`);
+      setPasted('');
+    }
+    if (pending.length) {
+      startDraft(pending[0]);
+      setError(`${pending.length}件は図番を判定できませんでした。内容を確認して登録してください。`);
+    }
     return true;
   };
 
   const captureFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      if (startDraft(text)) setPasted(text);
+      if (intake(text) && !autoRegister) setPasted(text);
     } catch {
       setError('クリップボードを読み取れませんでした。下の入力欄へ貼り付け（Ctrl+V）してください。');
     }
@@ -102,8 +146,24 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
 
   const changePasted = (text: string) => {
     setPasted(text);
-    if (text.trim()) startDraft(text);
+    if (text.trim()) intake(text);
   };
+
+  // 画面のどこで貼り付けても取り込めるようにする。入力欄の編集中と、下書きを
+  // 直している最中は横取りしない。
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (draft) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const text = event.clipboardData?.getData('text') ?? '';
+      if (!text.trim()) return;
+      event.preventDefault();
+      intake(text);
+    };
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  });
 
   const addPartNos = (value: string) => {
     const added = value.split(/[\s,、;/]+/).filter(Boolean);
@@ -159,17 +219,21 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
       <div className="drawings-capture-head">
         <div>
           <h2>図面リンクの取り込み</h2>
-          <p>社内システムの品番マスタで PDF・DXF のリンクをコピーし、「クリップボードから取得」を押します。図番はリンクから自動判定し、品番とは別に管理します。</p>
+          <p>社内システムの品番マスタで PDF・DXF のリンクをコピーし、「クリップボードから取得」を押すか、この画面で貼り付け（Ctrl+V）します。図番・区分・対象品番を自動判定し、そろっていればボタンを押さずにそのまま登録します。複数のリンクをまとめて貼り付けても、全件を続けて登録できます。</p>
         </div>
         <div className="drawings-capture-actions">
           <button className="primary" type="button" onClick={() => void captureFromClipboard()}>クリップボードから取得</button>
           <button type="button" onClick={() => { setDraft(emptyDraft()); setPartNoInput(''); setError(''); setMessage(''); }}>手入力で追加</button>
         </div>
       </div>
+      <label className="drawings-auto-toggle">
+        <input type="checkbox" checked={autoRegister} onChange={event => changeAutoRegister(event.target.checked)} />
+        <span>取得したら自動で登録する<small>図番を判定できなかったものだけ、確認用の入力欄へ出します。</small></span>
+      </label>
       <textarea
         className="drawings-paste"
         aria-label="図面リンクを貼り付け"
-        placeholder="クリップボードを読み取れない場合は、ここへ貼り付け（Ctrl+V）してください。"
+        placeholder="ここへ貼り付け（Ctrl+V）すると取り込みます。1行に1つずつ、複数のリンクをまとめて貼り付けられます。"
         value={pasted}
         onChange={event => changePasted(event.target.value)}
       />
@@ -177,6 +241,14 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
 
     {error && <div className="error">⚠ {error}<button type="button" onClick={() => setError('')}>×</button></div>}
     {message && <div className="drawings-message">{message}</div>}
+    {recent.length > 0 && <div className="drawings-recent">
+      <div className="drawings-recent-head"><b>今回の取り込み</b><button type="button" onClick={() => setRecent([])}>表示を消す</button></div>
+      <ul>{recent.map((item, index) => <li key={`${item.id}-${index}`}>
+        <span className={`drawing-status ${item.status === '登録' ? 'added' : 'updated'}`}>{item.status}</span>
+        <span>{item.label}</span>
+        <button type="button" onClick={() => { const found = drawings.find(drawing => drawing.id === item.id); if (found) edit(found); }}>編集</button>
+      </li>)}</ul>
+    </div>}
 
     {draft && <form className="drawing-form" onSubmit={event => { event.preventDefault(); save(); }}>
       <h3>{draft.isNew ? '図面リンクを登録' : '図面リンクを編集'}</h3>
@@ -188,7 +260,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
         <label className="drawing-form-wide"><span>リンク</span><input value={draft.url} placeholder="https://..." onChange={event => {
           const url = event.target.value;
           // 手入力でリンクを差し替えたときも、空欄の項目だけは自動判定を補う。
-          const parsed = parseDrawingClipboard(url);
+          const parsed = parseDrawingClipboard(url, partNoOptions);
           setDraft({ ...draft, url, fileName: parsed?.fileName ?? '', drawingNo: draft.drawingNo || (parsed?.drawingNo ?? ''), docNo: draft.docNo || (parsed?.docNo ?? '') });
         }} /></label>
         <div className="drawing-form-wide">
@@ -204,7 +276,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos }: Props
               onBlur={() => addPartNos(partNoInput)}
             />
             <button type="button" onClick={() => addPartNos(draft.drawingNo)} disabled={!draft.drawingNo.trim()}>図番と同じ</button>
-            <button type="button" onClick={() => addPartNos(partNoFromDrawingNo(draft.drawingNo))} disabled={!partNoFromDrawingNo(draft.drawingNo)} title="11桁の図番から、対応する10桁の品番を追加します">図番から品番</button>
+            <button type="button" onClick={() => addPartNos(partNoFromDrawingNo(draft.drawingNo, partNoOptions))} disabled={!partNoFromDrawingNo(draft.drawingNo, partNoOptions)} title="11桁の図番から、対応する10桁の品番を追加します">図番から品番</button>
           </div>
           <datalist id="drawing-part-options">{partNoOptions.map(partNo => <option key={partNo} value={partNo} />)}</datalist>
         </div>
