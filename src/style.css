@@ -3,11 +3,12 @@
 /* Keep every frozen information column contiguous. Explicit widths and matching
    offsets prevent the gaps that appeared between 風船, 品番, Ver. and 数量. */
 th:nth-child(1), td:nth-child(1) { left: 0; width: 72px; min-width: 72px; max-width: 72px; }
-th:nth-child(2), td:nth-child(2) { left: 72px; width: 168px; min-width: 168px; max-width: 168px; }
-th:nth-child(3), td:nth-child(3) { left: 240px; width: 56px; min-width: 56px; max-width: 56px; }
-th:nth-child(4), td:nth-child(4) { left: 296px; width: 300px; min-width: 300px; max-width: 300px; }
-th:nth-child(5), td:nth-child(5) { left: 596px; width: 66px; min-width: 66px; max-width: 66px; }
-th:nth-child(6), td:nth-child(6) { left: 662px; width: 150px; min-width: 150px; max-width: 150px; }
+/* 品番列は、PDF・DXF・3Dモデルのバッジが3つ並んでも切れない幅にする。 */
+th:nth-child(2), td:nth-child(2) { left: 72px; width: 206px; min-width: 206px; max-width: 206px; }
+th:nth-child(3), td:nth-child(3) { left: 278px; width: 56px; min-width: 56px; max-width: 56px; }
+th:nth-child(4), td:nth-child(4) { left: 334px; width: 300px; min-width: 300px; max-width: 300px; }
+th:nth-child(5), td:nth-child(5) { left: 634px; width: 66px; min-width: 66px; max-width: 66px; }
+th:nth-child(6), td:nth-child(6) { left: 700px; width: 150px; min-width: 150px; max-width: 150px; }
 th[data-column="version"], td[data-column="version"] { text-align: center; }
 
 /* Readability: the application is primarily used on desktop monitors, so avoid
@@ -577,7 +578,7 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 
 /* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。
    組立図と部品図は図面リンクタブの区分バッジと同じ配色で見分けられるようにする。 */
-.drawing-link { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 10px; font-weight: 800; letter-spacing: .02em; text-decoration: none; vertical-align: 1px; }
+.drawing-link { display: inline-block; margin-left: 4px; padding: 1px 4px; border-radius: 5px; background: #eef0ff; color: #4651bc; font-size: 9px; font-weight: 800; letter-spacing: 0; text-decoration: none; vertical-align: 1px; }
 .drawing-link.is-assembly { background: #c7ebdd; color: #0b5c4a; }
 .drawing-link.is-part { background: #ffdfb5; color: #8a4a0b; }
 .drawing-link.is-model { background: #ece1fc; color: #5b34a8; }
