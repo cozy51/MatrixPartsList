@@ -29,13 +29,40 @@ export const isStandardPl = (plNo: string): boolean => /^(HH1|HJ0)/i.test(plNo.t
 export const isPurchasedPart = (partNo: string): boolean => /^Z/i.test(partNo.trim());
 
 /**
- * 部品図（品番の9文字目が `5`・`6`）は、10桁目が違っても互換性があります。
- * 10桁目を除いた先頭9桁を「基本番号」として、互換の部品をまとめます。
+ * 数量を除いた部品の同一性。同じ部品なのに個数だけが違う行を見つけるのに使う。
+ * 補材（`+`）は品番を持たないため、品名・材質まで含めて同じものを1つとみなす。
  */
+export const partKeyWithoutQuantity = (part: Part): string =>
+  [part.balloon, part.partNo, part.version, part.name, part.material].join('\u001f').toLocaleUpperCase();
+
+/** 同じ部品で個数だけが違う行のまとまり。値はその部品に現れる個数（昇順）。 */
+export function buildQuantityConflicts(parts: Part[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const part of parts) {
+    const key = partKeyWithoutQuantity(part);
+    const quantity = part.quantity.trim();
+    const found = groups.get(key);
+    if (!found) groups.set(key, [quantity]);
+    else if (!found.includes(quantity)) found.push(quantity);
+  }
+  for (const [key, quantities] of groups) {
+    if (quantities.length < 2) groups.delete(key);
+    else quantities.sort((a, b) => (Number(a) || 0) - (Number(b) || 0) || natural.compare(a, b));
+  }
+  return groups;
+}
+
+/**
+ * 部品図（9文字目が `5`・`6`）と組立図の `4` は、10桁目が違っても互換性が
+ * あります。10桁目を除いた先頭9桁を「基本番号」として、互換の部品をまとめます。
+ * PL（`1`）は10桁目が違えば別のユニットなので、CAD IDの方で扱います。
+ */
+const COMPATIBLE_CATEGORY_CODES = new Set(['4', '5', '6']);
+
 export function compatibleBaseNo(partNo: string): string {
   const value = partNo.trim().toUpperCase();
   if (!/^[A-Z][A-Z0-9]{9}$/.test(value)) return '';
-  return value[8] === '5' || value[8] === '6' ? value.slice(0, 9) : '';
+  return COMPATIBLE_CATEGORY_CODES.has(value[8]) ? value.slice(0, 9) : '';
 }
 
 /** 基本番号ごとに品番をまとめる。10桁目だけが違う品番が2つ以上あるものだけを返す。 */
