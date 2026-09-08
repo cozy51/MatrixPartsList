@@ -22,12 +22,20 @@ export type DrawingLink = {
   updatedAt: string;
 };
 
-export type DrawingData = { revision: number; updatedAt: string; drawings: DrawingLink[] };
+/**
+ * CAD ID は、図面を流用する先の品番を指します。材質違いなど見た目が変わらない
+ * 場合に、社内システムの品番マスタで品番へCAD IDを登録して図面を共用します。
+ * このアプリでは PL（9文字目が `1`）にだけ登録できるようにしています。
+ */
+export type CadIdLink = { partNo: string; cadId: string; updatedAt: string };
+
+export type DrawingData = { revision: number; updatedAt: string; drawings: DrawingLink[]; cadIds?: CadIdLink[] };
 
 export const emptyDrawingData: DrawingData = {
   revision: 0,
   updatedAt: new Date(0).toISOString(),
   drawings: [],
+  cadIds: [],
 };
 
 export type ParsedDrawing = {
@@ -225,6 +233,41 @@ export function buildPartDrawingIndex(drawings: DrawingLink[]): Map<string, Draw
 
 export const drawingsForPart = (index: Map<string, DrawingLink[]>, partNo: string): DrawingLink[] =>
   index.get(drawingKey(partNo)) ?? [];
+
+/** CAD IDを登録できるのはPL（9文字目が `1` の10桁番号）だけ。 */
+export function isPlNumber(no: string): boolean {
+  const value = normalizeDrawingNo(no);
+  return /^[A-Z][A-Z0-9]{9}$/.test(value) && value[8] === '1';
+}
+
+export const cadIdFor = (cadIds: CadIdLink[], partNo: string): string =>
+  cadIds.find(item => drawingKey(item.partNo) === drawingKey(partNo))?.cadId ?? '';
+
+/** 同じ品番のCAD IDは1件だけ持つ。登録し直すと上書きする。 */
+export function upsertCadId(cadIds: CadIdLink[], entry: CadIdLink): CadIdLink[] {
+  const key = drawingKey(entry.partNo);
+  const others = cadIds.filter(item => drawingKey(item.partNo) !== key);
+  return [...others, entry];
+}
+
+export const removeCadId = (cadIds: CadIdLink[], partNo: string): CadIdLink[] =>
+  cadIds.filter(item => drawingKey(item.partNo) !== drawingKey(partNo));
+
+export const sortCadIds = (cadIds: CadIdLink[]): CadIdLink[] =>
+  [...cadIds].sort((a, b) => drawingKey(a.partNo).localeCompare(drawingKey(b.partNo)));
+
+/** 品番自身の図面と、CAD IDから流用する図面。流用分は viaCadId を持つ。 */
+export type ResolvedDrawing = { drawing: DrawingLink; viaCadId?: string };
+
+export function drawingsForPartWithCadId(index: Map<string, DrawingLink[]>, cadIds: CadIdLink[], partNo: string): ResolvedDrawing[] {
+  const own: ResolvedDrawing[] = drawingsForPart(index, partNo).map(drawing => ({ drawing }));
+  const cadId = cadIdFor(cadIds, partNo);
+  if (!cadId || drawingKey(cadId) === drawingKey(partNo)) return own;
+  const borrowed = drawingsForPart(index, cadId)
+    .filter(drawing => !own.some(item => item.drawing.id === drawing.id))
+    .map(drawing => ({ drawing, viaCadId: cadId }));
+  return [...own, ...borrowed];
+}
 
 /** 図番と種別が一致する既存の図面。取り込み直しは新規ではなく更新として扱う。 */
 export const findExistingDrawing = (drawings: DrawingLink[], parsed: ParsedDrawing): DrawingLink | undefined =>

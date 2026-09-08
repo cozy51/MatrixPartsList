@@ -601,4 +601,15 @@ th.plhead .pl-badges { max-width: 120px; margin: 4px auto 0; white-space: normal
 .pl .pl-badges .drawing-link:first-child { margin-left: 0; }
 .drawing-link.is-part:hover { background: #a2621a; color: #fff; }
 .drawing-link.is-model:hover { background: #5b34a8; color: #fff; }
+/* CAD IDから流用した図面は、破線と CAD の印で区別する。 */
+.drawing-link.is-cadid { border: 1px dashed currentColor; padding: 0 4px; }
+.drawing-link.is-cadid i { margin-left: 3px; font-size: 8px; font-style: normal; font-weight: 800; letter-spacing: .04em; opacity: .85; }
+
+.cadid-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 14px; border: 1px solid #dfe4ee; border-radius: 10px; background: #f8f9ff; }
+.cadid-form label { display: block; font-size: 13px; font-weight: 750; color: #475467; }
+.cadid-form input { width: 200px; margin-top: 5px; padding: 9px 11px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; font: inherit; font-size: 14px; }
+.cadid-arrow { padding-bottom: 10px; color: #8a93a4; font-size: 18px; font-weight: 800; }
+.cadid-table { margin-top: 10px; }
+.drawing-chip.is-cadid { background: #eef7ff; color: #1f5fa8; border: 1px dashed #7fb0e0; }
+.cadid-missing { color: #b4232d; font-size: 12px; }
 @media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }

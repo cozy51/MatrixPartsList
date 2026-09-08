@@ -68,6 +68,16 @@ UTF-8 CSVに対応します。不正な文字コード、空ファイル、必�
 
 図番だけではどちらの数え方か決まらないため、`先頭10桁` と `先頭9桁 + 0` の両方を品番の候補とし、**部品表に実在する品番（明細の品番とPL番号）を優先**して選びます。取り込み時は選んだ品番を対象品番へ加え、すでに図番だけで登録済みの図面も、部品表からは候補の品番でたどれます。編集画面の「図番から品番」ボタンでも同じ品番を追加できます。10桁の図番（図番＝品番）は読み替えません。
 
+### CAD ID（図面の流用）
+
+材質違いなど見た目が変わらない場合、社内システムでは品番に **CAD ID** を登録して図面を共用します。このアプリでも、PLの図面をCAD IDの品番から流用できます。
+
+- 「図面リンク」タブの「CAD ID（図面の流用）」で、`PL番号 → CAD ID` を登録します。例: PL `HH11002010`（浸炭仕様）に CAD ID `HH11001010` を登録すると、`HH11001010` の図面をそのまま開けます。
+- 登録できるのは **PL（10桁目が `1`）の番号だけ**です。それ以外を入れるとエラーになります。
+- 1つのPLにつきCAD IDは1件です。登録し直すと上書きします。
+- 流用した図面のバッジは**破線と `CAD` の印**を付け、通常の図面と区別します。マウスを重ねると「CAD ID HH11001010 から流用」と表示します。PL番号のツールチップにもCAD IDを表示します。
+- CAD IDの対応表は図面リンクと同じファイル（`MatrixPartsList-drawings.json`）へ保存し、同じタイミングでGoogle Driveへ同期します。
+
 ### 取り込み手順
 
 1. 社内システムの品番マスタで、図面欄の `PDF` `DXF` や、3Dモデル欄の `EASM` のリンクをコピーします（右クリック →「リンクのアドレスをコピー」）。
@@ -118,6 +128,6 @@ python3 scripts/generate-icons.py
 4. 承認済みJavaScript生成元へ開発用の `http://localhost:5173` と本番URLを登録します。
 5. `.env.local` に `VITE_GOOGLE_CLIENT_ID=...apps.googleusercontent.com` を設定し、開発サーバーを再起動します。
 
-クライアントシークレットは不要であり、フロントエンドへ設定しないでください。ログイン後は `drive.file` スコープを使い、`WebAppsData` フォルダー（Folder ID: `1SWmOnYn98EN5nZs7Jsi3vBLkuJa4B_O6`）配下の `MatrixPartsList/MatrixPartsList-latest.json` に保存します。図面リンクは同じ `MatrixPartsList` フォルダー内の別ファイル `MatrixPartsList-drawings.json` へ保存し、部品表とは独立した `revision` で同期します。図面リンクはログイン時に新しい方（クラウド／ローカル）を自動採用します。保存先の `WebAppsData` は名前ではなくこのFolder IDで直接指定します。名前で見つかる旧 `WebAppsData` や、さらに古い `WebAppData` にだけデータがある場合は一度読み込み、次回の書き込みでFolder ID指定の `WebAppsData` へ移行します。同期前にクラウドの `revision` を確認し、クラウドが新しければ選択画面を出します。通信エラーでもローカルデータと操作は維持されます。Googleのアクセストークンはメモリー内だけに保持します。
+クライアントシークレットは不要であり、フロントエンドへ設定しないでください。ログイン後は `drive.file` スコープを使い、`WebAppsData` フォルダー（Folder ID: `1SWmOnYn98EN5nZs7Jsi3vBLkuJa4B_O6`）配下の `MatrixPartsList/MatrixPartsList-latest.json` に保存します。図面リンクとCAD IDの対応表は、同じ `MatrixPartsList` フォルダー内の別ファイル `MatrixPartsList-drawings.json` へ保存し、部品表とは独立した `revision` で同期します。図面リンクはログイン時に新しい方（クラウド／ローカル）を自動採用します。保存先の `WebAppsData` は名前ではなくこのFolder IDで直接指定します。名前で見つかる旧 `WebAppsData` や、さらに古い `WebAppData` にだけデータがある場合は一度読み込み、次回の書き込みでFolder ID指定の `WebAppsData` へ移行します。同期前にクラウドの `revision` を確認し、クラウドが新しければ選択画面を出します。通信エラーでもローカルデータと操作は維持されます。Googleのアクセストークンはメモリー内だけに保持します。
 
 > `drive.file` はこのアプリが作成したファイルだけにアクセスする安全性を優先したスコープです。別環境で既に作られた同名ファイルを自動検出する必要がある運用では、Googleの審査要件を確認したうえでスコープ設計を見直してください。
