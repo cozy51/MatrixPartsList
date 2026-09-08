@@ -3,29 +3,23 @@ import * as XLSX from 'xlsx';
 import {
   DRAWING_CATEGORIES,
   buildDrawingLink,
-  cadIdFor,
   detectDrawingCategory,
   drawingCategoryOf,
   drawingKey,
   findExistingDrawing,
   isAutoRegisterEnabled,
   isOpenableUrl,
-  isPlNumber,
   mergePartNos,
   normalizeDrawingNo,
   parseDrawingClipboard,
   parseDrawingClipboardAll,
   partNoFromDrawingNo,
   registerDrawings,
-  removeCadId,
   removeDrawing,
   setAutoRegisterEnabled,
   searchDrawings,
-  sortCadIds,
   sortDrawings,
-  upsertCadId,
   upsertDrawing,
-  type CadIdLink,
   type DrawingLink,
   type ParsedDrawing,
 } from './drawings';
@@ -35,9 +29,6 @@ type Props = {
   onChange: (drawings: DrawingLink[]) => void;
   /** 登録済みPLの品番。対象品番の入力候補として使う。 */
   knownPartNos: string[];
-  /** 図面を流用するCAD IDの対応表。 */
-  cadIds: CadIdLink[];
-  onCadIdsChange: (cadIds: CadIdLink[]) => void;
   /** 他の画面から引き継いだ取り込み文字列。確認が必要なリンクを受け取る。 */
   intakeText?: string;
   onIntakeHandled?: () => void;
@@ -73,7 +64,7 @@ function exportDrawings(drawings: DrawingLink[]) {
   XLSX.writeFile(workbook, '図面リンク一覧.xlsx');
 }
 
-export default function DrawingsView({ drawings, onChange, knownPartNos, cadIds, onCadIdsChange, intakeText, onIntakeHandled }: Props) {
+export default function DrawingsView({ drawings, onChange, knownPartNos, intakeText, onIntakeHandled }: Props) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [partNoInput, setPartNoInput] = useState('');
   const [pasted, setPasted] = useState('');
@@ -81,28 +72,10 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, cadIds,
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [recent, setRecent] = useState<Registered[]>([]);
-  const [cadPartNo, setCadPartNo] = useState('');
-  const [cadTarget, setCadTarget] = useState('');
   const [autoRegister, setAutoRegister] = useState(isAutoRegisterEnabled);
 
   const listed = useMemo(() => sortDrawings(searchDrawings(drawings, search)), [drawings, search]);
   const partNoOptions = useMemo(() => [...new Set(knownPartNos.filter(partNo => partNo && partNo !== '+'))].sort(), [knownPartNos]);
-  const plNoOptions = useMemo(() => partNoOptions.filter(isPlNumber), [partNoOptions]);
-  const listedCadIds = useMemo(() => sortCadIds(cadIds), [cadIds]);
-
-  /** CAD IDはPL（10桁目が1）にだけ登録する。図面はCAD ID側に登録されたものを流用する。 */
-  const saveCadId = () => {
-    const partNo = cadPartNo.trim().toUpperCase();
-    const cadId = cadTarget.trim().toUpperCase();
-    if (!partNo || !cadId) { setError('PL番号とCAD IDを入力してください。'); return; }
-    if (!isPlNumber(partNo)) { setError('CAD IDを登録できるのはPL（10桁目が1）の番号だけです。'); return; }
-    if (drawingKey(partNo) === drawingKey(cadId)) { setError('PL番号とCAD IDが同じです。'); return; }
-    onCadIdsChange(upsertCadId(cadIds, { partNo, cadId, updatedAt: new Date().toISOString() }));
-    setCadPartNo('');
-    setCadTarget('');
-    setError('');
-    setMessage(`${partNo} のCAD IDに ${cadId} を登録しました。`);
-  };
 
   const changeAutoRegister = (value: boolean) => {
     setAutoRegister(value);
@@ -345,30 +318,5 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, cadIds,
       </tr>)}</tbody>
     </table></div> : <p className="drawings-empty">{drawings.length ? '検索条件に一致する図面リンクはありません。' : '図面リンクはまだ登録されていません。社内システムでリンクをコピーして取り込んでください。'}</p>}
 
-    <div className="drawings-list-head">
-      <div><h3>CAD ID（図面の流用）</h3><p>材質違いなど見た目が変わらない場合に、PLの図面をCAD IDの品番から流用します。CAD IDを登録できるのはPL（10桁目が1）の番号だけです。</p></div>
-    </div>
-    <form className="cadid-form" onSubmit={event => { event.preventDefault(); saveCadId(); }}>
-      <label><span>PL番号</span><input list="cadid-pl-options" value={cadPartNo} placeholder="例: HH11002010" onChange={event => setCadPartNo(event.target.value)} /></label>
-      <span className="cadid-arrow" aria-hidden="true">→</span>
-      <label><span>CAD ID</span><input list="drawing-part-options" value={cadTarget} placeholder="図面を持つ品番" onChange={event => setCadTarget(event.target.value)} /></label>
-      <button className="primary" type="submit">CAD IDを登録</button>
-      <datalist id="cadid-pl-options">{plNoOptions.map(partNo => <option key={partNo} value={partNo} />)}</datalist>
-    </form>
-    {listedCadIds.length ? <div className="drawings-table cadid-table"><table>
-      <thead><tr><th>PL番号</th><th>CAD ID</th><th>流用できる図面</th><th>操作</th></tr></thead>
-      <tbody>{listedCadIds.map(item => {
-        const borrowed = drawings.filter(drawing => drawing.partNos.some(partNo => drawingKey(partNo) === drawingKey(item.cadId)));
-        return <tr key={item.partNo}>
-          <td><b>{item.partNo}</b></td>
-          <td><span className="drawing-chip is-cadid">CAD ID {item.cadId}</span></td>
-          <td>{borrowed.length ? borrowed.map(drawing => <span className={`drawing-type ${drawing.fileType.toLowerCase()}`} key={drawing.id}>{drawing.fileType}</span>) : <span className="cadid-missing">CAD IDの図面が未登録です</span>}</td>
-          <td className="drawing-actions">
-            <button type="button" onClick={() => { setCadPartNo(item.partNo); setCadTarget(item.cadId); }}>編集</button>
-            <button type="button" onClick={() => { if (confirm(`${item.partNo} のCAD ID（${item.cadId}）を削除しますか？`)) onCadIdsChange(removeCadId(cadIds, item.partNo)); }}>削除</button>
-          </td>
-        </tr>;
-      })}</tbody>
-    </table></div> : <p className="drawings-empty">CAD IDはまだ登録されていません。</p>}
   </section>;
 }

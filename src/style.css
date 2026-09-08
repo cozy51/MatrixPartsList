@@ -596,9 +596,22 @@ th.plhead { min-width: 140px; }
 .pl-badges .drawing-link { margin-left: 4px; vertical-align: 0; }
 .pl-badges .standard-marker + .drawing-link { margin-left: 5px; }
 th.plhead .pl-badges { max-width: 120px; margin: 4px auto 0; white-space: normal; }
-/* 左の登録済みPL一覧でも、同じバッジからPDF・DXF・3Dモデルを開ける。 */
-.pl .pl-badges { margin: 5px 0 2px; white-space: normal; }
-.pl .pl-badges .drawing-link:first-child { margin-left: 0; }
+/* 左の登録済みPL一覧でも、同じバッジからPDF・DXF・3Dモデルを開ける。
+   STDと同じ行に並べたいので、こちらは折り返さずインラインで表示する。 */
+.pl-badges-inline { display: inline; margin: 0; white-space: normal; }
+
+/* ツールチップは隣のPL列より前面に出す（列ヘッダーは重なり順を持つため）。 */
+th.plhead:hover, th.plhead:focus-within { z-index: 12; }
+
+/* CAD IDタブ。 */
+.cadid-view { min-height: 0; overflow: auto; padding: 18px; background: #fff; border: 1px solid #e2e6ed; border-radius: 10px; }
+.cadid-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+.cadid-heading h2 { margin: 0; font-size: 19px; }
+.cadid-heading p { margin: 5px 0 0; max-width: 760px; color: #667085; font-size: 13px; line-height: 1.7; }
+.cadid-heading code { padding: 1px 5px; border-radius: 4px; background: #eef0ff; color: #4651bc; font-size: 12px; }
+.cadid-heading strong { color: #3346ba; font-size: 22px; white-space: nowrap; }
+.cadid-heading strong span { color: #8992a3; font-size: 13px; font-weight: 650; }
+.cadid-note { margin-top: 12px; color: #8992a3; font-size: 13px; }
 .drawing-link.is-part:hover { background: #a2621a; color: #fff; }
 .drawing-link.is-model:hover { background: #5b34a8; color: #fff; }
 /* CAD IDから流用した図面は、破線と CAD の印で区別する。 */
