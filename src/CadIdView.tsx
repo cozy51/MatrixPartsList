@@ -41,9 +41,18 @@ export default function CadIdView({ cadIds, onChange, drawings, knownPartNos }: 
   const drawingsOf = (cadId: string) =>
     drawings.filter(drawing => drawing.partNos.some(no => drawingKey(no) === drawingKey(cadId)));
 
+  /** 入力の状態。ボタンを押せるかどうかを、その場で見て分かるようにする。 */
+  const from = partNo.trim().toUpperCase();
+  const to = target.trim().toUpperCase();
+  const invalidPl = Boolean(from) && !isPlNumber(from);
+  const sameNo = Boolean(from && to) && drawingKey(from) === drawingKey(to);
+  const ready = Boolean(from && to) && !invalidPl && !sameNo;
+  const hint = invalidPl ? 'CAD IDを登録できるのはPL（10桁目が1）の番号だけです。'
+    : sameNo ? 'PL番号とCAD IDが同じです。'
+    : ready ? `${from} の図面を ${to} から流用します。`
+    : 'PL番号とCAD IDを入力してください。';
+
   const save = () => {
-    const from = partNo.trim().toUpperCase();
-    const to = target.trim().toUpperCase();
     if (!from || !to) { setError('PL番号とCAD IDを入力してください。'); return; }
     if (!isPlNumber(from)) { setError('CAD IDを登録できるのはPL（10桁目が1）の番号だけです。'); return; }
     if (drawingKey(from) === drawingKey(to)) { setError('PL番号とCAD IDが同じです。'); return; }
@@ -63,11 +72,12 @@ export default function CadIdView({ cadIds, onChange, drawings, knownPartNos }: 
       <strong>{cadIds.length}<span> 件</span></strong>
     </div>
 
-    <form className="cadid-form" onSubmit={event => { event.preventDefault(); save(); }}>
-      <label><span>PL番号</span><input list="cadid-pl-options" value={partNo} placeholder="例: HH11002010" onChange={event => setPartNo(event.target.value)} /></label>
+    <form className={`cadid-form ${ready ? 'is-ready' : ''}`} onSubmit={event => { event.preventDefault(); save(); }}>
+      <label><span>PL番号</span><input className={from ? (invalidPl ? 'is-invalid' : 'is-ok') : ''} list="cadid-pl-options" value={partNo} placeholder="例: HH11002010" onChange={event => setPartNo(event.target.value)} /></label>
       <span className="cadid-arrow" aria-hidden="true">→</span>
-      <label><span>CAD ID</span><input list="cadid-part-options" value={target} placeholder="図面を持つ品番" onChange={event => setTarget(event.target.value)} /></label>
-      <button className="primary" type="submit">CAD IDを登録</button>
+      <label><span>CAD ID</span><input className={to ? (sameNo ? 'is-invalid' : 'is-ok') : ''} list="cadid-part-options" value={target} placeholder="図面を持つ品番" onChange={event => setTarget(event.target.value)} /></label>
+      <button className="primary" type="submit" disabled={!ready}>{ready ? '✓ CAD IDを登録' : 'CAD IDを登録'}</button>
+      <p className={`cadid-hint ${ready ? 'is-ready' : invalidPl || sameNo ? 'is-invalid' : ''}`}>{hint}</p>
       <datalist id="cadid-pl-options">{plNoOptions.map(no => <option key={no} value={no} />)}</datalist>
       <datalist id="cadid-part-options">{partNoOptions.map(no => <option key={no} value={no} />)}</datalist>
     </form>

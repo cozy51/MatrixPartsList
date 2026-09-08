@@ -633,6 +633,15 @@ th.plhead:hover, th.plhead:focus-within { z-index: 12; }
 .cadid-form label { display: block; font-size: 13px; font-weight: 750; color: #475467; }
 .cadid-form input { width: 200px; margin-top: 5px; padding: 9px 11px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; font: inherit; font-size: 14px; }
 .cadid-arrow { padding-bottom: 10px; color: #8a93a4; font-size: 18px; font-weight: 800; }
+/* 入力がそろってボタンを押せる状態かどうかを、その場で分かるようにする。 */
+.cadid-form input.is-ok { border-color: #27a468; background: #f5fdf9; }
+.cadid-form input.is-invalid { border-color: #d92d3a; background: #fff7f7; }
+.cadid-form button.primary:disabled { background: #ccd2e6; color: #fff; cursor: not-allowed; }
+.cadid-form.is-ready { border-color: #b9c1f0; background: #f2f4ff; }
+.cadid-form.is-ready button.primary { box-shadow: 0 0 0 3px #5865e840; }
+.cadid-hint { flex: 1 0 100%; margin: 2px 0 0; color: #8a93a4; font-size: 13px; }
+.cadid-hint.is-ready { color: #14755f; font-weight: 700; }
+.cadid-hint.is-invalid { color: #b4232d; font-weight: 700; }
 .cadid-table { margin-top: 10px; }
 .drawing-chip.is-cadid { background: #eef7ff; color: #1f5fa8; border: 1px dashed #7fb0e0; }
 .cadid-missing { color: #b4232d; font-size: 12px; }
