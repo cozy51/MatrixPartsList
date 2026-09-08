@@ -28,17 +28,19 @@ export const isStandardPl = (plNo: string): boolean => /^(HH1|HJ0)/i.test(plNo.t
 /** `Z` で始まる品番は購入品。部品表で見分けられるよう色を変える。 */
 export const isPurchasedPart = (partNo: string): boolean => /^Z/i.test(partNo.trim());
 
-/**
- * 数量を除いた部品の同一性。同じ部品なのに個数だけが違う行を見つけるのに使う。
- * 補材（`+`）は品番を持たないため、品名・材質まで含めて同じものを1つとみなす。
- */
+/** 数量を除いた部品の同一性。同じ部品なのに個数だけが違う行を見つけるのに使う。 */
 export const partKeyWithoutQuantity = (part: Part): string =>
   [part.balloon, part.partNo, part.version, part.name, part.material].join('\u001f').toLocaleUpperCase();
 
-/** 同じ部品で個数だけが違う行のまとまり。値はその部品に現れる個数（昇順）。 */
+/**
+ * 同じ部品で個数だけが違う行のまとまり。値はその部品に現れる個数（昇順）。
+ * 補材（`+`）は品名で現物を区別しており、同じ品名でも数量が違って当然のため
+ * 対象にしない。
+ */
 export function buildQuantityConflicts(parts: Part[]): Map<string, string[]> {
   const groups = new Map<string, string[]>();
   for (const part of parts) {
+    if (isSupplementPart(part.partNo)) continue;
     const key = partKeyWithoutQuantity(part);
     const quantity = part.quantity.trim();
     const found = groups.get(key);

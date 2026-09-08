@@ -203,14 +203,14 @@ describe('同じ部品で個数だけが違う行', () => {
       withQuantity('17', 'HH13026060', '2'),
       withQuantity('17', 'HH13026060', '1'),
       withQuantity('17', 'HH13008060', '3'),
-      // 補材は品名まで同じものだけを1つとみなす。
+      // 補材（+）は品名で現物を区別しているため、数量が違っても対象外。
       withQuantity('17', '+', '3', 'HCZr M4X8'),
       withQuantity('17', '+', '1', 'HCZr M4X8'),
       withQuantity('16', '+', '6', 'HC M3X6'),
     ]);
-    expect(conflicts.size).toBe(2);
+    expect(conflicts.size).toBe(1);
     expect(conflicts.get(partKeyWithoutQuantity(withQuantity('17', 'HH13026060', '1')))).toEqual(['1', '2']);
-    expect(conflicts.get(partKeyWithoutQuantity(withQuantity('17', '+', '1', 'HCZr M4X8')))).toEqual(['1', '3']);
+    expect(conflicts.get(partKeyWithoutQuantity(withQuantity('17', '+', '1', 'HCZr M4X8')))).toBeUndefined();
     // 個数が1通りだけの部品は対象外。
     expect(conflicts.get(partKeyWithoutQuantity(withQuantity('17', 'HH13008060', '3')))).toBeUndefined();
   });
