@@ -7,8 +7,16 @@ export function parsePartsList(text:string,fileName:string):PartsList{if(!text.t
 /** Remove deleted rows from persisted or restored data created by any app version. */
 export const removeDeletedParts=(lists:PartsList[]):PartsList[]=>lists.map(list=>({...list,parts:list.parts.filter(part=>(part.changeStatus||'').trim().toUpperCase()!=='D')}));
 
+/** PL Ver.は1〜2桁。3桁以上はダウンロード日時などの誤取得とみなして無効にする。 */
+export const isValidPlVersion=(value:string)=>{
+  const version=value.trim().replace(/^v/i,'');
+  return version.length>0&&version.length<=2;
+};
+
 export function extractPlVersion(fileName:string):string {
-  return fileName.match(/_([^_]+)\.(?:csv|xlsx?|xlsm)$/i)?.[1]?.trim() ?? '';
+  const version=fileName.match(/_([^_]+)\.(?:csv|xlsx?|xlsm)$/i)?.[1]?.trim() ?? '';
+  // 3桁以上はVer.ではないため取得せず、プレビューで入力してもらう。
+  return isValidPlVersion(version)?version:'';
 }
 
 export const normalizePlVersion=(value:string)=>{
