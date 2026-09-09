@@ -125,7 +125,7 @@ export function buildBalloonDuplicates(parts: Part[]): Map<string, string[]> {
  * 11桁の品番は通常、11桁目だけの違いを互換とするが、これらの機種CDは10桁目の
  * 違いも互換のため、先頭9桁を基本番号にする。
  */
-export const WIDE_COMPATIBLE_MACHINE_CODES = new Set(['HM0']);
+export const WIDE_COMPATIBLE_MACHINE_CODES = new Set(['HM0', 'HM1']);
 
 export function compatibleBaseNo(partNo: string): string {
   const value = partNo.trim().toUpperCase();
