@@ -520,6 +520,8 @@ button.excel { border-color: #a9d7bd; background: #eff9f3; color: #217346; font-
 button.excel:hover { border-color: #217346; background: #dff2e7; }
 .drawing-notice { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 10px 14px; border-radius: 8px; background: #e9f7f1; color: #14755f; font-size: 13px; font-weight: 650; }
 .drawing-notice button { margin-left: auto; border: 0; padding: 0 4px; background: transparent; color: inherit; }
+/* 図面リンクを追加できなかったときは、見落とさないよう注意の色にする。 */
+.drawing-notice.is-warn { background: #fff6e6; color: #96601a; }
 .drawings-view { min-height: 0; overflow: auto; padding: 18px; background: #fff; border: 1px solid #e2e6ed; border-radius: 10px; }
 .drawings-capture { padding: 16px; border: 1px solid #dfe4ee; border-radius: 10px; background: #f8f9ff; }
 .drawings-capture-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
@@ -539,7 +541,9 @@ button.excel:hover { border-color: #217346; background: #dff2e7; }
 .drawing-status { display: inline-block; min-width: 44px; padding: 2px 8px; border-radius: 999px; background: #e9f7f1; color: #14755f; font-size: 12px; font-weight: 750; text-align: center; }
 .drawing-status.updated { background: #eef2ff; color: #4054ae; }
 .drawings-paste { width: 100%; min-height: 62px; margin-top: 12px; padding: 10px 12px; border: 1px solid #cfd6e3; border-radius: 8px; font: inherit; font-size: 13px; resize: vertical; }
-.drawings-message { margin-top: 12px; padding: 9px 13px; border-radius: 8px; background: #e9f7f1; color: #14755f; font-size: 13px; }
+.drawings-message { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 9px 13px; border-radius: 8px; background: #e9f7f1; color: #14755f; font-size: 13px; line-height: 1.6; }
+.drawings-message button { margin-left: auto; border: 0; padding: 0 4px; background: transparent; color: inherit; }
+.drawings-message.is-warn { background: #fff6e6; color: #96601a; font-weight: 650; }
 
 .drawing-form { margin-top: 14px; padding: 16px; border: 1px solid #c3cbf5; border-radius: 10px; background: #fff; box-shadow: 0 6px 18px #5865e814; }
 .drawing-form h3 { margin: 0 0 12px; font-size: 16px; }
@@ -563,6 +567,15 @@ button.excel:hover { border-color: #217346; background: #dff2e7; }
 .drawings-list-head p { margin: 3px 0 0; color: #8992a3; font-size: 13px; }
 .drawings-list-head .search { width: 260px; }
 .drawings-empty { padding: 26px; border: 1px dashed #b8c2da; border-radius: 10px; color: #667085; text-align: center; }
+
+/* 登録済みの図面リンクは100件ずつに区切り、ページ送りで表示を軽くする。 */
+.drawings-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0; color: #667085; font-size: 13px; }
+.drawings-pager > span { margin-right: auto; }
+.drawings-pager-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.drawings-pager-buttons button { padding: 5px 11px; font-size: 12px; }
+.drawings-pager-buttons button:disabled { color: #aeb6c4; cursor: not-allowed; }
+.drawings-pager-select { display: flex; align-items: center; gap: 6px; }
+.drawings-pager-select select { padding: 5px 8px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; font: inherit; font-size: 12px; }
 
 /* 図面一覧はマトリックスの固定列レイアウトを引き継がないよう打ち消す。 */
 .drawings-table { overflow: auto; border: 1px solid #e2e6ed; border-radius: 9px; }

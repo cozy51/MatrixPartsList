@@ -20,6 +20,7 @@ import {
   setAutoRegisterEnabled,
   searchDrawings,
   sortDrawings,
+  summarizeDrawingIntake,
   upsertDrawing,
   type DrawingLink,
   type ParsedDrawing,
@@ -38,6 +39,9 @@ type Props = {
 type Draft = Omit<DrawingLink, 'updatedAt'> & { isNew: boolean };
 
 const FILE_TYPES = ['PDF', 'DXF', 'EASM', 'DWG', 'TIFF', 'その他'];
+
+/** 登録済みの図面リンクは件数が増えるため、1ページずつ表示して重くならないようにする。 */
+const PAGE_SIZE = 100;
 
 /** 今回の取り込みで登録・更新した図面。まとめて貼り付けたときの控えとして表示する。 */
 type Registered = { id: string; label: string; status: '登録' | '更新' };
@@ -71,12 +75,27 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
   const [pasted, setPasted] = useState('');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
+  /** メッセージの色味。登録できなかったときは注意の色で見落とさないようにする。 */
+  const [messageTone, setMessageTone] = useState<'ok' | 'warn'>('ok');
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
   const [recent, setRecent] = useState<Registered[]>([]);
   const [autoRegister, setAutoRegister] = useState(isAutoRegisterEnabled);
 
   const listed = useMemo(() => sortDrawings(searchDrawings(drawings, search)), [drawings, search]);
+  const pageCount = Math.max(1, Math.ceil(listed.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paged = useMemo(() => listed.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [listed, currentPage]);
+  // 検索や削除で件数が変わったときは、存在しないページに留まらないよう先頭へ戻す。
+  useEffect(() => { setPage(1); }, [search]);
+  useEffect(() => { setPage(value => Math.min(value, pageCount)); }, [pageCount]);
   const partNoOptions = useMemo(() => [...new Set(knownPartNos.filter(partNo => partNo && partNo !== '+'))].sort(), [knownPartNos]);
+
+  /** 取り込み結果を1か所で知らせる。登録できたときも、できなかったときも必ず出す。 */
+  const notify = (text: string, tone: 'ok' | 'warn') => {
+    setMessage(text);
+    setMessageTone(tone);
+  };
 
   const changeAutoRegister = (value: boolean) => {
     setAutoRegister(value);
@@ -110,26 +129,27 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
     // 自動登録の設定に関わらず、そのまま登録する。
     if (!autoRegister && !options.force) {
       startDraft(parsedList[0]);
-      if (parsedList.length > 1) setError(`自動登録が無効のため、${parsedList.length}件のうち先頭の1件だけを読み込みました。`);
+      notify(parsedList.length > 1
+        ? `自動登録が無効のため、${parsedList.length}件のうち先頭の1件だけを読み込みました。内容を確認して登録してください。`
+        : '自動登録が無効のため、内容を確認して登録してください。', 'warn');
       return true;
     }
-    const { next, done, pending } = registerDrawings(drawings, text, partNoOptions);
-    if (done.length) {
-      onChange(next);
-      const registered: Registered[] = done.map(({ drawing, isNew }) => ({
-        id: drawing.id,
-        label: `${normalizeDrawingNo(drawing.drawingNo)}（${drawingCategoryOf(drawing) || '区分なし'}・${drawing.fileType}）`,
-        status: isNew ? '登録' : '更新',
-      }));
+    const result = registerDrawings(drawings, text, partNoOptions);
+    const summary = summarizeDrawingIntake(result);
+    if (summary.added + summary.updated > 0) {
+      onChange(result.next);
+      const registered: Registered[] = result.done
+        .filter(item => item.isNew || item.changed)
+        .map(({ drawing, isNew }) => ({
+          id: drawing.id,
+          label: `${normalizeDrawingNo(drawing.drawingNo)}（${drawingCategoryOf(drawing) || '区分なし'}・${drawing.fileType}）`,
+          status: isNew ? '登録' : '更新',
+        }));
       setRecent(current => [...registered, ...current].slice(0, 20));
-      const added = done.filter(item => item.isNew).length;
-      setMessage(`${done.length}件を自動登録しました（新規 ${added}件 / 更新 ${done.length - added}件）。`);
       setPasted('');
     }
-    if (pending.length) {
-      startDraft(pending[0]);
-      setError(`${pending.length}件は図番を判定できませんでした。内容を確認して登録してください。`);
-    }
+    notify(summary.message, summary.ok ? 'ok' : 'warn');
+    if (result.pending.length) startDraft(result.pending[0]);
     return true;
   };
 
@@ -202,7 +222,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
     setPartNoInput('');
     setPasted('');
     setError('');
-    setMessage(`${entry.drawingNo}（${entry.fileType}）を登録しました。`);
+    notify(`${entry.drawingNo}（${entry.fileType}）を登録しました。`, 'ok');
   };
 
   const edit = (drawing: DrawingLink) => {
@@ -215,11 +235,29 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
   const copyUrl = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
-      setMessage('リンクをコピーしました。');
+      notify('リンクをコピーしました。', 'ok');
     } catch {
       setError('リンクをコピーできませんでした。');
     }
   };
+
+  const pageStart = listed.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, listed.length);
+  const pager = pageCount > 1 && <div className="drawings-pager">
+    <span>{pageStart}〜{pageEnd} 件目 / 全 {listed.length} 件</span>
+    <div className="drawings-pager-buttons">
+      <button type="button" onClick={() => setPage(1)} disabled={currentPage === 1}>≪ 最初</button>
+      <button type="button" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1}>‹ 前へ</button>
+      <label className="drawings-pager-select">
+        <select aria-label="ページを選ぶ" value={currentPage} onChange={event => setPage(Number(event.target.value))}>
+          {Array.from({ length: pageCount }, (_, index) => index + 1).map(number => <option key={number} value={number}>{number}</option>)}
+        </select>
+        <span>/ {pageCount} ページ</span>
+      </label>
+      <button type="button" onClick={() => setPage(currentPage + 1)} disabled={currentPage === pageCount}>次へ ›</button>
+      <button type="button" onClick={() => setPage(pageCount)} disabled={currentPage === pageCount}>最後 ≫</button>
+    </div>
+  </div>;
 
   return <section className="drawings-view">
     <div className="drawings-capture">
@@ -247,7 +285,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
     </div>
 
     {error && <div className="error">⚠ {error}<button type="button" onClick={() => setError('')}>×</button></div>}
-    {message && <div className="drawings-message">{message}</div>}
+    {message && <div className={`drawings-message ${messageTone === 'warn' ? 'is-warn' : ''}`} role="status">{messageTone === 'warn' ? '⚠ ' : '✓ '}{message}<button type="button" aria-label="メッセージを閉じる" onClick={() => setMessage('')}>×</button></div>}
     {recent.length > 0 && <div className="drawings-recent">
       <div className="drawings-recent-head"><b>今回の取り込み</b><button type="button" onClick={() => setRecent([])}>表示を消す</button></div>
       <ul>{recent.map((item, index) => <li key={`${item.id}-${index}`}>
@@ -296,14 +334,14 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
     </form>}
 
     <div className="drawings-list-head">
-      <div><h3>登録済み図面リンク</h3><p>{drawings.length} 図面 ・ {new Set(drawings.flatMap(drawing => drawing.partNos.map(drawingKey))).size} 品番</p></div>
+      <div><h3>登録済み図面リンク</h3><p>{drawings.length} 図面 ・ {new Set(drawings.flatMap(drawing => drawing.partNos.map(drawingKey))).size} 品番{search.trim() && ` ・ 検索一致 ${listed.length} 図面`}</p></div>
       <label className="search-box"><span aria-hidden="true">🔍</span><input className="search" aria-label="図番・品番で検索" placeholder="図番・品番・備考を検索..." value={search} onChange={event => setSearch(event.target.value)} /></label>
       <button className="excel" type="button" onClick={() => exportDrawings(drawings)} disabled={!drawings.length}>Excel出力</button>
     </div>
 
-    {listed.length ? <div className="drawings-table"><table>
+    {listed.length ? <>{pager}<div className="drawings-table"><table>
       <thead><tr><th>図番</th><th>区分</th><th>種別</th><th>対象品番</th><th>管理番号</th><th>備考</th><th>操作</th></tr></thead>
-      <tbody>{listed.map(drawing => <tr key={drawing.id}>
+      <tbody>{paged.map(drawing => <tr key={drawing.id}>
         <td><span className="drawing-no-line"><b>{normalizeDrawingNo(drawing.drawingNo)}</b>{drawing.sheetNo?.trim() && <span className="drawing-sheet">{drawingSheetName(drawing)}</span>}</span><small>{drawing.fileName}</small></td>
         <td>{drawingCategoryOf(drawing) ? <span className={`drawing-category ${drawingCategoryOf(drawing) === '組立図' ? 'assembly' : 'part'}`}>{drawingCategoryOf(drawing)}</span> : '—'}</td>
         <td><span className={`drawing-type ${drawing.fileType.toLowerCase()}`}>{drawing.fileType}</span></td>
@@ -319,7 +357,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
           <button type="button" onClick={() => { if (confirm(`${drawing.drawingNo} の図面リンクを削除しますか？`)) onChange(removeDrawing(drawings, drawing.id)); }}>削除</button>
         </td>
       </tr>)}</tbody>
-    </table></div> : <p className="drawings-empty">{drawings.length ? '検索条件に一致する図面リンクはありません。' : '図面リンクはまだ登録されていません。社内システムでリンクをコピーして取り込んでください。'}</p>}
+    </table></div>{pager}</> : <p className="drawings-empty">{drawings.length ? '検索条件に一致する図面リンクはありません。' : '図面リンクはまだ登録されていません。社内システムでリンクをコピーして取り込んでください。'}</p>}
 
   </section>;
 }
