@@ -659,6 +659,7 @@ td.use-compat { color: #7c3aed; background: #f8f5ff; font-size: 15px; font-weigh
 .compat-legend i { color: #7c3aed; font-size: 14px; font-style: normal; font-weight: 800; }
 .compat-legend em { color: #a35a00; font-style: normal; font-weight: 800; }
 .compat-legend em.ver { color: #b3202f; }
+.compat-legend em.balloon { color: #0b6f5f; }
 
 /* 同じ部品なのに個数だけが違う行は、数量を強調して拾い漏らしを防ぐ。 */
 td.qty-diff { background: #fff6e8 !important; box-shadow: inset 3px 0 0 #f0a03c; }
@@ -675,6 +676,12 @@ tbody tr:hover td.ver-diff { background: #ffe1e4 !important; }
 /* 互換の紫の印がある行は、そちらを優先して残す。 */
 tr.is-version-diff:not(.is-compat) td[data-column="partNo"] { box-shadow: inset 3px 0 0 #f3a3ab; }
 .version-badge { margin-left: 5px; padding: 0 4px; border: 1px solid #f3a3ab; border-radius: 4px; color: #b3202f; background: #fff0f1; font-size: 9px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; vertical-align: 1px; }
+
+/* 同じ品番が別の風船番号にもある行は、誤りではないが気づきにくい。風船番号を緑にする。 */
+td.balloon-dup { background: #e8f7f3 !important; box-shadow: inset 3px 0 0 #10a08a; }
+td.balloon-dup > span { color: #0b6f5f; font-weight: 850; }
+tbody tr:hover td.balloon-dup { background: #d5f0e8 !important; }
+.balloon-badge { margin-left: 5px; padding: 0 4px; border: 1px solid #8fd6c7; border-radius: 4px; color: #0b6f5f; background: #e8f7f3; font-size: 9px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; vertical-align: 1px; }
 
 /* マトリックスの品番セルから、その品番に紐づく図面を直接開けるようにする。
    組立図と部品図は図面リンクタブの区分バッジと同じ配色で見分けられるようにする。 */

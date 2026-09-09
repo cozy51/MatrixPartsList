@@ -99,6 +99,28 @@ export function buildVersionConflicts(parts: Part[]): Map<string, string[]> {
 const COMPATIBLE_CATEGORY_CODES = new Set(['4', '5', '6']);
 
 /**
+ * 同じ品番が複数の風船番号に現れる場合のまとまり。値はその品番が現れる風船番号（昇順）。
+ * 誤りではないが、品番は風船ごとにユニークな方が扱いやすいため、気づけるようにする。
+ * 補材（`+`）は品名で現物を区別しており、品番を持たないため対象にしない。
+ */
+export function buildBalloonDuplicates(parts: Part[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const part of parts) {
+    if (isSupplementPart(part.partNo)) continue;
+    const key = part.partNo.trim().toUpperCase();
+    const balloon = part.balloon.trim();
+    const found = groups.get(key);
+    if (!found) groups.set(key, [balloon]);
+    else if (!found.includes(balloon)) found.push(balloon);
+  }
+  for (const [key, balloons] of groups) {
+    if (balloons.length < 2) groups.delete(key);
+    else balloons.sort((a, b) => (Number(a) || 0) - (Number(b) || 0) || natural.compare(a, b));
+  }
+  return groups;
+}
+
+/**
  * 10桁目・11桁目のどちらが違っても互換になる機種CD（品番の先頭3文字）。
  * 11桁の品番は通常、11桁目だけの違いを互換とするが、これらの機種CDは10桁目の
  * 違いも互換のため、先頭9桁を基本番号にする。
