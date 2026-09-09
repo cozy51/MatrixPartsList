@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { plLabel } from './csv';
-import { calculatePlSimilarities, comparePlParts, isStandardPl, type PlPartComparison } from './matrix';
+import { calculatePlSimilarities, comparePlParts, isCustomerSpecialPl, plKindLabel, type PlPartComparison } from './matrix';
 import type { Part, PartsList } from './types';
 
 type Props = { lists: PartsList[]; sequence: Map<string,number>; baseId: string; onBaseChange: (id: string) => void };
@@ -65,7 +65,7 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange }
       return <article className={`similarity-row ${result.list.id === effectiveBaseId ? 'is-base' : ''} ${expanded ? 'is-expanded' : ''}`} key={result.list.id}>
         <button className="similarity-summary" type="button" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? '' : result.list.id)}>
           <span className="similarity-rank">{index + 1}</span>
-          <span className="similarity-name"><b><span className="pl-sequence">{sequence.get(result.list.id)}.</span>{plLabel(result.list)}</b>{isStandardPl(result.list.plNo) && <span className="standard-badge">STD</span>}<small>{result.list.plName}</small></span>
+          <span className="similarity-name"><b><span className="pl-sequence">{sequence.get(result.list.id)}.</span>{plLabel(result.list)}</b>{plKindLabel(result.list.plNo) && <span className={`standard-badge ${isCustomerSpecialPl(result.list.plNo) ? 'is-custom' : ''}`}>{plKindLabel(result.list.plNo)}</span>}<small>{result.list.plName}</small></span>
           <span className="similarity-meter"><span style={{ width: `${result.score * 100}%` }} /></span>
           <strong>{(result.score * 100).toFixed(1)}%</strong>
           <small>{result.common} 共通 / {result.union} 全部品</small>

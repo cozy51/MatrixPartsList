@@ -328,7 +328,7 @@ td.pl-unused-cell { background: #eceff3 !important; color: #98a0ad; }
 .similarity-empty { display: grid; place-items: center; flex: 1; color: #667085; background: #fff; border: 1px dashed #b8c2da; border-radius: 10px; }
 @media(max-width:1000px) { .similarity-row { grid-template-columns: 30px 1fr 90px; } .similarity-meter,.similarity-row>small { display:none; } }
 
-th.plhead.pl-unused .standard-marker { background: #8b93a0; }
+th.plhead.pl-unused .standard-marker { background: #8b93a0; border-color: #8b93a0; color: #fff; }
 
 /* Keep hovered comparison rows visually distinct with the same warm accent as the matrix. */
 .similarity-row { transition: background-color .15s, border-color .15s, box-shadow .15s, transform .15s; }
@@ -659,6 +659,11 @@ th.plhead .pl-badges { max-width: 120px; margin: 4px auto 0; white-space: normal
 .pl .pl-badges-inline { white-space: nowrap; }
 .pl .pl-badges-inline .drawing-link { margin-left: 3px; padding: 1px 4px; font-size: 9px; letter-spacing: 0; }
 .pl .standard-badge { margin-left: 5px; padding: 2px 5px; font-size: 10px; }
+/* 客先特殊PL（HH3・HJ3）は `CST` を薄いピンクで表示し、標準PLの `STD`（青）と区別する。
+   PL列ヘッダーの `STD` は濃紺の塗りつぶしだが、`CST` は薄いピンクのため、
+   ヘッダーの地色に紛れないよう枠線を添える。 */
+.standard-badge.is-custom, .standard-marker.is-custom { border: 1px solid #f2a9c4; background: #ffe2ec; color: #a3305c; }
+th.plhead.custom-pl { background: #fff2f7; color: #9c3161; }
 .layout { grid-template-columns: 276px 1fr; }
 @media(max-width:900px) { .layout { grid-template-columns: 220px 1fr; } }
 
