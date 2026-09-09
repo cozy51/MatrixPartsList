@@ -278,8 +278,33 @@ describe('図面区分と図番からの品番', () => {
   });
 
   it('用紙サイズ付きの図番からも品番を導く', () => {
-    expect(partNoCandidatesFromDrawingNo('HD1AG0064204')).toEqual(['HD1AG00642', 'HD1AG00640']);
+    // HD1 は電気図面の機種CDのため、候補は先頭10桁の1つに決まる。
+    expect(partNoCandidatesFromDrawingNo('HD1AG0064204')).toEqual(['HD1AG00642']);
     expect(partNoFromDrawingNo('HD1AG0064204', ['HD1AG00642'])).toBe('HD1AG00642');
+    // 機械図面は従来どおり2通りの候補を持つ。
+    expect(partNoCandidatesFromDrawingNo('HH1AG0064204')).toEqual(['HH1AG00642', 'HH1AG00640']);
+  });
+
+  it('電気図面（機種CD HD1）は、改訂前の品番へ結び付けない', () => {
+    // 図番 HD1FE051420 の品番は HD1FE05142。HD1FE05140（改訂前）ではない。
+    expect(partNoCandidatesFromDrawingNo('HD1FE051420')).toEqual(['HD1FE05142']);
+    expect(partNosForDrawing('HD1FE051420', ['HD1FE05140', 'HD1FE05142'])).toEqual(['HD1FE05142']);
+    // 部品表に品番がなくても、先頭9桁 + 0 へは広げない。
+    expect(partNosForDrawing('HD1FE051420', ['HD1FE05140'])).toEqual(['HD1FE05142']);
+    // 同じ形の機械図面は、これまでどおり部品表にある品番を選ぶ。
+    expect(partNosForDrawing('HH1FE051420', ['HH1FE05140', 'HH1FE05142'])).toEqual(['HH1FE05142', 'HH1FE05140']);
+    // 10桁の図番の読み替え（品番の先頭9桁 + Ver）も電気図面では行わない。
+    expect(versionedAssemblyPartNos('HD1FE05142', ['HD1FE05140'])).toEqual([]);
+  });
+
+  it('電気図面の図番で誤って登録された対象品番は、品番から引かせない', () => {
+    // 以前の版は HD1FE051420 を HD1FE05140 にも結び付けていた。
+    const link = drawing({ id: 'ele', drawingNo: 'HD1FE051420', partNos: ['HD1FE051420', 'HD1FE05142', 'HD1FE05140'] });
+    const index = buildPartDrawingIndex([link]);
+    expect(drawingsForPart(index, 'HD1FE05142')).toEqual([link]);
+    expect(drawingsForPart(index, 'HD1FE05140')).toEqual([]);
+    // 同じ図番そのものからは引ける。
+    expect(drawingsForPart(index, 'HD1FE051420')).toEqual([link]);
   });
 
   it('11桁の図番には機械図面と電気図面の2通りの品番候補がある', () => {
