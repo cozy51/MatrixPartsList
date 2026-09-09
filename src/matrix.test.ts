@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigit, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -187,27 +187,51 @@ describe('部品図の互換（10桁目の違い）', () => {
     // 購入品は対象外。
     expect(compatibleBaseNo('Z076048100')).toBe('');
     // 11桁の品番は11桁目が末尾1桁。10桁目までが基本番号になる。
-    expect(compatibleBaseNo('HM0N517A501')).toBe('HM0N517A50');
-    expect(compatibleBaseNo('hm0n517a502')).toBe('HM0N517A50');
+    expect(compatibleBaseNo('HJ0N517A501')).toBe('HJ0N517A50');
+    expect(compatibleBaseNo('hj0n517a502')).toBe('HJ0N517A50');
     // 11桁でも、9文字目が1のPLは対象外。
     expect(compatibleBaseNo('HH110040100')).toBe('');
     // 12桁以上は対象外。
     expect(compatibleBaseNo('HD1AG0064204')).toBe('');
-    expect(compatibleDigit(compatibleBaseNo('HJ06158060'))).toBe(10);
-    expect(compatibleDigit(compatibleBaseNo('HM0N517A501'))).toBe(11);
+    expect(compatibleDigitLabel('HJ06158060')).toBe('10桁目');
+    expect(compatibleDigitLabel('HD1DG01444')).toBe('10桁目');
+  });
+
+  it('機種CD HM0 は、10桁目・11桁目のどちらが違っても互換として扱う', () => {
+    // 先頭9桁が基本番号になる。
+    expect(compatibleBaseNo('HM0M69404D0')).toBe('HM0M69404');
+    expect(compatibleBaseNo('HM0N517A501')).toBe('HM0N517A5');
+    expect(compatibleDigitLabel('HM0M69404D0')).toBe('10・11桁目');
+    // 10桁の品番は、これまでどおり10桁目だけの違い。
+    expect(compatibleBaseNo('HM0M6940410')).toBe('HM0M69404');
+    expect(compatibleDigitLabel('HM0M694041')).toBe('10桁目');
+    // 他の機種CDの11桁の品番は、11桁目だけの違いのまま。
+    expect(compatibleBaseNo('HJ0N517A501')).toBe('HJ0N517A50');
+    expect(compatibleDigitLabel('HJ0N517A501')).toBe('11桁目');
+  });
+
+  it('機種CD HM0 は、10桁目が違う品番も同じ組にまとめる', () => {
+    const groups = buildCompatibleGroups([
+      part('50', 'HM0M69404D0'), part('50', 'HM0M69404E0'),
+      part('50', 'HM0M69404F0'), part('50', 'HM0M69404G0'),
+      part('8', 'HM0N517A501'), part('8', 'HM0N517A502'), part('8', 'HM0N517A510'),
+    ]);
+    expect(groups.get('HM0M69404')).toEqual(['HM0M69404D0', 'HM0M69404E0', 'HM0M69404F0', 'HM0M69404G0']);
+    // 11桁目だけが違うものも、10桁目が違うものも同じ組になる。
+    expect(groups.get('HM0N517A5')).toEqual(['HM0N517A501', 'HM0N517A502', 'HM0N517A510']);
   });
 
   it('11桁の品番は、11桁目だけが違うものを互換としてまとめる', () => {
     const groups = buildCompatibleGroups([
-      part('8', 'HM0N517A501'), part('8', 'HM0N517A502'), part('8', 'HM0N517A510'),
-      part('8', 'HM0N500A501'), part('8', 'HM0N500B501'),
+      part('8', 'HJ0N517A501'), part('8', 'HJ0N517A502'), part('8', 'HJ0N517A510'),
+      part('8', 'HJ0N500A501'), part('8', 'HJ0N500B501'),
     ]);
-    // 11桁目だけが違う HM0N517A501 と HM0N517A502 が1組。
-    expect(groups.get('HM0N517A50')).toEqual(['HM0N517A501', 'HM0N517A502']);
-    // 10桁目が違う HM0N517A510 は別の基本番号。1件だけなので組にならない。
-    expect(groups.get('HM0N517A51')).toBeUndefined();
+    // 11桁目だけが違う HJ0N517A501 と HJ0N517A502 が1組。
+    expect(groups.get('HJ0N517A50')).toEqual(['HJ0N517A501', 'HJ0N517A502']);
+    // 10桁目が違う HJ0N517A510 は別の基本番号。1件だけなので組にならない。
+    expect(groups.get('HJ0N517A51')).toBeUndefined();
     // 8文字目が違う品番どうしも別扱い。
-    expect(groups.get('HM0N500A50')).toBeUndefined();
+    expect(groups.get('HJ0N500A50')).toBeUndefined();
     expect(groups.size).toBe(1);
   });
 
