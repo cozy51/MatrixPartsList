@@ -197,7 +197,7 @@ describe('部品図の互換（10桁目の違い）', () => {
     expect(compatibleDigitLabel('HD1DG01444')).toBe('10桁目');
   });
 
-  it('機種CD HM0 は、10桁目・11桁目のどちらが違っても互換として扱う', () => {
+  it('機種CD HM0・HM1 は、10桁目・11桁目のどちらが違っても互換として扱う', () => {
     // 先頭9桁が基本番号になる。
     expect(compatibleBaseNo('HM0M69404D0')).toBe('HM0M69404');
     expect(compatibleBaseNo('HM0N517A501')).toBe('HM0N517A5');
@@ -205,9 +205,20 @@ describe('部品図の互換（10桁目の違い）', () => {
     // 10桁の品番は、これまでどおり10桁目だけの違い。
     expect(compatibleBaseNo('HM0M6940410')).toBe('HM0M69404');
     expect(compatibleDigitLabel('HM0M694041')).toBe('10桁目');
+    // HM1 も同じ扱い（9文字目が4の組立図）。
+    expect(compatibleBaseNo('HM1M0230410')).toBe('HM1M02304');
+    expect(compatibleDigitLabel('HM1M0230450')).toBe('10・11桁目');
     // 他の機種CDの11桁の品番は、11桁目だけの違いのまま。
     expect(compatibleBaseNo('HJ0N517A501')).toBe('HJ0N517A50');
     expect(compatibleDigitLabel('HJ0N517A501')).toBe('11桁目');
+  });
+
+  it('機種CD HM1 も、10桁目が違う品番を同じ組にまとめる', () => {
+    const groups = buildCompatibleGroups([
+      part('19', 'HM1M0230410'), part('19', 'HM1M0230420'), part('19', 'HM1M0230430'),
+      part('19', 'HM1M0230440'), part('19', 'HM1M0230450'),
+    ]);
+    expect(groups.get('HM1M02304')).toEqual(['HM1M0230410', 'HM1M0230420', 'HM1M0230430', 'HM1M0230440', 'HM1M0230450']);
   });
 
   it('機種CD HM0 は、10桁目が違う品番も同じ組にまとめる', () => {
