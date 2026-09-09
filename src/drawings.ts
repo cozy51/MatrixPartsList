@@ -129,8 +129,34 @@ export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
 }
 
 /**
+ * 10桁の図番のうち、組立図（9文字目が `1`・`4`）で10桁目が `0` でないものは、
+ * 「品番の先頭9桁 + Ver」の形をとることがある。枚数は11桁目ではなく、ファイル名
+ * 末尾の連番に入る（PL `HH13112010` の図番 `HH13112012`、ファイル名
+ * `4944716_HH13112012_1.pdf`）。この場合は先頭9桁 + `0` が品番になる。
+ *
+ * ただし電気図面は品番そのものの10桁目を改訂で上げるため（品番 `HH01008043`）、
+ * 10桁目が `0` でないだけでは見分けられない。取り違えないよう、図番そのものが
+ * 部品表にない場合に限り、部品表にある「先頭9桁 + `0`」の品番だけを返す。
+ * 部品図（9文字目が `5`・`6`）の10桁目は材質違いを表す品番の一部なので対象外。
+ */
+export const versionedAssemblyPartNos = (drawingNo: string, knownPartNos: Iterable<string> = []): string[] =>
+  versionedAssemblyPartNosOf(drawingNo, knownPartNoKeys(knownPartNos));
+
+/** 品番の集合。図番を何度も突き合わせるため、呼ぶ側で1回だけ作れるようにする。 */
+const knownPartNoKeys = (knownPartNos: Iterable<string>): Set<string> => new Set([...knownPartNos].map(drawingKey));
+
+function versionedAssemblyPartNosOf(drawingNo: string, known: Set<string>): string[] {
+  const value = normalizeDrawingNo(drawingNo);
+  if (!/^[A-Z][A-Z0-9]{9}$/.test(value) || value.endsWith('0')) return [];
+  if (detectDrawingCategory(value) !== '組立図' || known.has(value)) return [];
+  const base = `${value.slice(0, 9)}0`;
+  return known.has(base) ? [base] : [];
+}
+
+/**
  * 図番に結び付ける品番を決める。
  *
+ * 0. 11桁でない図番は、「品番の先頭9桁 + Ver」の10桁の図番かどうかを見る。
  * 1. 候補（先頭10桁／先頭9桁 + `0`）が部品表にあれば、それを使う。
  * 2. どちらも部品表になければ、同じ基本番号（先頭9桁）の品番を探す。図面や
  *    3Dモデルが新品番で登録され、部品表には旧品番が載っている場合に対応する。
@@ -139,7 +165,7 @@ export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
  */
 export function partNosForDrawing(drawingNo: string, knownPartNos: Iterable<string> = []): string[] {
   const candidates = partNoCandidatesFromDrawingNo(drawingNo);
-  if (!candidates.length) return [];
+  if (!candidates.length) return versionedAssemblyPartNos(drawingNo, knownPartNos);
   const known = [...new Set([...knownPartNos].map(drawingKey))];
   const exact = candidates.filter(candidate => known.includes(candidate));
   if (exact.length) return exact;
@@ -243,8 +269,9 @@ export const isOpenableUrl = (url: string): boolean => /^https?:\/\//i.test(url.
  * 対象品番に加えて、11桁の図番から導いた品番でも引けるようにするため、
  * 図番＝品番で登録した組立図も部品表からたどれる。
  */
-export function buildPartDrawingIndex(drawings: DrawingLink[]): Map<string, DrawingLink[]> {
+export function buildPartDrawingIndex(drawings: DrawingLink[], knownPartNos: Iterable<string> = []): Map<string, DrawingLink[]> {
   const index = new Map<string, DrawingLink[]>();
+  const known = knownPartNoKeys(knownPartNos);
   const add = (value: string, drawing: DrawingLink) => {
     const key = drawingKey(value);
     if (!key) return;
@@ -258,6 +285,8 @@ export function buildPartDrawingIndex(drawings: DrawingLink[]): Map<string, Draw
     // すべて索引へ入れる（機械図面の組図と電気図面で導き方が異なるため）。
     for (const no of [drawing.drawingNo, ...drawing.partNos]) {
       for (const candidate of partNoCandidatesFromDrawingNo(no)) add(candidate, drawing);
+      // 「品番の先頭9桁 + Ver」の10桁の図番は、登録済みの図面でも品番から引けるようにする。
+      for (const candidate of versionedAssemblyPartNosOf(no, known)) add(candidate, drawing);
     }
   }
   return index;

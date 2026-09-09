@@ -27,6 +27,7 @@ import {
   parseDrawingFileName,
   partNoCandidatesFromDrawingNo,
   partNosForDrawing,
+  versionedAssemblyPartNos,
   registerDrawings,
   partNoFromDrawingNo,
   removeDrawing,
@@ -296,6 +297,32 @@ describe('図面区分と図番からの品番', () => {
     expect(partNosForDrawing('HH010080430', ['HH01008043', 'HH01008041'])).toEqual(['HH01008043']);
     // 基本番号が違う品番は対象にしない。
     expect(partNosForDrawing('RJ0MT017440', ['RJ0MT09992'])).toEqual(['RJ0MT01740']);
+  });
+
+  it('10桁の図番（品番の先頭9桁 + Ver）は、部品表にある品番へ読み替える', () => {
+    // PL HH13112010 の組図。枚数は11桁目ではなく、ファイル名末尾の _1 に入る。
+    expect(partNosForDrawing('HH13112012', ['HH13112010'])).toEqual(['HH13112010']);
+    expect(partNoFromDrawingNo('HH13112012', ['HH13112010'])).toBe('HH13112010');
+    // 読み替え先が部品表になければ、図番のままにする（図番＝品番として扱う）。
+    expect(partNosForDrawing('HH13112012', ['HH13111010'])).toEqual([]);
+  });
+
+  it('10桁の図番を読み替えるのは、取り違えのおそれがない場合だけ', () => {
+    // 部品図の10桁目は材質違いを表す品番の一部。別部品へ付けない。
+    expect(versionedAssemblyPartNos('HH33108M51', ['HH33108M50'])).toEqual([]);
+    // 電気図面は品番そのものの10桁目を上げる。部品表にある番号はそのまま品番。
+    expect(versionedAssemblyPartNos('HH01008043', ['HH01008043', 'HH01008040'])).toEqual([]);
+    // 10桁目が0なら読み替え先が同じ番号になるため、何もしない。
+    expect(versionedAssemblyPartNos('HH13112010', ['HH13112010'])).toEqual([]);
+    // 11桁の図番は従来どおりの読み替え（この関数の対象外）。
+    expect(versionedAssemblyPartNos('HH131120120', ['HH13112010'])).toEqual([]);
+  });
+
+  it('10桁の図番で登録済みの図面も、部品表の品番からたどれる', () => {
+    const link = drawing({ id: 'ver', drawingNo: 'HH13112012', sheetNo: '1', partNos: ['HH13112012'] });
+    // 取り込み直さなくても、索引の側で品番へ読み替える。
+    expect(drawingsForPart(buildPartDrawingIndex([link]), 'HH13112010')).toEqual([]);
+    expect(drawingsForPart(buildPartDrawingIndex([link], ['HH13112010']), 'HH13112010')).toEqual([link]);
   });
 
   it('電気図面は、部品表に実在する品番を優先して選ぶ', () => {

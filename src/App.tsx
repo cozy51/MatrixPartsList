@@ -19,8 +19,8 @@ const openDashboardUnit=(nextMachineId:string,nextModeId:string)=>{setMachineId(
 const changeView=(next:typeof view)=>{setView(next);setDrawingNotice(null)};
 const viewTitle=view==='dashboard'?'ダッシュボード':view==='matrix'?'マトリックス部品表':view==='drawings'?'図面リンク':view==='cadids'?'CAD ID':'PL類似度';
 const viewSummary=view==='dashboard'?`${data.lists.length} 登録PL`:view==='matrix'?`${parts.length} 部品 × ${visible.length} PL`:view==='drawings'?`${drawingData.drawings.length} 図面リンク`:view==='cadids'?`${(drawingData.cadIds??[]).length} 件のCAD ID`:`${visible.length} PLを比較`;
-const drawingIndex=useMemo(()=>buildPartDrawingIndex(drawingData.drawings),[drawingData.drawings]);
 const knownPartNos=useMemo(()=>data.lists.flatMap(list=>[list.plNo,...list.parts.map(part=>part.partNo)]),[data.lists]);
+const drawingIndex=useMemo(()=>buildPartDrawingIndex(drawingData.drawings,knownPartNos),[drawingData.drawings,knownPartNos]);
 /* 品番・PL番号に紐づく図面を、開けるリンクのバッジとして表示する。 */
 const cadIds=drawingData.cadIds??[];
 /* 同じ種別の図面が複数枚あるときは、バッジを1つにして選択画面から開く。 */
