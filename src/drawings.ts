@@ -125,7 +125,28 @@ export function normalizeDrawingNo(value: string): string {
 export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
   const value = normalizeDrawingNo(drawingNo);
   if (!DRAWING_NO_11.test(value)) return [];
+  // 電気図面は数え方が1通りに決まるため、機械図面の組図の候補は持たせない。
+  if (isElectricalDrawingNo(value)) return [value.slice(0, 10)];
   return [...new Set([value.slice(0, 10), `${value.slice(0, 9)}0`])];
+}
+
+/**
+ * 電気図面の機種CD（品番・図番の先頭3文字）。電気図面は外注のため、品番そのものの
+ * 10桁目を改訂で上げ、図番は「品番（10桁）+ 枚数（1桁）」になる。機械図面の組図の
+ * ように「先頭9桁 + `0`」の品番へも読み替えると、改訂前の別品番へ誤って結び付く。
+ * 例: 図番 `HD1FE051420` の品番は `HD1FE05142` であり、`HD1FE05140` ではない。
+ */
+export const ELECTRICAL_MACHINE_CODES = new Set(['HD1']);
+
+export const isElectricalDrawingNo = (no: string): boolean =>
+  ELECTRICAL_MACHINE_CODES.has(drawingKey(no).slice(0, 3));
+
+/** 電気図面の図番から、機械図面の組図として誤って導かれる品番（先頭9桁 + `0`）。 */
+export function mechanicalMisreadPartNo(drawingNo: string): string {
+  const value = normalizeDrawingNo(drawingNo);
+  if (!DRAWING_NO_11.test(value) || !isElectricalDrawingNo(value)) return '';
+  const misread = `${value.slice(0, 9)}0`;
+  return misread === value.slice(0, 10) ? '' : misread;
 }
 
 /**
@@ -148,6 +169,7 @@ const knownPartNoKeys = (knownPartNos: Iterable<string>): Set<string> => new Set
 function versionedAssemblyPartNosOf(drawingNo: string, known: Set<string>): string[] {
   const value = normalizeDrawingNo(drawingNo);
   if (!/^[A-Z][A-Z0-9]{9}$/.test(value) || value.endsWith('0')) return [];
+  if (isElectricalDrawingNo(value)) return [];
   if (detectDrawingCategory(value) !== '組立図' || known.has(value)) return [];
   const base = `${value.slice(0, 9)}0`;
   return known.has(base) ? [base] : [];
@@ -157,6 +179,8 @@ function versionedAssemblyPartNosOf(drawingNo: string, known: Set<string>): stri
  * 図番に結び付ける品番を決める。
  *
  * 0. 11桁でない図番は、「品番の先頭9桁 + Ver」の10桁の図番かどうかを見る。
+ *    電気図面（機種CDが `HD1` など）は候補が先頭10桁の1つに決まるため、
+ *    部品表になくてもその品番を返し、2.の探索はしない。
  * 1. 候補（先頭10桁／先頭9桁 + `0`）が部品表にあれば、それを使う。
  * 2. どちらも部品表になければ、同じ基本番号（先頭9桁）の品番を探す。図面や
  *    3Dモデルが新品番で登録され、部品表には旧品番が載っている場合に対応する。
@@ -169,6 +193,8 @@ export function partNosForDrawing(drawingNo: string, knownPartNos: Iterable<stri
   const known = [...new Set([...knownPartNos].map(drawingKey))];
   const exact = candidates.filter(candidate => known.includes(candidate));
   if (exact.length) return exact;
+  // 電気図面は「品番 + 枚数」で品番が決まるため、基本番号を広げて探さない。
+  if (isElectricalDrawingNo(drawingNo)) return candidates;
   const base = normalizeDrawingNo(drawingNo).slice(0, 9);
   const sameBase = known.filter(partNo => partNo.length === 10 && partNo.startsWith(base));
   return sameBase.length ? sameBase : [candidates[candidates.length - 1]];
@@ -280,7 +306,9 @@ export function buildPartDrawingIndex(drawings: DrawingLink[], knownPartNos: Ite
     else if (!found.includes(drawing)) found.push(drawing);
   };
   for (const drawing of drawings) {
-    for (const partNo of drawing.partNos) add(partNo, drawing);
+    // 以前の版が電気図面の図番から誤って導いた品番は、保存済みでも引かせない。
+    const misread = drawingKey(mechanicalMisreadPartNo(drawing.drawingNo));
+    for (const partNo of drawing.partNos) if (!misread || drawingKey(partNo) !== misread) add(partNo, drawing);
     // 図番だけで登録された図面も引けるよう、11桁の図番から導いた品番の候補を
     // すべて索引へ入れる（機械図面の組図と電気図面で導き方が異なるため）。
     for (const no of [drawing.drawingNo, ...drawing.partNos]) {
