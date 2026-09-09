@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isPurchasedPart, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -37,6 +37,22 @@ describe('reference workbook ordering', () => {
     expect(isStandardPl(' hj09301010 ')).toBe(true);
     expect(isStandardPl('HH3101K810')).toBe(false);
     expect(isStandardPl('HJ12100010')).toBe(false);
+  });
+  it('identifies HH3 and HJ3 prefixes as customer-specific PLs', () => {
+    expect(isCustomerSpecialPl('HH3310CB10')).toBe(true);
+    expect(isCustomerSpecialPl('hh3300dg10')).toBe(true);
+    expect(isCustomerSpecialPl('HJ33101010')).toBe(true);
+    expect(isCustomerSpecialPl(' hj3101k810 ')).toBe(true);
+    expect(isCustomerSpecialPl('HH13182010')).toBe(false);
+    expect(isCustomerSpecialPl('HJ02100010')).toBe(false);
+  });
+  it('標準PLはSTD、客先特殊PLはCST、どちらでもなければ印を出さない', () => {
+    expect(plKindLabel('HH13182010')).toBe('STD');
+    expect(plKindLabel('HJ09301010')).toBe('STD');
+    expect(plKindLabel('HH3310CB10')).toBe('CST');
+    expect(plKindLabel('HJ33101010')).toBe('CST');
+    expect(plKindLabel('HD1DG01010')).toBe('');
+    expect(plKindLabel('')).toBe('');
   });
   it('bulk-selects only lists in the active mode', () => {
     const first = list('A'), second = list('B');

@@ -25,6 +25,16 @@ export function sortPartsLists(lists: PartsList[]): PartsList[] {
 /** 機種コードが `HH1`・`HJ0` のPLは標準PL。一覧とヘッダーに `STD` を表示する。 */
 export const isStandardPl = (plNo: string): boolean => /^(HH1|HJ0)/i.test(plNo.trim());
 
+/** 機種コードが `HH3`・`HJ3` のPLは客先特殊PL。一覧とヘッダーに `CST` を表示する。 */
+export const isCustomerSpecialPl = (plNo: string): boolean => /^(HH3|HJ3)/i.test(plNo.trim());
+
+/**
+ * PL番号から、一覧・ヘッダー・ツールチップに出す略称を返す。標準でも客先特殊でも
+ * ないPLは空文字。表示側はこの1か所を見れば、どちらの印を出すか決められる。
+ */
+export const plKindLabel = (plNo: string): string =>
+  isStandardPl(plNo) ? 'STD' : isCustomerSpecialPl(plNo) ? 'CST' : '';
+
 /** `Z` で始まる品番は購入品。部品表で見分けられるよう色を変える。 */
 export const isPurchasedPart = (partNo: string): boolean => /^Z/i.test(partNo.trim());
 
