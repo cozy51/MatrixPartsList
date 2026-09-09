@@ -91,22 +91,39 @@ export function buildVersionConflicts(parts: Part[]): Map<string, string[]> {
  * 部品図（9文字目が `5`・`6`）と組立図の `4` は、末尾の1桁が違っても互換性が
  * あります。末尾1桁は10桁の品番なら10桁目、11桁の品番なら11桁目で、11桁目の方が
  * より詳細な違い（同じ10桁目の中での枝番）を表します。末尾1桁を除いた部分を
- * 「基本番号」として、互換の部品をまとめます。
+ * 「基本番号」として、互換の部品をまとめます。ただし機種CDが
+ * WIDE_COMPATIBLE_MACHINE_CODES のものは、10桁目・11桁目のどちらの違いでも
+ * 互換のため、先頭9桁を基本番号にします。
  * PL（`1`）は10桁目が違えば別のユニットなので、CAD IDの方で扱います。
  */
 const COMPATIBLE_CATEGORY_CODES = new Set(['4', '5', '6']);
 
+/**
+ * 10桁目・11桁目のどちらが違っても互換になる機種CD（品番の先頭3文字）。
+ * 11桁の品番は通常、11桁目だけの違いを互換とするが、これらの機種CDは10桁目の
+ * 違いも互換のため、先頭9桁を基本番号にする。
+ */
+export const WIDE_COMPATIBLE_MACHINE_CODES = new Set(['HM0']);
+
 export function compatibleBaseNo(partNo: string): string {
   const value = partNo.trim().toUpperCase();
   if (!/^[A-Z][A-Z0-9]{9,10}$/.test(value)) return '';
-  return COMPATIBLE_CATEGORY_CODES.has(value[8]) ? value.slice(0, -1) : '';
+  if (!COMPATIBLE_CATEGORY_CODES.has(value[8])) return '';
+  return WIDE_COMPATIBLE_MACHINE_CODES.has(value.slice(0, 3)) ? value.slice(0, 9) : value.slice(0, -1);
 }
 
 /**
- * 互換品どうしで違うのが何桁目かを返す（10桁の品番なら `10`、11桁なら `11`）。
- * 基本番号は末尾1桁を除いた部分のため、その次の桁が違いのある桁になる。
+ * 互換品どうしで違う桁の呼び名（`10桁目`、`11桁目`、`10・11桁目`）。
+ * 基本番号より後ろの桁がすべて違いのある桁になる。
  */
-export const compatibleDigit = (baseNo: string): number => baseNo.length + 1;
+export function compatibleDigitLabel(partNo: string): string {
+  const base = compatibleBaseNo(partNo);
+  const value = partNo.trim();
+  if (!base || base.length >= value.length) return '';
+  const digits = [];
+  for (let index = base.length; index < value.length; index++) digits.push(index + 1);
+  return `${digits.join('・')}桁目`;
+}
 
 /** 基本番号ごとに品番をまとめる。10桁目だけが違う品番が2つ以上あるものだけを返す。 */
 export function buildCompatibleGroups(parts: Part[]): Map<string, string[]> {

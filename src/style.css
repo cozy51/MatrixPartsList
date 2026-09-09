@@ -278,6 +278,52 @@ aside, main { min-height: 0; overflow: hidden; }
 .table-wrap thead th { position: sticky; top: 0; z-index: 5; }
 .table-wrap thead th:nth-child(-n+6) { z-index: 7; }
 
+/* マトリックスは行数が多く、表の中だけをスクロールすると見える範囲が狭い。
+   表の枠は内容の高さまで広げ、スクロールは main 側にまとめてホイールの
+   取り合いをなくす。代わりに、項目名の行・左の部品情報列・操作ボタンを
+   main を基準に固定して、常に見える位置へ残す。 */
+main.view-matrix {
+  /* 操作バーの高さ。項目名の行は、この分だけ下げた位置に固定する。 */
+  --matrix-actions-height: 56px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* 固定した行が画面の上端・左端にぴったり付くよう、余白は各要素側へ移す。 */
+  padding: 0 0 20px;
+}
+/* 表の枠は内容の高さまで伸ばす。中に別のスクロールバーは作らない。 */
+main.view-matrix .table-wrap {
+  flex: 1 0 auto;
+  overflow: visible;
+  overscroll-behavior: auto;
+  /* 全幅に広げるため、左右の枠線と角丸は外す。 */
+  margin: 0;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+}
+/* 表以外は左右に余白を戻し、横スクロールしても左端に留めて読めるようにする。 */
+/* 表の高さで押し縮められないよう、表以外は内容の高さのままにする。 */
+main.view-matrix > *:not(.table-wrap) { flex: none; position: sticky; left: 0; margin-left: 20px; margin-right: 20px; }
+main.view-matrix > .view-tabs { margin-top: 20px; }
+/* 「図面リンク取得」「Excel出力」は、下までスクロールしても押せるように固定する。
+   表が透けないよう、余白ではなく全幅の帯にする。 */
+main.view-matrix > .matrix-actions {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--matrix-actions-height);
+  margin: 0;
+  padding: 0 20px;
+  background: #f4f6f9;
+  white-space: nowrap;
+}
+/* 項目名の行は操作バーのすぐ下へ固定する。 */
+main.view-matrix thead th { top: var(--matrix-actions-height); }
+
 /* Keep the main filters beside the title in their task order. */
 .toolbar { flex-wrap: wrap; justify-content: flex-start; }
 .toolbar > div:first-child { margin-right: 14px; }
