@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isPurchasedPart, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isPurchasedPart, isStandardPl, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -218,5 +218,44 @@ describe('同じ部品で個数だけが違う行', () => {
   it('風船番号が違えば別の部品として扱う', () => {
     const conflicts = buildQuantityConflicts([withQuantity('17', 'HH13026060', '1'), withQuantity('18', 'HH13026060', '2')]);
     expect(conflicts.size).toBe(0);
+  });
+});
+
+describe('同じ品番でVer.だけが違う行', () => {
+  const withVersion = (balloon: string, partNo: string, version: string) => ({ ...part(balloon, partNo), version });
+
+  it('Ver.が2通り以上ある品番だけをまとめ、Ver.は昇順で返す', () => {
+    const conflicts = buildVersionConflicts([
+      withVersion('31', 'HD1DE02841', '2'),
+      withVersion('31', 'HD1DE02841', '1'),
+      withVersion('31', 'HD1DE02941', '2'),
+    ]);
+    expect(conflicts.size).toBe(1);
+    expect(conflicts.get('HD1DE02841')).toEqual(['1', '2']);
+    // Ver.が1通りだけの品番は対象外。
+    expect(conflicts.get('HD1DE02941')).toBeUndefined();
+  });
+
+  it('Ver.なし（-）と数字のVer.が混ざっている場合も違いとして扱う', () => {
+    const conflicts = buildVersionConflicts([withVersion('30', 'HH13016060', '-'), withVersion('30', 'HH13016060', '1')]);
+    expect(conflicts.get('HH13016060')).toEqual(['-', '1']);
+  });
+
+  it('風船番号が違っても、同じ品番ならVer.の違いとして扱う', () => {
+    // 同じ品番が別の風船で使われていても、Ver.の取り違えは同じように起こる。
+    const conflicts = buildVersionConflicts([withVersion('31', 'HD1DE02841', '1'), withVersion('32', 'HD1DE02841', '2')]);
+    expect(conflicts.get('HD1DE02841')).toEqual(['1', '2']);
+  });
+
+  it('補材（+）と表記ゆれを除く', () => {
+    const conflicts = buildVersionConflicts([
+      { ...part('17', '+'), version: '1' },
+      { ...part('17', '+'), version: '2' },
+      withVersion('20', ' hd1de02841 ', '1'),
+      withVersion('20', 'HD1DE02841', '2'),
+    ]);
+    // 補材は品番を持たないため対象外。前後の空白と大文字小文字は同じ品番として扱う。
+    expect(conflicts.size).toBe(1);
+    expect(conflicts.get('HD1DE02841')).toEqual(['1', '2']);
   });
 });

@@ -33,6 +33,7 @@ import {
   resolveFileUrl,
   searchDrawings,
   sortDrawings,
+  summarizeDrawingIntake,
   upsertDrawing,
   type DrawingLink,
 } from './drawings';
@@ -166,6 +167,38 @@ describe('まとめ貼り付けと自動登録', () => {
     const second = registerDrawings(first.next, ASSEMBLY);
     expect(second.next).toHaveLength(1);
     expect(second.done.map(item => item.isNew)).toEqual([false]);
+    // 内容が変わっていないことも分かるようにする。
+    expect(second.done.map(item => item.changed)).toEqual([false]);
+  });
+
+  it('同じ図番で管理番号が変わったときは更新として扱う', () => {
+    const first = registerDrawings([], ASSEMBLY);
+    const renewed = ASSEMBLY.replace('5053111_', '5099999_');
+    const second = registerDrawings(first.next, renewed);
+    expect(second.next).toHaveLength(1);
+    expect(second.done.map(item => item.isNew)).toEqual([false]);
+    expect(second.done.map(item => item.changed)).toEqual([true]);
+    expect(summarizeDrawingIntake(second)).toMatchObject({ added: 0, updated: 1, unchanged: 0, ok: true });
+  });
+
+  it('取り込み結果は、登録できたときもできなかったときもメッセージにする', () => {
+    const added = summarizeDrawingIntake(registerDrawings([], ASSEMBLY));
+    expect(added.added).toBe(1);
+    expect(added.ok).toBe(true);
+    expect(added.message).toContain('図面リンクを1件登録しました');
+
+    // すでに同じ内容で登録済みのときは、追加できなかったことを伝える。
+    const again = summarizeDrawingIntake(registerDrawings(registerDrawings([], ASSEMBLY).next, ASSEMBLY));
+    expect(again).toMatchObject({ added: 0, updated: 0, unchanged: 1, ok: false });
+    expect(again.message).toContain('すでに同じ内容で登録済み');
+
+    // 図番を判定できないリンクが混ざったときも、確認が必要だと伝える。
+    const partly = summarizeDrawingIntake(registerDrawings([], `${PART}\nhttps://example.com/`));
+    expect(partly).toMatchObject({ added: 1, pending: 1, ok: false });
+    expect(partly.message).toContain('図番を判定できませんでした');
+
+    // リンクが1つもないときは、その旨を伝える。
+    expect(summarizeDrawingIntake(registerDrawings([], 'メモだけ')).message).toContain('取り込める図面リンクがありませんでした');
   });
 
   it('取り込み直しは既存レコードの更新になる', () => {

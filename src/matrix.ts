@@ -55,6 +55,29 @@ export function buildQuantityConflicts(parts: Part[]): Map<string, string[]> {
 }
 
 /**
+ * 同じ品番でVer.だけが違う行のまとまり。値はその品番に現れるVer.（昇順）。
+ * 品番も品名も同じで、Ver.の1文字だけが違う行は隣どうしに並ぶため見落としやすい。
+ * 拾い漏らしを防ぐため、まとめて強調できるように集めておく。
+ * 補材（`+`）は品番を持たないため対象にしない。
+ */
+export function buildVersionConflicts(parts: Part[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const part of parts) {
+    if (isSupplementPart(part.partNo)) continue;
+    const key = part.partNo.trim().toUpperCase();
+    const version = part.version.trim() || '-';
+    const found = groups.get(key);
+    if (!found) groups.set(key, [version]);
+    else if (!found.includes(version)) found.push(version);
+  }
+  for (const [key, versions] of groups) {
+    if (versions.length < 2) groups.delete(key);
+    else versions.sort((a, b) => natural.compare(a, b));
+  }
+  return groups;
+}
+
+/**
  * 部品図（9文字目が `5`・`6`）と組立図の `4` は、10桁目が違っても互換性が
  * あります。10桁目を除いた先頭9桁を「基本番号」として、互換の部品をまとめます。
  * PL（`1`）は10桁目が違えば別のユニットなので、CAD IDの方で扱います。

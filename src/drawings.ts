@@ -432,8 +432,8 @@ export function setAutoRegisterEnabled(value: boolean) {
 export type DrawingIntakeResult = {
   /** 登録後の図面リンク一覧。 */
   next: DrawingLink[];
-  /** 登録・更新できたもの。 */
-  done: { drawing: DrawingLink; isNew: boolean }[];
+  /** 登録・更新できたもの。`changed` は既存の内容から変わったかどうか。 */
+  done: { drawing: DrawingLink; isNew: boolean; changed: boolean }[];
   /** 図番を判定できず、確認が必要なもの。 */
   pending: ParsedDrawing[];
 };
@@ -445,17 +445,62 @@ export type DrawingIntakeResult = {
  */
 export function registerDrawings(drawings: DrawingLink[], text: string, knownPartNos: Iterable<string> = []): DrawingIntakeResult {
   let next = drawings;
-  const done: { drawing: DrawingLink; isNew: boolean }[] = [];
+  const done: DrawingIntakeResult['done'] = [];
   const pending: ParsedDrawing[] = [];
   for (const parsed of parseDrawingClipboardAll(text, knownPartNos)) {
     const existing = findExistingDrawing(next, parsed);
     const entry = buildDrawingLink(parsed, existing);
     if (!isRegisterable(entry)) { pending.push(parsed); continue; }
     next = upsertDrawing(next, entry);
-    done.push({ drawing: entry, isNew: !existing });
+    // 対象品番は既存分と統合されるため、保存後の内容と比べて変化の有無を判断する。
+    const saved = next.find(drawing => drawing.id === entry.id) ?? entry;
+    done.push({ drawing: saved, isNew: !existing, changed: !existing || !isSameDrawingContent(existing, saved) });
   }
   return { next, done, pending };
 }
+
+/** 取り込みの結果を、利用者へ伝える1つのメッセージにまとめる。 */
+export type DrawingIntakeSummary = {
+  /** 新しく登録できた件数。 */
+  added: number;
+  /** 既存の図面リンクの内容を更新できた件数。 */
+  updated: number;
+  /** すでに同じ内容で登録済みだった件数。 */
+  unchanged: number;
+  /** 図番を判定できず、確認が必要な件数。 */
+  pending: number;
+  /** すべて登録・更新できたかどうか。false のときは理由をメッセージで伝える。 */
+  ok: boolean;
+  message: string;
+};
+
+/**
+ * 取り込み結果の内訳を数え、そのままメッセージとして出せる文にする。
+ * 追加できたときだけでなく、追加できなかったときも必ず理由を伝えるため、
+ * マトリックス部品表と図面リンクタブの両方でこの文を使う。
+ */
+export function summarizeDrawingIntake(result: DrawingIntakeResult): DrawingIntakeSummary {
+  const added = result.done.filter(item => item.isNew).length;
+  const updated = result.done.filter(item => !item.isNew && item.changed).length;
+  const unchanged = result.done.length - added - updated;
+  const pending = result.pending.length;
+  const names = result.done
+    .filter(item => item.isNew || item.changed)
+    .map(item => `${normalizeDrawingNo(item.drawing.drawingNo)}（${item.drawing.fileType}）`);
+  const lines: string[] = [];
+  if (added || updated) lines.push(`図面リンクを${added + updated}件登録しました（新規 ${added}件 / 更新 ${updated}件）: ${names.join('、')}`);
+  if (unchanged) lines.push(`${unchanged}件はすでに同じ内容で登録済みのため、追加していません。`);
+  if (pending) lines.push(`${pending}件は図番を判定できませんでした。「図面リンク」タブで内容を確認して登録してください。`);
+  if (!lines.length) lines.push('取り込める図面リンクがありませんでした。社内システムで図面・3Dモデルのリンクをコピーしてください。');
+  return { added, updated, unchanged, pending, ok: added + updated > 0 && !unchanged && !pending, message: lines.join(' ') };
+}
+
+/** 更新日時を除いた内容が同じかどうか。取り込み時に「変更なし」を見分けるために使う。 */
+export const isSameDrawingContent = (a: DrawingLink, b: DrawingLink): boolean =>
+  a.drawingNo === b.drawingNo && a.docNo === b.docNo && (a.sheetNo ?? '') === (b.sheetNo ?? '')
+  && a.fileType === b.fileType && (a.category ?? '') === (b.category ?? '')
+  && a.fileName === b.fileName && a.url === b.url && a.note === b.note
+  && a.partNos.length === b.partNos.length && a.partNos.every((partNo, index) => partNo === b.partNos[index]);
 
 /** 図番・管理番号・品番・ファイル名・備考を対象にした絞り込み。 */
 export function searchDrawings(drawings: DrawingLink[], query: string): DrawingLink[] {
