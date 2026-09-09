@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigit, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -184,9 +184,31 @@ describe('部品図の互換（10桁目の違い）', () => {
     expect(compatibleBaseNo('HH110A0040')).toBe('HH110A004');
     // PL（9文字目が1）は10桁目が違えば別のユニットなので対象外。
     expect(compatibleBaseNo('HH11004010')).toBe('');
-    // 購入品や11桁の図番も対象外。
+    // 購入品は対象外。
     expect(compatibleBaseNo('Z076048100')).toBe('');
-    expect(compatibleBaseNo('HJ061580601')).toBe('');
+    // 11桁の品番は11桁目が末尾1桁。10桁目までが基本番号になる。
+    expect(compatibleBaseNo('HM0N517A501')).toBe('HM0N517A50');
+    expect(compatibleBaseNo('hm0n517a502')).toBe('HM0N517A50');
+    // 11桁でも、9文字目が1のPLは対象外。
+    expect(compatibleBaseNo('HH110040100')).toBe('');
+    // 12桁以上は対象外。
+    expect(compatibleBaseNo('HD1AG0064204')).toBe('');
+    expect(compatibleDigit(compatibleBaseNo('HJ06158060'))).toBe(10);
+    expect(compatibleDigit(compatibleBaseNo('HM0N517A501'))).toBe(11);
+  });
+
+  it('11桁の品番は、11桁目だけが違うものを互換としてまとめる', () => {
+    const groups = buildCompatibleGroups([
+      part('8', 'HM0N517A501'), part('8', 'HM0N517A502'), part('8', 'HM0N517A510'),
+      part('8', 'HM0N500A501'), part('8', 'HM0N500B501'),
+    ]);
+    // 11桁目だけが違う HM0N517A501 と HM0N517A502 が1組。
+    expect(groups.get('HM0N517A50')).toEqual(['HM0N517A501', 'HM0N517A502']);
+    // 10桁目が違う HM0N517A510 は別の基本番号。1件だけなので組にならない。
+    expect(groups.get('HM0N517A51')).toBeUndefined();
+    // 8文字目が違う品番どうしも別扱い。
+    expect(groups.get('HM0N500A50')).toBeUndefined();
+    expect(groups.size).toBe(1);
   });
 
   it('10桁目だけが違う品番が2つ以上あるときにまとめる', () => {
