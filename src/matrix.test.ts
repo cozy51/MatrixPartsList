@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonDuplicates, buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -280,6 +280,32 @@ describe('同じ部品で個数だけが違う行', () => {
   it('風船番号が違えば別の部品として扱う', () => {
     const conflicts = buildQuantityConflicts([withQuantity('17', 'HH13026060', '1'), withQuantity('18', 'HH13026060', '2')]);
     expect(conflicts.size).toBe(0);
+  });
+});
+
+describe('同じ品番が別の風船番号にもある行', () => {
+  it('風船番号が2つ以上ある品番だけをまとめ、風船番号は昇順で返す', () => {
+    const duplicates = buildBalloonDuplicates([
+      part('66', 'HH03704060'), part('67', 'HH03704060'), part('7', 'HH03704060'),
+      part('66', 'HH13129060'),
+      // 補材（+）は品番を持たないため対象外。
+      { ...part('66', '+'), name: 'HCZr M5X8' }, { ...part('67', '+'), name: 'HCZr M5X8' },
+    ]);
+    expect(duplicates.size).toBe(1);
+    expect(duplicates.get('HH03704060')).toEqual(['7', '66', '67']);
+    expect(duplicates.get('HH13129060')).toBeUndefined();
+    expect(duplicates.get('+')).toBeUndefined();
+  });
+
+  it('同じ風船番号に同じ品番が並んでいるだけなら対象外', () => {
+    // 個数違いなど、同じ風船の中の重複は「個数だけが違う行」で示す。
+    const duplicates = buildBalloonDuplicates([part('66', 'HH03704060'), part('66', 'HH03704060')]);
+    expect(duplicates.size).toBe(0);
+  });
+
+  it('表記ゆれは同じ品番として扱う', () => {
+    const duplicates = buildBalloonDuplicates([part('66', ' hh03704060 '), part('67', 'HH03704060')]);
+    expect(duplicates.get('HH03704060')).toEqual(['66', '67']);
   });
 });
 
