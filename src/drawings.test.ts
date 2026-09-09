@@ -25,9 +25,11 @@ import {
   parseDrawingClipboard,
   parseDrawingClipboardAll,
   parseDrawingFileName,
+  parseDrawingUrl,
   partNoCandidatesFromDrawingNo,
   partNosForDrawing,
   versionedAssemblyPartNos,
+  wildcardPartNos,
   registerDrawings,
   partNoFromDrawingNo,
   removeDrawing,
@@ -38,6 +40,8 @@ import {
   upsertDrawing,
   type DrawingLink,
 } from './drawings';
+
+const SHARED_SHEET = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/MVS/2473906_MVS570%23%2360_4.pdf';
 
 const PROXY_URL = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HH1/4397264_HH110A5060.pdf';
 
@@ -283,6 +287,34 @@ describe('図面区分と図番からの品番', () => {
     expect(partNoFromDrawingNo('HD1AG0064204', ['HD1AG00642'])).toBe('HD1AG00642');
     // 機械図面は従来どおり2通りの候補を持つ。
     expect(partNoCandidatesFromDrawingNo('HH1AG0064204')).toEqual(['HH1AG00642', 'HH1AG00640']);
+  });
+
+  it('多品一葉図（図番に # を含む）は、部品表にある品番すべてへ結び付ける', () => {
+    const known = ['MVS5700160', 'MVS5700260', 'HH13225060'];
+    // 長さ違いなどを1枚でまかなう図面。# はその桁が品番ごとに変わることを表す。
+    expect(wildcardPartNos('MVS570##60', known)).toEqual(['MVS5700160', 'MVS5700260']);
+    expect(partNosForDrawing('MVS570##60', known)).toEqual(['MVS5700160', 'MVS5700260']);
+    // 部品表にない品番は返さない。
+    expect(wildcardPartNos('MVS571##60', known)).toEqual([]);
+    // # を含まない図番はこれまでどおり。
+    expect(wildcardPartNos('MVS5700260', known)).toEqual([]);
+  });
+
+  it('# を含むURLでも、ファイル名を最後まで読み取る', () => {
+    // 社内システムのリンクは # を %23 で送るため、URLの断片記号と混ざらないようにする。
+    const parsed = parseDrawingUrl(SHARED_SHEET, ['MVS5700260']);
+    expect(parsed.fileName).toBe('2473906_MVS570##60_4.pdf');
+    expect(parsed.drawingNo).toBe('MVS570##60');
+    expect(parsed.fileType).toBe('PDF');
+    expect(parsed.docNo).toBe('2473906');
+    expect(parsed.partNos).toEqual(['MVS5700260']);
+  });
+
+  it('多品一葉図は、登録済みの記録でも部品表の品番から引ける', () => {
+    // 部品表を渡さずに登録した記録は、対象品番が図番のままになっている。
+    const link = drawing({ id: 'multi', drawingNo: 'MVS570##60', partNos: ['MVS570##60'] });
+    expect(drawingsForPart(buildPartDrawingIndex([link]), 'MVS5700260')).toEqual([]);
+    expect(drawingsForPart(buildPartDrawingIndex([link], ['MVS5700260']), 'MVS5700260')).toEqual([link]);
   });
 
   it('電気図面（機種CD HD1）は、改訂前の品番へ結び付けない', () => {

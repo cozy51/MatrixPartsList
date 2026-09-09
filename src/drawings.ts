@@ -176,6 +176,23 @@ function versionedAssemblyPartNosOf(drawingNo: string, known: Set<string>): stri
 }
 
 /**
+ * 図番の `#` は、その桁が品番ごとに変わることを表す**多品一葉図**の印。
+ * 長さ違いなど、1枚の図面で複数の品番をまかなう図面に使われる。
+ * 例: 図番 `MVS570##60`（図面の品番欄は `MVS-570##-60`、品名 RAIL/DIN）は、
+ * `MVS5700160`・`MVS5700260` など7・8桁目だけが違う品番の共通図面。
+ * `#` を任意の1文字として、部品表にある品番の中から一致するものを返す。
+ */
+export const wildcardPartNos = (drawingNo: string, knownPartNos: Iterable<string> = []): string[] =>
+  wildcardPartNosOf(drawingNo, knownPartNoKeys(knownPartNos));
+
+function wildcardPartNosOf(drawingNo: string, known: Set<string>): string[] {
+  const value = normalizeDrawingNo(drawingNo);
+  if (!value.includes('#')) return [];
+  const pattern = new RegExp(`^${[...value].map(char => char === '#' ? '[A-Z0-9]' : char.replace(/[^A-Z0-9]/, '\\$&')).join('')}$`);
+  return [...known].filter(partNo => pattern.test(partNo)).sort();
+}
+
+/**
  * 図番に結び付ける品番を決める。
  *
  * 0. 11桁でない図番は、「品番の先頭9桁 + Ver」の10桁の図番かどうかを見る。
@@ -188,6 +205,9 @@ function versionedAssemblyPartNosOf(drawingNo: string, known: Set<string>): stri
  * 3. それでも見つからなければ、機械図面の組図（先頭9桁 + `0`）として扱う。
  */
 export function partNosForDrawing(drawingNo: string, knownPartNos: Iterable<string> = []): string[] {
+  // 多品一葉図（`#` を含む図番）は、部品表にある品番へそのまま結び付ける。
+  const wildcard = wildcardPartNos(drawingNo, knownPartNos);
+  if (wildcard.length) return wildcard;
   const candidates = partNoCandidatesFromDrawingNo(drawingNo);
   if (!candidates.length) return versionedAssemblyPartNos(drawingNo, knownPartNos);
   const known = [...new Set([...knownPartNos].map(drawingKey))];
@@ -229,14 +249,15 @@ export function resolveFileUrl(url: string): string {
       return current;
     }
     if (!inner || !/^https?:\/\//i.test(inner) || inner === current) return current;
-    current = inner;
+    // 図番に `#` を含む共通図面があるため、URLの断片記号と混ざらないよう符号化して持つ。
+    current = inner.replace(/#/g, '%23');
   }
   return current;
 }
 
 function fileNameOf(url: string): string {
   try {
-    const path = new URL(url).pathname;
+    const path = new URL(url.replace(/#/g, '%23')).pathname;
     return decodeURIComponent(path.split('/').filter(Boolean).pop() ?? '');
   } catch {
     return '';
@@ -315,6 +336,8 @@ export function buildPartDrawingIndex(drawings: DrawingLink[], knownPartNos: Ite
       for (const candidate of partNoCandidatesFromDrawingNo(no)) add(candidate, drawing);
       // 「品番の先頭9桁 + Ver」の10桁の図番は、登録済みの図面でも品番から引けるようにする。
       for (const candidate of versionedAssemblyPartNosOf(no, known)) add(candidate, drawing);
+      // 多品一葉図（`#` を含む図番）は、部品表の品番からも引けるようにする。
+      for (const candidate of wildcardPartNosOf(no, known)) add(candidate, drawing);
     }
   }
   return index;
