@@ -789,8 +789,12 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .drawing-choice a b { color: #3346ba; }
 .drawing-choice a small { grid-column: 2; color: #8a93a4; font-size: 12px; word-break: break-all; }
 
-/* CAD IDから流用した図面は、破線と CAD の印で区別する。 */
-.drawing-link.is-cadid { border: 1px dashed currentColor; padding: 0 4px; }
+/* CAD IDから流用した図面は、青の実線と CAD の印で区別する。破線では気づきにくいため、
+   枠線に同じ色の影を重ねて2pxぶんの太さに見せる（高さは変えない）。 */
+.drawing-link.is-cadid { border: 1px solid #1a6fd4; box-shadow: 0 0 0 1px #1a6fd4; padding: 0 4px; }
+.drawing-link.is-cadid i { color: #1a6fd4; opacity: 1; }
+.drawing-link.is-cadid:hover { border-color: #0d4f9e; box-shadow: 0 0 0 1px #0d4f9e; }
+.drawing-link.is-cadid:hover i { color: #fff; }
 
 .cadid-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 14px; border: 1px solid #dfe4ee; border-radius: 10px; background: #f8f9ff; }
 .cadid-form label { display: block; font-size: 13px; font-weight: 750; color: #475467; }
@@ -806,6 +810,6 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .cadid-hint.is-ready { color: #14755f; font-weight: 700; }
 .cadid-hint.is-invalid { color: #b4232d; font-weight: 700; }
 .cadid-table { margin-top: 10px; }
-.drawing-chip.is-cadid { background: #eef7ff; color: #1f5fa8; border: 1px dashed #7fb0e0; }
+.drawing-chip.is-cadid { background: #eef7ff; color: #1f5fa8; border: 1px solid #1a6fd4; }
 .cadid-missing { color: #b4232d; font-size: 12px; }
 @media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }
