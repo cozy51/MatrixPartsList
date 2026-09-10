@@ -78,7 +78,13 @@ export function drawingTypeRank(fileType: string): number {
 /** 図番・品番の比較は前後の空白と大文字小文字を無視する。 */
 export const drawingKey = (value: string): string => value.trim().toUpperCase().replace(/\s+/g, '');
 
-export const DRAWING_CATEGORIES = ['組立図', '部品図'] as const;
+export const DRAWING_CATEGORIES = ['組立図', '部品図', '購入品'] as const;
+
+/**
+ * `Z` で始まる品番は購入品。社内で図面を起こす品ではないため、9文字目の
+ * 図面区分は当てはまらない（`Z069714560` は9文字目が `6` でも部品図ではない）。
+ */
+export const isPurchasedDrawingNo = (no: string): boolean => drawingKey(no).startsWith('Z');
 
 /**
  * 図番・品番の9文字目は図面区分を表し、1・4が組立図、5・6が部品図になる。
@@ -88,12 +94,16 @@ const CATEGORY_CODES: Record<string, string> = { '1': '組立図', '4': '組立�
 
 export function detectDrawingCategory(no: string): string {
   const value = drawingKey(no);
+  if (isPurchasedDrawingNo(value)) return '購入品';
   return value.length >= 9 ? CATEGORY_CODES[value[8]] ?? '' : '';
 }
 
-/** 保存済みの区分を優先し、未設定なら図番から判定する。 */
+/**
+ * 保存済みの区分を優先し、未設定なら図番から判定する。ただし購入品は品番そのもの
+ * から決まるため、以前の版が部品図として保存していても購入品として扱う。
+ */
 export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { category?: string }): string =>
-  drawing.category?.trim() || detectDrawingCategory(drawing.drawingNo);
+  isPurchasedDrawingNo(drawing.drawingNo) ? '購入品' : (drawing.category?.trim() || detectDrawingCategory(drawing.drawingNo));
 
 /**
  * 11桁の図番のうち、11桁目が枚数（数字）のもの。10桁目はVerで、`0`〜`9` の次は
