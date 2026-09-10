@@ -1,7 +1,8 @@
 import type { AppData } from './types';
 import type { DrawingData } from './drawings';
 const scope='https://www.googleapis.com/auth/drive.file'; type TokenClient={requestAccessToken:(o?:{prompt?:string})=>void};
-declare global{interface Window{google?:{accounts:{oauth2:{initTokenClient:(o:{client_id:string;scope:string;callback:(r:{access_token?:string;error?:string})=>void})=>TokenClient}}}}}
+type TokenClientConfig={client_id:string;scope:string;callback:(r:{access_token?:string;error?:string})=>void;error_callback?:(e:{type?:string;message?:string})=>void};
+declare global{interface Window{google?:{accounts:{oauth2:{initTokenClient:(o:TokenClientConfig)=>TokenClient}}}}}
 let token='';const api=(url:string,init:RequestInit={})=>fetch(url,{...init,headers:{Authorization:`Bearer ${token}`,...init.headers}});
 export const DRIVE_ROOT_FOLDER='WebAppsData';
 export const DRIVE_ROOT_FOLDER_ID='1SWmOnYn98EN5nZs7Jsi3vBLkuJa4B_O6';
@@ -9,7 +10,22 @@ const LEGACY_DRIVE_ROOT_FOLDER='WebAppData';
 /** 部品表と図面リンクは同じフォルダー内の別ファイルとして保存する。 */
 export const DATA_FILE='MatrixPartsList-latest.json';
 export const DRAWINGS_FILE='MatrixPartsList-drawings.json';
-export function signIn():Promise<void>{const id=import.meta.env.VITE_GOOGLE_CLIENT_ID;if(!id)throw new Error('Google Client IDが未設定です。');return new Promise((resolve,reject)=>{if(!window.google)return reject(new Error('Google Identity Servicesを読み込めません。'));window.google.accounts.oauth2.initTokenClient({client_id:id,scope,callback:r=>{if(r.access_token){token=r.access_token;resolve();}else reject(new Error(r.error||'ログインに失敗しました。'));}}).requestAccessToken({prompt:''});});}
+/** Google Identity Servicesはasyncで読み込むため、起動直後は未読込のことがある。 */
+function waitForGoogle(timeoutMs=8000):Promise<NonNullable<Window['google']>>{return new Promise((resolve,reject)=>{const limit=Date.now()+timeoutMs;const check=()=>{if(window.google)return resolve(window.google);if(Date.now()>limit)return reject(new Error('Google Identity Servicesを読み込めません。'));window.setTimeout(check,100)};check()})}
+
+/**
+ * Driveへログインする。`silent` のときは同意画面もアカウント選択も出さず、
+ * すでに許可済みの場合だけ黙ってトークンを取り直す（起動時の自動ログイン）。
+ * 許可がなければ失敗するので、呼ぶ側は何も知らせずに手動ログインを待つ。
+ */
+export async function signIn(options:{silent?:boolean}={}):Promise<void>{const id=import.meta.env.VITE_GOOGLE_CLIENT_ID;if(!id)throw new Error('Google Client IDが未設定です。');const google=await waitForGoogle();return new Promise((resolve,reject)=>{
+  /* 黙ってのログインは、応答がないまま終わることがある。待ち続けないよう時間で打ち切る。 */
+  const timer=options.silent?window.setTimeout(()=>reject(new Error('自動ログインできませんでした。')),10000):0;
+  const done=(run:()=>void)=>{if(timer)window.clearTimeout(timer);run()};
+  google.accounts.oauth2.initTokenClient({client_id:id,scope,
+    callback:r=>done(()=>{if(r.access_token){token=r.access_token;resolve()}else reject(new Error(r.error||'ログインに失敗しました。'))}),
+    error_callback:e=>done(()=>reject(new Error(e?.type||'ログインできませんでした。'))),
+  }).requestAccessToken({prompt:options.silent?'none':''});});}
 async function find(name:string,parent?:string){const q=[`name='${name}'`,`trashed=false`,parent?`'${parent}' in parents`:null].filter(Boolean).join(' and ');const r=await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`);if(!r.ok)throw Error('Driveの検索に失敗しました。');return(await r.json()).files?.[0] as {id:string}|undefined;}
 async function folder(name:string,parent?:string){const old=await find(name,parent);if(old)return old.id;const r=await api('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mimeType:'application/vnd.google-apps.folder',parents:parent?[parent]:undefined})});return(await r.json()).id;}
 async function readCloudIn<T>(rootId:string,fileName:string):Promise<{id?:string,data?:T}>{const b=await find('MatrixPartsList',rootId);if(!b)return{};const f=await find(fileName,b.id);if(!f)return{};const r=await api(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`);return{id:f.id,data:await r.json()};}
