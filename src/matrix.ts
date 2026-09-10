@@ -22,8 +22,8 @@ export function sortPartsLists(lists: PartsList[]): PartsList[] {
   });
 }
 
-/** 機種コードが `HH1`・`HJ0` のPLは標準PL。一覧とヘッダーに `STD` を表示する。 */
-export const isStandardPl = (plNo: string): boolean => /^(HH1|HJ0)/i.test(plNo.trim());
+/** 機種コードが `HH0`・`HH1`・`HJ0` のPLは標準PL。一覧とヘッダーに `STD` を表示する。 */
+export const isStandardPl = (plNo: string): boolean => /^(HH0|HH1|HJ0)/i.test(plNo.trim());
 
 /** 機種コードが `HH3`・`HJ3` のPLは客先特殊PL。一覧とヘッダーに `CST` を表示する。 */
 export const isCustomerSpecialPl = (plNo: string): boolean => /^(HH3|HJ3)/i.test(plNo.trim());
