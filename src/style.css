@@ -813,10 +813,13 @@ th.plhead:hover, th.plhead:focus-within { z-index: 12; }
 /* 品番ごとの3Dモデル（Google Drive）。列を増やさず、品番の右に小さな立方体だけを出す。 */
 td[data-column="partNo"] > span:first-child { display: inline-block; min-width: 96px; }
 /* 立方体と編集ボタンは幅を決めた枠に入れ、登録の有無やバッジの数で位置が動かないようにする。 */
-.model-slot { display: inline-flex; align-items: center; width: 42px; margin-left: 5px; white-space: nowrap; vertical-align: middle; }
-.model-slot .model-edit { margin-left: auto; }
-.model-link { display: inline-block; color: #5b34a8; vertical-align: -3px; line-height: 0; }
-.model-link:hover, .model-link:focus-visible { color: #3d1f7c; }
+.model-slot { display: inline-flex; align-items: center; width: 20px; margin-left: 5px; white-space: nowrap; vertical-align: middle; }
+.model-link { display: inline-block; padding: 0; border: 0; background: transparent; color: #5b34a8; vertical-align: -3px; line-height: 0; }
+.model-link:hover, .model-link:focus-visible { color: #3d1f7c; border-color: transparent; }
+/* 未登録の立方体は、カーソルを合わせたときだけ薄く出す。普段は枠だけが空く。 */
+.model-link.is-empty { color: #b9c0cf; cursor: pointer; opacity: 0; transition: opacity 120ms ease; }
+tbody tr:hover .model-link.is-empty, .pl:hover .model-link.is-empty, th.plhead:hover .model-link.is-empty, .model-link.is-empty:focus-visible { opacity: 1; }
+.model-link.is-empty:hover { color: #5b34a8; }
 
 /* カーソルを合わせたときのサムネイル。注記の吹き出しと同じ位置・動きにそろえる。 */
 .model-preview {
@@ -839,17 +842,12 @@ td[data-column="partNo"] > span:first-child { display: inline-block; min-width: 
 .model-preview-name { display: block; margin-top: 6px; color: #fff; font-size: 12px; font-weight: 700; line-height: 1.4; white-space: normal; text-align: left; }
 /* 画像を読み込めなかったときだけ、代わりの案内を出す。 */
 .model-preview-failed { display: none; color: #ffd9dd; font-size: 12px; font-weight: 650; line-height: 1.5; white-space: normal; text-align: left; }
+.model-preview-hint { display: block; margin-top: 2px; color: #9aa6bd; font-size: 11px; font-weight: 650; line-height: 1.4; white-space: normal; text-align: left; }
 .model-preview.is-failed img { display: none; }
 .model-preview.is-failed .model-preview-failed { display: block; }
 .model-link:hover .model-preview, .model-link:focus-visible .model-preview { opacity: 1; }
-/* 登録・編集のボタンは、行にカーソルを合わせたときだけ出して普段は邪魔をしない。 */
-.model-edit { margin-left: 4px; padding: 0 4px; border: 0; border-radius: 5px; background: transparent; color: #8a93a4; font-size: 11px; font-weight: 800; line-height: 1.4; vertical-align: 1px; opacity: 0; transition: opacity 120ms ease; }
-tbody tr:hover .model-edit, .pl:hover .model-edit, th.plhead:hover .model-edit, .model-edit:focus-visible { opacity: 1; }
 /* PL一覧・PL列の見出しでは、他のバッジと高さをそろえる。 */
-.pl-badges .model-link, .pl-badges .model-edit { vertical-align: 0; }
-.pl-badges .model-link { line-height: 0; }
-th.plhead .model-edit:hover { background: #fff; }
-.model-edit:hover { background: #eef0ff; border-color: transparent; color: #4651bc; }
+.pl-badges .model-link { vertical-align: 0; line-height: 0; }
 .model-modal p { margin: 6px 0 16px; color: #475467; }
 .model-input { display: grid; gap: 6px; }
 .model-input span { font-size: 13px; font-weight: 750; color: #344054; }
