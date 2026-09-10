@@ -516,6 +516,14 @@ export const driveFileUrl = (fileId: string): string =>
   `https://drive.google.com/file/d/${fileId.trim()}/view`;
 
 /**
+ * Driveのサムネイル画像のURL。Drive APIも認証も使わず、ファイルIDから組み立てるだけ。
+ * 画像が出るのは、そのファイルを開ける状態のとき（リンクを知っている全員に共有、
+ * またはブラウザーでDriveにログイン済み）に限る。出せないときは画像側で失敗する。
+ */
+export const driveThumbnailUrl = (fileId: string, width = 320): string =>
+  `https://drive.google.com/thumbnail?id=${fileId.trim()}&sz=w${width}`;
+
+/**
  * 3Dモデル画像の置き場所（Google Drive の WebAppsData/MatrixPartsList/Image）。
  * Drive APIは使わないため、登録画面からフォルダを開くリンクを出すためだけに持つ。
  */

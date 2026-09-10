@@ -7,6 +7,7 @@ import {
   cadIdFor,
   drawingsForPart,
   driveFileUrl,
+  driveThumbnailUrl,
   modelFileIdFor,
   parseDriveFileId,
   removePartModel,
@@ -743,8 +744,10 @@ describe('品番ごとの3Dモデル（Google Drive）', () => {
     expect(parseDriveFileId('abc123')).toBe('');
   });
 
-  it('ファイルIDからDriveで開くURLを組み立てる', () => {
+  it('ファイルIDからDriveで開くURLとサムネイルのURLを組み立てる', () => {
     expect(driveFileUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view');
+    expect(driveThumbnailUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w320');
+    expect(driveThumbnailUrl('1AbCdEfGhIjKlMnOp', 640)).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w640');
   });
 
   it('品番ごとに1件だけ持ち、登録し直すと上書きし、解除できる', () => {
