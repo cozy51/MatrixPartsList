@@ -31,13 +31,20 @@ export type DrawingLink = {
  */
 export type CadIdLink = { partNo: string; cadId: string; updatedAt: string };
 
-export type DrawingData = { revision: number; updatedAt: string; drawings: DrawingLink[]; cadIds?: CadIdLink[] };
+/**
+ * 品番ごとの3Dモデル画像。Google Driveの共有リンクそのものではなく、URLから取り出した
+ * **ファイルID**を保存する。Drive上でファイル名を変えてもリンクが切れないようにするため。
+ */
+export type PartModelLink = { partNo: string; fileId: string; updatedAt: string };
+
+export type DrawingData = { revision: number; updatedAt: string; drawings: DrawingLink[]; cadIds?: CadIdLink[]; models?: PartModelLink[] };
 
 export const emptyDrawingData: DrawingData = {
   revision: 0,
   updatedAt: new Date(0).toISOString(),
   drawings: [],
   cadIds: [],
+  models: [],
 };
 
 export type ParsedDrawing = {
@@ -482,6 +489,53 @@ export const removeCadId = (cadIds: CadIdLink[], partNo: string): CadIdLink[] =>
 
 export const sortCadIds = (cadIds: CadIdLink[]): CadIdLink[] =>
   [...cadIds].sort((a, b) => drawingKey(a.partNo).localeCompare(drawingKey(b.partNo)));
+
+/** Google DriveのファイルIDに使われる文字。 */
+const DRIVE_FILE_ID = /^[A-Za-z0-9_-]{10,}$/;
+
+/**
+ * Google Driveの共有リンクからファイルIDを取り出す。次の形に対応する。
+ * - `https://drive.google.com/file/d/FILE_ID/view`
+ * - `https://drive.google.com/open?id=FILE_ID`
+ * - `https://drive.google.com/uc?id=FILE_ID`
+ * ファイルIDだけが貼り付けられた場合もそのまま受け取る。読み取れないときは空文字。
+ */
+export function parseDriveFileId(value: string): string {
+  const text = (value ?? '').trim();
+  if (!text) return '';
+  const fromPath = text.match(/\/d\/([A-Za-z0-9_-]+)/)?.[1];
+  if (fromPath && DRIVE_FILE_ID.test(fromPath)) return fromPath;
+  const fromQuery = text.match(/[?&]id=([A-Za-z0-9_-]+)/)?.[1];
+  if (fromQuery && DRIVE_FILE_ID.test(fromQuery)) return fromQuery;
+  // URLの形をしていないものだけ、ファイルIDそのものとして受け取る。
+  return !/[/:?&=\s]/.test(text) && DRIVE_FILE_ID.test(text) ? text : '';
+}
+
+/** ファイルIDから、Driveで開くURLを組み立てる。保存するのはIDだけ。 */
+export const driveFileUrl = (fileId: string): string =>
+  `https://drive.google.com/file/d/${fileId.trim()}/view`;
+
+/**
+ * 3Dモデル画像の置き場所（Google Drive の WebAppsData/MatrixPartsList/Image）。
+ * Drive APIは使わないため、登録画面からフォルダを開くリンクを出すためだけに持つ。
+ */
+export const MODEL_FOLDER_ID = '118t77JHqWQVTv_Vi74kExovh7RM5vdEN';
+
+export const driveFolderUrl = (folderId: string): string =>
+  `https://drive.google.com/drive/folders/${folderId.trim()}`;
+
+export const modelFileIdFor = (models: PartModelLink[], partNo: string): string =>
+  models.find(item => drawingKey(item.partNo) === drawingKey(partNo))?.fileId ?? '';
+
+/** 同じ品番の3Dモデルは1件だけ持つ。登録し直すと上書きする。 */
+export function upsertPartModel(models: PartModelLink[], entry: PartModelLink): PartModelLink[] {
+  const key = drawingKey(entry.partNo);
+  const others = models.filter(item => drawingKey(item.partNo) !== key);
+  return [...others, entry];
+}
+
+export const removePartModel = (models: PartModelLink[], partNo: string): PartModelLink[] =>
+  models.filter(item => drawingKey(item.partNo) !== drawingKey(partNo));
 
 /** 品番自身の図面と、CAD IDから流用する図面。流用分は viaCadId を持つ。 */
 export type ResolvedDrawing = { drawing: DrawingLink; viaCadId?: string };

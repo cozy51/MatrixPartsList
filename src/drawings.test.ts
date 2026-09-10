@@ -6,6 +6,11 @@ import {
   drawingCategoryOf,
   cadIdFor,
   drawingsForPart,
+  driveFileUrl,
+  modelFileIdFor,
+  parseDriveFileId,
+  removePartModel,
+  upsertPartModel,
   drawingSheetLabel,
   drawingSheetName,
   drawingSheetNo,
@@ -711,5 +716,48 @@ describe('11桁の品番（11桁目が英字）', () => {
     };
     const index = buildPartDrawingIndex([drawing], known);
     expect(drawingsForPart(index, 'NP00032062C').map(item => item.id)).toEqual(['old']);
+  });
+});
+
+describe('品番ごとの3Dモデル（Google Drive）', () => {
+  it('共有リンクからファイルIDを取り出す', () => {
+    expect(parseDriveFileId('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view?usp=sharing')).toBe('1AbCdEfGhIjKlMnOp');
+    expect(parseDriveFileId('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view')).toBe('1AbCdEfGhIjKlMnOp');
+    expect(parseDriveFileId('https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp')).toBe('1AbCdEfGhIjKlMnOp');
+    expect(parseDriveFileId('https://drive.google.com/uc?id=1AbCdEfGhIjKlMnOp&export=download')).toBe('1AbCdEfGhIjKlMnOp');
+    // 前後に空白が付いていても読み取る。
+    expect(parseDriveFileId('  https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view  ')).toBe('1AbCdEfGhIjKlMnOp');
+  });
+
+  it('ファイルIDだけを貼り付けても受け取る', () => {
+    expect(parseDriveFileId('1AbCdEfGhIjKlMnOp')).toBe('1AbCdEfGhIjKlMnOp');
+    expect(parseDriveFileId('1a2b3c4d5e6f7g8h9i0j-_KLMNOP')).toBe('1a2b3c4d5e6f7g8h9i0j-_KLMNOP');
+  });
+
+  it('読み取れないものは空文字にして登録させない', () => {
+    expect(parseDriveFileId('')).toBe('');
+    expect(parseDriveFileId('   ')).toBe('');
+    expect(parseDriveFileId('https://example.com/model.easm')).toBe('');
+    expect(parseDriveFileId('https://drive.google.com/drive/my-drive')).toBe('');
+    // 短すぎるものはファイルIDと見なさない。
+    expect(parseDriveFileId('abc123')).toBe('');
+  });
+
+  it('ファイルIDからDriveで開くURLを組み立てる', () => {
+    expect(driveFileUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view');
+  });
+
+  it('品番ごとに1件だけ持ち、登録し直すと上書きし、解除できる', () => {
+    const at = '2026-01-01T00:00:00.000Z';
+    let models = upsertPartModel([], { partNo: 'Z080670500', fileId: '1AbCdEfGhIjKlMnOp', updatedAt: at });
+    expect(modelFileIdFor(models, 'Z080670500')).toBe('1AbCdEfGhIjKlMnOp');
+    // 品番の照合は前後の空白と大文字小文字を無視する。
+    expect(modelFileIdFor(models, ' z080670500 ')).toBe('1AbCdEfGhIjKlMnOp');
+    expect(modelFileIdFor(models, 'HH110A5060')).toBe('');
+    models = upsertPartModel(models, { partNo: 'z080670500', fileId: '2ZzYyXxWwVvUuTtSs', updatedAt: at });
+    expect(models).toHaveLength(1);
+    expect(modelFileIdFor(models, 'Z080670500')).toBe('2ZzYyXxWwVvUuTtSs');
+    expect(removePartModel(models, 'Z080670500')).toEqual([]);
+    expect(removePartModel(models, 'HH110A5060')).toHaveLength(1);
   });
 });
