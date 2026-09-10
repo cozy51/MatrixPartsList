@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonDuplicates, buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonDuplicates, buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { partKey } from './csv';
 import type { Part, PartsList } from './types';
 
 const part = (balloon: string, partNo: string): Part => ({
@@ -141,6 +142,22 @@ describe('reference workbook ordering', () => {
     expect(countPartOccurrences(partsList, target)).toBe(2);
     expect(countPartOccurrences(partsList, part('2', 'nut'))).toBe(1);
     expect(countPartOccurrences(partsList, part('3', 'washer'))).toBe(0);
+  });
+
+  it('builds one index per PL so the matrix does not rescan every detail row', () => {
+    const target = part('1', 'bolt');
+    const supplement = part('C', 'grease');
+    const partsList = list('HH11000010');
+    partsList.parts = [target, { ...target }, part('2', 'nut'), supplement];
+    const { counts, keys } = buildListPartIndex(partsList);
+    // 員数は countPartOccurrences と同じ（補材＝風船Cは数えない）。
+    expect(counts.get(partKey(target))).toBe(2);
+    expect(counts.get(partKey(part('2', 'nut')))).toBe(1);
+    expect(counts.get(partKey(part('3', 'washer')))).toBeUndefined();
+    expect(counts.has(partKey(supplement))).toBe(false);
+    // 「そのPLに載っているか」は補材も含めて見る。
+    expect(keys.has(partKey(supplement))).toBe(true);
+    expect(keys.has(partKey(part('3', 'washer')))).toBe(false);
   });
 
   it('can hide every supplement row in one operation', () => {

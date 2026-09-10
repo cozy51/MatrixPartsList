@@ -183,11 +183,30 @@ export const filterPartsByBalloon = (parts: Part[], balloon: string): Part[] =>
 export const filterSupplementParts = (parts: Part[], showSupplements: boolean): Part[] =>
   showSupplements ? parts : parts.filter(part => part.partNo.trim() !== '+');
 
+/**
+ * PL1件分の索引。部品ごとの件数（`counts`）と、載っている部品のキー（`keys`）を
+ * 1回の走査で作る。マトリックスは「部品 × PL」のすべての組を数えるため、PLごとに
+ * 明細を数え直すと部品数 × PL数 × 明細数の照合になり、PLが増えるほど描画が重く
+ * なる。PLごとに1回だけ数えておき、あとは品番のキーで引く。
+ */
+export type ListPartIndex = { counts: Map<string, number>; keys: Set<string> };
+
+export function buildListPartIndex(list: PartsList): ListPartIndex {
+  const counts = new Map<string, number>();
+  const keys = new Set<string>();
+  for (const item of list.parts) {
+    const key = partKey(item);
+    keys.add(key);
+    // 補材（風船 C）は員数に数えない。
+    if (item.balloon.toUpperCase() === 'C') continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return { counts, keys };
+}
+
 /** Return the actual number of matching detail rows in a PL. */
-export const countPartOccurrences = (list: PartsList, part: Part): number => {
-  const key = partKey(part);
-  return list.parts.filter(item => item.balloon.toUpperCase() !== 'C' && partKey(item) === key).length;
-};
+export const countPartOccurrences = (list: PartsList, part: Part): number =>
+  buildListPartIndex(list).counts.get(partKey(part)) ?? 0;
 
 export type PlSimilarity = { list: PartsList; score: number; common: number; union: number };
 
