@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonDuplicates, buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonDuplicates, buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildMaterialConflicts, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutMaterial, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import { partKey } from './csv';
 import type { Part, PartsList } from './types';
 
@@ -310,6 +310,41 @@ describe('同じ部品で個数だけが違う行', () => {
   it('風船番号が違えば別の部品として扱う', () => {
     const conflicts = buildQuantityConflicts([withQuantity('17', 'HH13026060', '1'), withQuantity('18', 'HH13026060', '2')]);
     expect(conflicts.size).toBe(0);
+  });
+});
+
+describe('同じ部品で材質・メーカーだけが違う行', () => {
+  const withMaterial = (balloon: string, partNo: string, material: string, name = partNo) => ({ ...part(balloon, partNo), material, name });
+
+  it('材質が2通り以上ある部品だけをまとめる', () => {
+    const conflicts = buildMaterialConflicts([
+      withMaterial('34', 'Z087130900', 'ダイイチデンシコウギョウ', 'CN-P D/MS25043-16D(R1) CAP'),
+      withMaterial('34', 'Z087130900', 'フジクラ/フジクラデンセン', 'CN-P D/MS25043-16D(R1) CAP'),
+      withMaterial('34', 'Z080668500', 'ダイイチデンシコウギョウ', 'CN-P D/MS25043-16D CAP'),
+      // 補材（+）は品名で現物を区別しており、材質欄が空のことも多いため対象外。
+      withMaterial('32', '+', 'SUS304-CP', 'HCZr M4X8'),
+      withMaterial('32', '+', '', 'HCZr M4X8'),
+    ]);
+    expect(conflicts.size).toBe(1);
+    expect(conflicts.get(partKeyWithoutMaterial(withMaterial('34', 'Z087130900', '', 'CN-P D/MS25043-16D(R1) CAP'))))
+      .toEqual(['ダイイチデンシコウギョウ', 'フジクラ/フジクラデンセン']);
+    // 材質が1通りだけの部品と補材は対象外。
+    expect(conflicts.get(partKeyWithoutMaterial(withMaterial('34', 'Z080668500', 'ダイイチデンシコウギョウ', 'CN-P D/MS25043-16D CAP')))).toBeUndefined();
+    expect(conflicts.get(partKeyWithoutMaterial(withMaterial('32', '+', '', 'HCZr M4X8')))).toBeUndefined();
+  });
+
+  it('材質以外が違えば別の部品として扱う', () => {
+    // 数量が違うものは「個数だけが違う行」で拾うため、こちらでは組にしない。
+    expect(buildMaterialConflicts([
+      { ...withMaterial('34', 'Z087130900', 'A'), quantity: '1' },
+      { ...withMaterial('34', 'Z087130900', 'B'), quantity: '2' },
+    ]).size).toBe(0);
+    expect(buildMaterialConflicts([withMaterial('34', 'Z087130900', 'A'), withMaterial('35', 'Z087130900', 'B')]).size).toBe(0);
+  });
+
+  it('材質欄が空の行と入っている行も組にする', () => {
+    const conflicts = buildMaterialConflicts([withMaterial('34', 'HH3322EZ60', ''), withMaterial('34', 'HH3322EZ60', 'SUS304-CP')]);
+    expect(conflicts.get(partKeyWithoutMaterial(withMaterial('34', 'HH3322EZ60', '')))).toEqual(['', 'SUS304-CP']);
   });
 });
 
