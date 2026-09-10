@@ -576,6 +576,17 @@ button.excel:hover { border-color: #217346; background: #dff2e7; }
 .drawing-notice button { margin-left: auto; border: 0; padding: 0 4px; background: transparent; color: inherit; }
 /* 図面リンクを追加できなかったときは、見落とさないよう注意の色にする。 */
 .drawing-notice.is-warn { background: #fff6e6; color: #96601a; }
+
+/* 通知が出るたびに「図面リンク取得」「Excel出力」が動かないよう、通知は操作バーの
+   中（ボタンの右）へ置く。バーの高さは変わらないので、ボタンの位置は固定される。 */
+.error { display: flex; align-items: center; gap: 8px; }
+.error > span, .drawing-notice > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.error button { margin-left: auto; float: none; }
+.matrix-notices { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; overflow: hidden; }
+.matrix-notices:empty { display: none; }
+.matrix-notices .error, .matrix-notices .drawing-notice { flex: 1; min-width: 0; margin: 0; padding: 6px 12px; font-size: 12.5px; line-height: 1.35; }
+/* 長い案内文が1行で切れないよう、バーの高さに収まる2行までは折り返す。 */
+.matrix-notices > * > span { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .drawings-view { min-height: 0; overflow: auto; padding: 18px; background: #fff; border: 1px solid #e2e6ed; border-radius: 10px; }
 .drawings-capture { padding: 16px; border: 1px solid #dfe4ee; border-radius: 10px; background: #f8f9ff; }
 .drawings-capture-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
