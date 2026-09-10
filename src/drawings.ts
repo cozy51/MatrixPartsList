@@ -96,19 +96,34 @@ export const drawingCategoryOf = (drawing: Pick<DrawingLink, 'drawingNo'> & { ca
   drawing.category?.trim() || detectDrawingCategory(drawing.drawingNo);
 
 /**
- * 11桁の図番。10桁目はVerで、`0`〜`9` の次は `A`・`B`・`C` と英字へ繰り上がる
- * （`HH1230201C0`）。11桁目は枚数で、こちらは必ず数字。
+ * 11桁の図番のうち、11桁目が枚数（数字）のもの。10桁目はVerで、`0`〜`9` の次は
+ * `A`・`B`・`C` と英字へ繰り上がる（`HH1230201C0`）。
  */
-const DRAWING_NO_11 = /^[A-Z][A-Z0-9]{9}\d$/;
+const DRAWING_NO_11_SHEET = /^[A-Z][A-Z0-9]{9}\d$/;
+
+/**
+ * 11桁目が `T` の図番は**追加工図**。素材の品番（10桁）へ追加工した部品の図面で、
+ * 11桁目は枚数ではなく追加工の印になる（品番 `HH16001063` → 追加工図
+ * `HH16001063T`）。10桁目まではそのまま品番なので、Verとして読み替えない。
+ */
+const DRAWING_NO_11_MACHINING = /^[A-Z][A-Z0-9]{9}T$/;
+
+/** 11桁の図番。11桁目は枚数（数字）か、追加工図の `T`。 */
+const DRAWING_NO_11 = /^[A-Z][A-Z0-9]{9}[\dT]$/;
+
+/** 追加工図（11桁目が `T`）かどうか。 */
+export const isAdditionalMachiningDrawingNo = (drawingNo: string): boolean =>
+  DRAWING_NO_11_MACHINING.test(normalizeDrawingNo(drawingNo));
 
 /**
  * 図番の12桁目は用紙サイズ（`4` = A4）を表し、図面そのものを指す番号ではない。
  * 例: `HD1AG0064204` は図番 `HD1AG006420`（11桁目 `0` が1枚目）＋ 用紙サイズ `4`。
  * 画面には出さず、品番の判定にも使わないため、11桁までを図番として扱う。
+ * 追加工図（11桁目が `T`）に用紙サイズが付く場合も同じように切り落とす。
  */
 export function normalizeDrawingNo(value: string): string {
   const key = drawingKey(value);
-  return /^[A-Z][A-Z0-9]{9}\d{2}$/.test(key) ? key.slice(0, 11) : key;
+  return /^[A-Z][A-Z0-9]{9}[\dT]\d$/.test(key) ? key.slice(0, 11) : key;
 }
 
 /**
@@ -121,10 +136,15 @@ export function normalizeDrawingNo(value: string): string {
  *   `HH1230201C0`）。
  * - 電気図面: 外注のため品番そのものの10桁目を改訂で上げるので、図番はその
  *   品番に枚数の1桁を足した形になる（品番 `HH01008043` → 図番 `HH010080430`）。
+ *
+ * 追加工図（11桁目が `T`）だけは枚数の桁がなく、10桁目までがそのまま品番なので、
+ * 候補は1つに決まる（図番 `HH16001063T` → 品番 `HH16001063`）。
  */
 export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
   const value = normalizeDrawingNo(drawingNo);
   if (!DRAWING_NO_11.test(value)) return [];
+  // 追加工図は10桁目までが品番。Verとして読み替えると別品番へ結び付いてしまう。
+  if (DRAWING_NO_11_MACHINING.test(value)) return [value.slice(0, 10)];
   // 電気図面は数え方が1通りに決まるため、機械図面の組図の候補は持たせない。
   if (isElectricalDrawingNo(value)) return [value.slice(0, 10)];
   return [...new Set([value.slice(0, 10), `${value.slice(0, 9)}0`])];
@@ -352,7 +372,8 @@ export const drawingsForPart = (index: Map<string, DrawingLink[]>, partNo: strin
  */
 export function drawingSheetNo(drawingNo: string): number {
   const value = normalizeDrawingNo(drawingNo);
-  return DRAWING_NO_11.test(value) ? Number(value[10]) : -1;
+  // 追加工図の `T` は枚数ではないため、枚数なしとして扱う。
+  return DRAWING_NO_11_SHEET.test(value) ? Number(value[10]) : -1;
 }
 
 export function drawingSheetLabel(drawingNo: string): string {
@@ -370,11 +391,19 @@ export function drawingSheetIndex(drawing: Pick<DrawingLink, 'drawingNo' | 'shee
   return drawingSheetNo(drawing.drawingNo);
 }
 
-/** 「n枚目」の表示。連番と図番のどちらからでも求める。 */
+/**
+ * 「n枚目」の表示。連番と図番のどちらからでも求める。追加工図は枚数ではなく
+ * 「追加工」と出し、同じ品番の元の図面と見分けられるようにする。
+ */
 export function drawingSheetName(drawing: Pick<DrawingLink, 'drawingNo' | 'sheetNo'>): string {
   const index = drawingSheetIndex(drawing);
-  return index >= 0 ? `${index + 1}枚目` : '';
+  const sheet = index >= 0 ? `${index + 1}枚目` : '';
+  if (!isAdditionalMachiningDrawingNo(drawing.drawingNo)) return sheet;
+  return sheet ? `追加工 ${sheet}` : '追加工';
 }
+
+/** 並び順で追加工図を後ろに回すための重み。 */
+const machiningRank = (drawingNo: string): number => (isAdditionalMachiningDrawingNo(drawingNo) ? 1 : 0);
 
 /**
  * 同じ種別（PDF・DXF・3Dモデル）の図面をひとまとめにする。複数枚ある場合は
@@ -390,7 +419,9 @@ export function groupDrawingsByType(items: ResolvedDrawing[]): { fileType: strin
   return [...groups.entries()]
     .map(([fileType, list]) => ({
       fileType,
-      items: [...list].sort((a, b) => drawingSheetIndex(a.drawing) - drawingSheetIndex(b.drawing)
+      // 追加工図は元の図面のあとに置く。枚数がないため、そのままだと先頭に来てしまう。
+      items: [...list].sort((a, b) => machiningRank(a.drawing.drawingNo) - machiningRank(b.drawing.drawingNo)
+        || drawingSheetIndex(a.drawing) - drawingSheetIndex(b.drawing)
         || drawingKey(a.drawing.drawingNo).localeCompare(drawingKey(b.drawing.drawingNo))
         || a.drawing.fileName.localeCompare(b.drawing.fileName)),
     }))

@@ -16,6 +16,7 @@ import {
   groupDrawingsByType,
   drawingTypeRank,
   isModelType,
+  isAdditionalMachiningDrawingNo,
   isPlNumber,
   isRegisterable,
   removeCadId,
@@ -610,5 +611,48 @@ describe('Verが英字の図番（9の次はA）', () => {
     expect(done).toHaveLength(5);
     expect(next).toHaveLength(5);
     expect(next[0]).toMatchObject({ drawingNo: 'HH1230201C0', category: '組立図', partNos: ['HH1230201C0', 'HH12302010'] });
+  });
+});
+
+describe('追加工図（11桁目が T）', () => {
+  it('10桁目までをそのまま品番として読み取る', () => {
+    expect(normalizeDrawingNo('HH16001063T')).toBe('HH16001063T');
+    expect(partNoCandidatesFromDrawingNo('HH16001063T')).toEqual(['HH16001063']);
+    // Verとして読み替えないので、部品表になくても素材の品番へ結び付く。
+    expect(partNosForDrawing('HH16001063T', ['HH16001063'])).toEqual(['HH16001063']);
+    expect(partNosForDrawing('HH16001063T', [])).toEqual(['HH16001063']);
+    expect(partNoFromDrawingNo('HH16001063T', ['HH16001063'])).toBe('HH16001063');
+    // 用紙サイズ付きの12桁も11桁へそろえる。
+    expect(normalizeDrawingNo('HH16001063T4')).toBe('HH16001063T');
+  });
+
+  it('T は枚数ではなく「追加工」として表示する', () => {
+    expect(drawingSheetNo('HH16001063T')).toBe(-1);
+    expect(drawingSheetLabel('HH16001063T')).toBe('');
+    expect(isAdditionalMachiningDrawingNo('HH16001063T')).toBe(true);
+    expect(isAdditionalMachiningDrawingNo('HH160010630')).toBe(false);
+    expect(drawingSheetName({ drawingNo: 'HH16001063T', sheetNo: '' })).toBe('追加工');
+    // ファイル名末尾の連番があるときは、追加工図の何枚目かを合わせて出す。
+    expect(drawingSheetName({ drawingNo: 'HH16001063T', sheetNo: '2' })).toBe('追加工 2枚目');
+    expect(drawingSheetName({ drawingNo: 'HH160010630', sheetNo: '' })).toBe('1枚目');
+  });
+
+  it('リンクからそのまま登録できる', () => {
+    const base = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HH1';
+    const { next, done, pending } = registerDrawings([], `${base}/4588429_HH16001063T.pdf`, ['HH16001063']);
+    expect(pending).toEqual([]);
+    expect(done).toHaveLength(1);
+    expect(next[0]).toMatchObject({ drawingNo: 'HH16001063T', docNo: '4588429', category: '部品図', partNos: ['HH16001063T', 'HH16001063'] });
+    expect(isRegisterable(next[0])).toBe(true);
+  });
+
+  it('元の図面のあとに並べて出せる', () => {
+    const base = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HH1';
+    const { next } = registerDrawings([], [`${base}/3415030_HH1600106301.pdf`, `${base}/4588429_HH16001063T.pdf`].join('\n'), ['HH16001063']);
+    const index = buildPartDrawingIndex(next, ['HH16001063']);
+    expect(drawingsForPart(index, 'HH16001063').map(item => item.drawingNo)).toEqual(['HH160010630', 'HH16001063T']);
+    // 図面を選ぶときは、枚数のある元の図面が先で追加工図が後。
+    const groups = groupDrawingsByType(next.map(drawing => ({ drawing })));
+    expect(groups[0].items.map(item => drawingSheetName(item.drawing))).toEqual(['1枚目', '追加工']);
   });
 });
