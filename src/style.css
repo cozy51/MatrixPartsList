@@ -653,6 +653,7 @@ button.excel:hover { border-color: #217346; background: #dff2e7; }
 .drawing-category { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #eef2ff; color: #4054ae; font-size: 12px; font-weight: 750; white-space: nowrap; }
 .drawing-category.assembly { background: #e9f7f1; color: #14755f; }
 .drawing-category.part { background: #fff3df; color: #a2621a; }
+.drawing-category.purchased { background: #0f6b3d; color: #fff; }
 .drawing-type { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #fdecec; color: #b4232d; font-size: 12px; font-weight: 750; }
 .drawing-type.dxf { background: #e4f1ff; color: #1f5fa8; }
 .drawing-type.dwg { background: #eef7e4; color: #3d7a20; }
@@ -679,6 +680,7 @@ td.use-compat { color: #7c3aed; background: #f8f5ff; font-size: 15px; font-weigh
 .compat-legend em { color: #a35a00; font-style: normal; font-weight: 800; }
 .compat-legend em.ver { color: #b3202f; }
 .compat-legend em.balloon { color: #b02a72; }
+.compat-legend em.material { color: #0b6c7d; }
 
 /* 同じ部品なのに個数だけが違う行は、数量を強調して拾い漏らしを防ぐ。 */
 td.qty-diff { background: #fff6e8 !important; box-shadow: inset 3px 0 0 #f0a03c; }
@@ -686,6 +688,14 @@ td.qty-diff > span { color: #a35a00; font-weight: 850; }
 /* `≠` はツールチップの起点にするため、擬似要素ではなくバッジで出す。 */
 .qty-badge { margin-left: 4px; color: #a35a00; font-size: 12px; font-weight: 800; }
 tbody tr:hover td.qty-diff { background: #ffeed4 !important; }
+
+/* 同じ部品なのに材質・メーカーだけが違う行。数量（オレンジ）・Ver.（赤）・風船（ピンク）
+   と区別が付くよう青緑にする。 */
+td.material-diff { background: #e6f5f8 !important; box-shadow: inset 3px 0 0 #17909f; }
+td.material-diff > span { color: #0b6c7d; font-weight: 850; }
+tbody tr:hover td.material-diff { background: #d3ecf1 !important; }
+/* 材質欄は幅が狭く文字が省略されるため、`≠` は値の前に置いて隠れないようにする。 */
+.material-badge { margin-right: 4px; color: #0b6c7d; font-size: 12px; font-weight: 800; }
 
 /* 品番が同じでVer.だけが違う行は並んで表示され、見分けにくい。Ver.を赤で強調する。 */
 td.ver-diff { background: #fff0f1 !important; box-shadow: inset 3px 0 0 #d63b4a; }
@@ -795,6 +805,10 @@ th.plhead:hover, th.plhead:focus-within { z-index: 12; }
 .cadid-note { margin-top: 12px; color: #8992a3; font-size: 13px; }
 .drawing-link.is-part:hover { background: #a2621a; color: #fff; }
 .drawing-link.is-model:hover { background: #5b34a8; color: #fff; }
+/* 購入品（`Z` で始まる品番）は社内で図面を起こす品ではないので、図面区分とは別の色にする。
+   部品表の品番と同じ緑にし、淡い色の3区分と見分けられるよう塗りつぶしにする。 */
+.drawing-link.is-purchased { background: #0f6b3d; color: #fff; }
+.drawing-link.is-purchased:hover { background: #0a4f2d; color: #fff; }
 /* 同じ種別が複数枚あるときのバッジ（ボタン）も、リンクと同じ見た目にする。 */
 button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-height: 1.5; }
 .drawing-link i { margin-left: 3px; font-size: 8px; font-style: normal; font-weight: 800; letter-spacing: .04em; opacity: .85; }

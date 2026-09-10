@@ -64,6 +64,32 @@ export function buildQuantityConflicts(parts: Part[]): Map<string, string[]> {
   return groups;
 }
 
+/** 材質・メーカーを除いた部品の同一性。材質欄だけが違う行を見つけるのに使う。 */
+export const partKeyWithoutMaterial = (part: Part): string =>
+  [part.balloon, part.partNo, part.version, part.name, part.quantity].join('\u001f').toLocaleUpperCase();
+
+/**
+ * 同じ部品で材質・メーカーだけが違う行のまとまり。値はその部品に現れる材質。
+ * 通常は起こらないが、起きていれば知っておきたい情報なので強調する。補材（`+`）は
+ * 品名で現物を区別しており、材質欄が空のことも多いため対象にしない。
+ */
+export function buildMaterialConflicts(parts: Part[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const part of parts) {
+    if (isSupplementPart(part.partNo)) continue;
+    const key = partKeyWithoutMaterial(part);
+    const material = part.material.trim();
+    const found = groups.get(key);
+    if (!found) groups.set(key, [material]);
+    else if (!found.includes(material)) found.push(material);
+  }
+  for (const [key, materials] of groups) {
+    if (materials.length < 2) groups.delete(key);
+    else materials.sort((a, b) => natural.compare(a, b));
+  }
+  return groups;
+}
+
 /**
  * 同じ品番でVer.だけが違う行のまとまり。値はその品番に現れるVer.（昇順）。
  * 品番も品名も同じで、Ver.の1文字だけが違う行は隣どうしに並ぶため見落としやすい。

@@ -3,8 +3,8 @@ import * as XLSX from 'xlsx';
 import {
   DRAWING_CATEGORIES,
   buildDrawingLink,
-  detectDrawingCategory,
   drawingCategoryOf,
+  isPurchasedDrawingNo,
   drawingKey,
   findExistingDrawing,
   isAutoRegisterEnabled,
@@ -300,7 +300,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
       <div className="drawing-form-grid">
         <label><span>図番</span><input value={draft.drawingNo} placeholder="必須" onChange={event => setDraft({ ...draft, drawingNo: event.target.value })} /></label>
         <label><span>種別</span><select value={draft.fileType} onChange={event => setDraft({ ...draft, fileType: event.target.value })}>{[...new Set([draft.fileType, ...FILE_TYPES])].filter(Boolean).map(type => <option key={type} value={type}>{type}</option>)}</select></label>
-        <label><span>区分</span><select value={draft.category?.trim() || detectDrawingCategory(draft.drawingNo)} onChange={event => setDraft({ ...draft, category: event.target.value })}><option value="">未設定</option>{DRAWING_CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}</select></label>
+        <label><span>区分</span><select value={drawingCategoryOf(draft)} disabled={isPurchasedDrawingNo(draft.drawingNo)} title={isPurchasedDrawingNo(draft.drawingNo) ? 'Z で始まる品番は購入品のため、区分は変えられません。' : undefined} onChange={event => setDraft({ ...draft, category: event.target.value })}><option value="">未設定</option>{DRAWING_CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}</select></label>
         <label><span>管理番号</span><input value={draft.docNo} placeholder="自動取得" onChange={event => setDraft({ ...draft, docNo: event.target.value })} /></label>
         <label className="drawing-form-wide"><span>リンク</span><input value={draft.url} placeholder="https://..." onChange={event => {
           const url = event.target.value;
@@ -343,7 +343,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
       <thead><tr><th>図番</th><th>区分</th><th>種別</th><th>対象品番</th><th>管理番号</th><th>備考</th><th>操作</th></tr></thead>
       <tbody>{paged.map(drawing => <tr key={drawing.id}>
         <td><span className="drawing-no-line"><b>{normalizeDrawingNo(drawing.drawingNo)}</b>{drawing.sheetNo?.trim() && <span className="drawing-sheet">{drawingSheetName(drawing)}</span>}</span><small>{drawing.fileName}</small></td>
-        <td>{drawingCategoryOf(drawing) ? <span className={`drawing-category ${drawingCategoryOf(drawing) === '組立図' ? 'assembly' : 'part'}`}>{drawingCategoryOf(drawing)}</span> : '—'}</td>
+        <td>{drawingCategoryOf(drawing) ? <span className={`drawing-category ${drawingCategoryOf(drawing) === '組立図' ? 'assembly' : drawingCategoryOf(drawing) === '購入品' ? 'purchased' : 'part'}`}>{drawingCategoryOf(drawing)}</span> : '—'}</td>
         <td><span className={`drawing-type ${drawing.fileType.toLowerCase()}`}>{drawing.fileType}</span></td>
         <td>{drawing.partNos.map(partNo => <span className={`drawing-chip ${normalizeDrawingNo(partNo) === normalizeDrawingNo(drawing.drawingNo) ? '' : 'is-alias'}`} key={partNo}>{normalizeDrawingNo(partNo)}</span>)}</td>
         <td>{drawing.docNo || '—'}</td>

@@ -18,6 +18,7 @@ import {
   isModelType,
   isAdditionalMachiningDrawingNo,
   isLongPartDrawingNo,
+  isPurchasedDrawingNo,
   isLongPartNo,
   isPlNumber,
   isRegisterable,
@@ -257,13 +258,24 @@ describe('図面区分と図番からの品番', () => {
     expect(detectDrawingCategory('HH11000010')).toBe('組立図');
     expect(detectDrawingCategory('HH110A5060')).toBe('部品図');
     expect(detectDrawingCategory('HH3101AQ52')).toBe('部品図');
-    expect(detectDrawingCategory('Z074963100')).toBe('');
     expect(detectDrawingCategory('HH110')).toBe('');
+  });
+
+  it('`Z` で始まる品番は、9文字目に関わらず購入品', () => {
+    expect(isPurchasedDrawingNo('Z069714560')).toBe(true);
+    expect(isPurchasedDrawingNo('z0697145600')).toBe(true);
+    expect(isPurchasedDrawingNo('HH110A5060')).toBe(false);
+    // 9文字目が `6` でも部品図にはしない。
+    expect(detectDrawingCategory('Z069714560')).toBe('購入品');
+    expect(detectDrawingCategory('Z074963100')).toBe('購入品');
   });
 
   it('登録済みの区分を優先する', () => {
     expect(drawingCategoryOf(drawing({ drawingNo: 'HH110A5060' }))).toBe('部品図');
     expect(drawingCategoryOf(drawing({ drawingNo: 'HH110A5060', category: '組立図' }))).toBe('組立図');
+    // 購入品は品番から決まるため、以前の版が部品図として保存していても購入品にする。
+    expect(drawingCategoryOf(drawing({ drawingNo: 'Z069714560' }))).toBe('購入品');
+    expect(drawingCategoryOf(drawing({ drawingNo: 'Z0697145600', category: '部品図' }))).toBe('購入品');
   });
 
   it('11桁の図番から10桁の品番を導く', () => {
