@@ -32,6 +32,7 @@ const list = (plNo: string): PartsList => ({
 
 describe('reference workbook ordering', () => {
   it('identifies HH1 and HJ0 prefixes as standard PLs', () => {
+    expect(isStandardPl('HH09201010')).toBe(true);
     expect(isStandardPl('HH11000010')).toBe(true);
     expect(isStandardPl('hh110A0010')).toBe(true);
     expect(isStandardPl('HJ02100010')).toBe(true);
@@ -48,6 +49,7 @@ describe('reference workbook ordering', () => {
     expect(isCustomerSpecialPl('HJ02100010')).toBe(false);
   });
   it('標準PLはSTD、客先特殊PLはCST、どちらでもなければ印を出さない', () => {
+    expect(plKindLabel('HH09201310')).toBe('STD');
     expect(plKindLabel('HH13182010')).toBe('STD');
     expect(plKindLabel('HJ09301010')).toBe('STD');
     expect(plKindLabel('HH3310CB10')).toBe('CST');
