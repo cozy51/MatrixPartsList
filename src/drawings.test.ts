@@ -17,6 +17,8 @@ import {
   drawingTypeRank,
   isModelType,
   isAdditionalMachiningDrawingNo,
+  isLongPartDrawingNo,
+  isLongPartNo,
   isPlNumber,
   isRegisterable,
   removeCadId,
@@ -654,5 +656,48 @@ describe('追加工図（11桁目が T）', () => {
     // 図面を選ぶときは、枚数のある元の図面が先で追加工図が後。
     const groups = groupDrawingsByType(next.map(drawing => ({ drawing })));
     expect(groups[0].items.map(item => drawingSheetName(item.drawing))).toEqual(['1枚目', '追加工']);
+  });
+});
+
+describe('11桁の品番（11桁目が英字）', () => {
+  const known = ['NP14734361B', 'NP00032062C', 'NP14708762G'];
+
+  it('12桁の図番から、先頭11桁をそのまま品番として読み取る', () => {
+    expect(isLongPartNo('NP14734361B')).toBe(true);
+    expect(isLongPartDrawingNo('NP14734361B3')).toBe(true);
+    expect(partNoCandidatesFromDrawingNo('NP14734361B3')).toEqual(['NP14734361B']);
+    expect(partNosForDrawing('NP14734361B3', known)).toEqual(['NP14734361B']);
+    // 部品表になくても、10桁の品番へ読み替えて別品番に結び付けない。
+    expect(partNosForDrawing('NP14734361B3', [])).toEqual(['NP14734361B']);
+    expect(partNoFromDrawingNo('NP00032062C0', known)).toBe('NP00032062C');
+  });
+
+  it('10桁の品番の読み方は変わらない', () => {
+    // 11桁目が数字なら、これまでどおり枚数。
+    expect(isLongPartDrawingNo('HH110A00410')).toBe(false);
+    expect(partNoCandidatesFromDrawingNo('HH110A00410')).toEqual(['HH110A0041', 'HH110A0040']);
+    // 12桁目が用紙サイズの図番も、これまでどおり11桁へそろえる。
+    expect(partNoCandidatesFromDrawingNo('HD1AG0064204')).toEqual(['HD1AG00642']);
+    // 11桁目の `T` は追加工図のままで、11桁の品番とは見なさない。
+    expect(isLongPartNo('HH16001063T')).toBe(false);
+    expect(partNoCandidatesFromDrawingNo('HH16001063T')).toEqual(['HH16001063']);
+  });
+
+  it('リンクからそのまま登録でき、品番から図面を引ける', () => {
+    const base = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/NP1';
+    const { next, pending } = registerDrawings([], `${base}/3886958_NP14734361B3.pdf`, known);
+    expect(pending).toEqual([]);
+    expect(next[0]).toMatchObject({ drawingNo: 'NP14734361B3', docNo: '3886958', category: '部品図', partNos: ['NP14734361B3', 'NP14734361B'] });
+    expect(drawingsForPart(buildPartDrawingIndex(next, known), 'NP14734361B')).toHaveLength(1);
+  });
+
+  it('対象品番が図番だけの登録済みデータも、品番から引ける', () => {
+    const drawing = {
+      id: 'old', drawingNo: 'NP00032062C0', docNo: '3886959', sheetNo: '', fileType: 'PDF', category: '',
+      fileName: '3886959_NP00032062C0.pdf', url: 'https://example.test/3886959_NP00032062C0.pdf',
+      partNos: ['NP00032062C0'], note: '', updatedAt: '',
+    };
+    const index = buildPartDrawingIndex([drawing], known);
+    expect(drawingsForPart(index, 'NP00032062C').map(item => item.id)).toEqual(['old']);
   });
 });
