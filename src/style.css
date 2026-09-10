@@ -774,7 +774,7 @@ th.plhead { min-width: 140px; }
 .pl-badges .standard-marker { margin: 0; vertical-align: 0; }
 .pl-badges .drawing-link { margin-left: 4px; vertical-align: 0; }
 .pl-badges .standard-marker + .drawing-link { margin-left: 5px; }
-th.plhead .pl-badges { max-width: 120px; margin: 4px auto 0; white-space: normal; }
+th.plhead .pl-badges { width: 120px; max-width: 120px; margin: 4px auto 0; white-space: normal; text-align: left; }
 /* 左の登録済みPL一覧でも、同じバッジからPDF・DXF・3Dモデルを開ける。
    STDと同じ行に収めたいので、インライン表示のうえ余白と文字を詰める。 */
 .pl-badges-inline { display: inline; margin: 0; }
@@ -811,40 +811,43 @@ th.plhead:hover, th.plhead:focus-within { z-index: 12; }
 .drawing-link.is-purchased:hover { background: #0a4f2d; color: #fff; }
 
 /* 品番ごとの3Dモデル（Google Drive）。列を増やさず、品番の右に小さな立方体だけを出す。 */
-.model-link { position: relative; display: inline-block; margin-left: 5px; color: #5b34a8; vertical-align: -3px; line-height: 0; }
+td[data-column="partNo"] > span:first-child { display: inline-block; min-width: 96px; }
+/* 立方体と編集ボタンは幅を決めた枠に入れ、登録の有無やバッジの数で位置が動かないようにする。 */
+.model-slot { display: inline-flex; align-items: center; width: 42px; margin-left: 5px; white-space: nowrap; vertical-align: middle; }
+.model-slot .model-edit { margin-left: auto; }
+.model-link { display: inline-block; color: #5b34a8; vertical-align: -3px; line-height: 0; }
 .model-link:hover, .model-link:focus-visible { color: #3d1f7c; }
 
 /* カーソルを合わせたときのサムネイル。注記の吹き出しと同じ位置・動きにそろえる。 */
 .model-preview {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  z-index: 20;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
   display: block;
   width: 240px;
   padding: 8px;
+  border: 1px solid #3b475e;
   border-radius: 8px;
   background: #172033;
-  box-shadow: 0 8px 24px #10182840;
+  box-shadow: 0 10px 28px #10182859;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -4px);
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition: opacity 120ms ease;
 }
-.model-preview::before { content: ''; position: absolute; bottom: 100%; left: 50%; border: 6px solid transparent; border-bottom-color: #172033; transform: translateX(-50%); }
 .model-preview img { display: block; width: 100%; height: auto; max-height: 240px; object-fit: contain; border-radius: 5px; background: #fff; }
 .model-preview-name { display: block; margin-top: 6px; color: #fff; font-size: 12px; font-weight: 700; line-height: 1.4; white-space: normal; text-align: left; }
 /* 画像を読み込めなかったときだけ、代わりの案内を出す。 */
 .model-preview-failed { display: none; color: #ffd9dd; font-size: 12px; font-weight: 650; line-height: 1.5; white-space: normal; text-align: left; }
 .model-preview.is-failed img { display: none; }
 .model-preview.is-failed .model-preview-failed { display: block; }
-.model-link:hover .model-preview, .model-link:focus-visible .model-preview { opacity: 1; transform: translate(-50%, 0); }
+.model-link:hover .model-preview, .model-link:focus-visible .model-preview { opacity: 1; }
 /* 登録・編集のボタンは、行にカーソルを合わせたときだけ出して普段は邪魔をしない。 */
 .model-edit { margin-left: 4px; padding: 0 4px; border: 0; border-radius: 5px; background: transparent; color: #8a93a4; font-size: 11px; font-weight: 800; line-height: 1.4; vertical-align: 1px; opacity: 0; transition: opacity 120ms ease; }
 tbody tr:hover .model-edit, .pl:hover .model-edit, th.plhead:hover .model-edit, .model-edit:focus-visible { opacity: 1; }
 /* PL一覧・PL列の見出しでは、他のバッジと高さをそろえる。 */
 .pl-badges .model-link, .pl-badges .model-edit { vertical-align: 0; }
-.pl-badges .model-link { margin-left: 4px; line-height: 0; }
+.pl-badges .model-link { line-height: 0; }
 th.plhead .model-edit:hover { background: #fff; }
 .model-edit:hover { background: #eef0ff; border-color: transparent; color: #4651bc; }
 .model-modal p { margin: 6px 0 16px; color: #475467; }
