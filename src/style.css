@@ -809,6 +809,24 @@ th.plhead:hover, th.plhead:focus-within { z-index: 12; }
    部品表の品番と同じ緑にし、淡い色の3区分と見分けられるよう塗りつぶしにする。 */
 .drawing-link.is-purchased { background: #0f6b3d; color: #fff; }
 .drawing-link.is-purchased:hover { background: #0a4f2d; color: #fff; }
+
+/* 品番ごとの3Dモデル（Google Drive）。列を増やさず、品番の右に小さな立方体だけを出す。 */
+.model-link { display: inline-block; margin-left: 5px; color: #5b34a8; vertical-align: -3px; line-height: 0; }
+.model-link:hover, .model-link:focus-visible { color: #3d1f7c; }
+/* 登録・編集のボタンは、行にカーソルを合わせたときだけ出して普段は邪魔をしない。 */
+.model-edit { margin-left: 4px; padding: 0 4px; border: 0; border-radius: 5px; background: transparent; color: #8a93a4; font-size: 11px; font-weight: 800; line-height: 1.4; vertical-align: 1px; opacity: 0; transition: opacity 120ms ease; }
+tbody tr:hover .model-edit, .model-edit:focus-visible { opacity: 1; }
+.model-edit:hover { background: #eef0ff; border-color: transparent; color: #4651bc; }
+.model-modal p { margin: 6px 0 16px; color: #475467; }
+.model-input { display: grid; gap: 6px; }
+.model-input span { font-size: 13px; font-weight: 750; color: #344054; }
+.model-input input { width: 100%; padding: 10px 12px; border: 1px solid #d8dee9; border-radius: 8px; font: inherit; }
+.model-input input:focus { outline: 2px solid #5865e8; outline-offset: 1px; }
+.model-message { margin-top: 10px; padding: 9px 12px; border-radius: 8px; background: #fff3f4; color: #b4232d; font-size: 13px; font-weight: 650; }
+.model-note { display: block; margin: 10px 0 34px; color: #8a93a4; font-size: 12px; line-height: 1.5; }
+.model-folder { display: inline-block; margin-top: 8px; color: #5865e8; font-weight: 750; }
+.model-clear { margin-right: auto; border-color: #f0b4ba; color: #b4232d; }
+.model-clear:hover { border-color: #d92d3a; background: #fff3f4; }
 /* 同じ種別が複数枚あるときのバッジ（ボタン）も、リンクと同じ見た目にする。 */
 button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-height: 1.5; }
 .drawing-link i { margin-left: 3px; font-size: 8px; font-style: normal; font-weight: 800; letter-spacing: .04em; opacity: .85; }
