@@ -56,3 +56,40 @@ export function inferPlMode(machineId: string, ...values: string[]): string {
 }
 
 export const plModeLabel = (machineId: string, id: string) => plModesForMachine(machineId).find(mode => mode.id === id)?.label ?? 'ユニット未設定';
+
+/**
+ * 機種・ユニットの選択は、ページを読み込み直しても続きから見られるように
+ * ブラウザーへ保存する。保存できない環境（プライベートウィンドウなど）でも
+ * 動きは変えず、既定の選択で始める。
+ */
+export const PL_SELECTION_KEY = 'matrix-parts-list.selection.v1';
+
+export type PlSelection = { machineId: string; modeId: string };
+
+export const defaultPlSelection = (): PlSelection => {
+  const machine = MACHINES[0];
+  return { machineId: machine?.id ?? '', modeId: machine?.modes[0]?.id ?? '' };
+};
+
+/** 保存された選択を読む。機種・ユニットが今の一覧にないときは既定へ戻す。 */
+export function loadPlSelection(saved: string | null): PlSelection {
+  const fallback = defaultPlSelection();
+  if (!saved) return fallback;
+  let parsed: Partial<PlSelection>;
+  try { parsed = JSON.parse(saved) as Partial<PlSelection>; } catch { return fallback; }
+  const modes = plModesForMachine(parsed?.machineId ?? '');
+  if (!modes.length) return fallback;
+  return {
+    machineId: parsed.machineId!,
+    modeId: modes.some(mode => mode.id === parsed.modeId) ? parsed.modeId! : modes[0].id,
+  };
+}
+
+/** ブラウザーから読む。読めない環境では既定の選択にする。 */
+export function readPlSelection(): PlSelection {
+  try { return loadPlSelection(localStorage.getItem(PL_SELECTION_KEY)); } catch { return defaultPlSelection(); }
+}
+
+export function savePlSelection(selection: PlSelection) {
+  try { localStorage.setItem(PL_SELECTION_KEY, JSON.stringify(selection)); } catch { /* 保存できなくても動作は変えない */ }
+}

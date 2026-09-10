@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inferMachine, inferPlMode, MACHINES, PL_MODES, plModeLabel, plModesForMachine } from './plModes';
+import { MACHINES, PL_MODES, defaultPlSelection, inferMachine, inferPlMode, loadPlSelection, plModeLabel, plModesForMachine } from './plModes';
 
 describe('PL display modes', () => {
   it('contains the 27 supported modes', () => {
@@ -26,5 +26,26 @@ describe('PL display modes', () => {
       for (const mode of machine.modes) expect(inferMachine(mode.label)).toBe(machine.id);
     }
     expect(inferMachine('unknown.csv')).toBe('');
+  });
+});
+
+describe('機種・ユニットの選択の保存', () => {
+  it('保存された選択をそのまま復元する', () => {
+    expect(loadPlSelection(JSON.stringify({ machineId: 'HU300', modeId: '02' }))).toEqual({ machineId: 'HU300', modeId: '02' });
+    expect(loadPlSelection(JSON.stringify({ machineId: 'SRC350', modeId: '21' }))).toEqual({ machineId: 'SRC350', modeId: '21' });
+  });
+
+  it('保存がない・壊れている・今の一覧にないときは既定へ戻す', () => {
+    const fallback = defaultPlSelection();
+    expect(fallback).toEqual({ machineId: 'SRC350', modeId: '01' });
+    expect(loadPlSelection(null)).toEqual(fallback);
+    expect(loadPlSelection('')).toEqual(fallback);
+    expect(loadPlSelection('{壊れたJSON')).toEqual(fallback);
+    expect(loadPlSelection(JSON.stringify({ machineId: 'UNKNOWN', modeId: '01' }))).toEqual(fallback);
+  });
+
+  it('機種はあるがユニットが無いときは、その機種の先頭のユニットにする', () => {
+    expect(loadPlSelection(JSON.stringify({ machineId: 'HU300', modeId: '99' }))).toEqual({ machineId: 'HU300', modeId: '01' });
+    expect(loadPlSelection(JSON.stringify({ machineId: 'HU300' }))).toEqual({ machineId: 'HU300', modeId: '01' });
   });
 });
