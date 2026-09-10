@@ -116,6 +116,21 @@ export const isAdditionalMachiningDrawingNo = (drawingNo: string): boolean =>
   DRAWING_NO_11_MACHINING.test(normalizeDrawingNo(drawingNo));
 
 /**
+ * 品番が11桁のものがある（銘板の `NP14734361B` など、11桁目が英字）。11桁目は
+ * 枚数なら必ず数字、追加工図なら `T` なので、それ以外の英字が来たら11桁全体が
+ * 品番だと分かる。この品番の図番は、そこへ1桁足した12桁になる
+ * （品番 `NP14734361B` → 図番 `NP14734361B3`）。
+ */
+const LONG_PART_NO = /^[A-Z][A-Z0-9]{9}[A-SU-Z]$/;
+const LONG_PART_DRAWING_NO = /^[A-Z][A-Z0-9]{9}[A-SU-Z]\d$/;
+
+/** 11桁の品番そのもの（図番ではない）かどうか。 */
+export const isLongPartNo = (no: string): boolean => LONG_PART_NO.test(drawingKey(no));
+
+/** 11桁の品番に1桁足した12桁の図番かどうか。 */
+export const isLongPartDrawingNo = (drawingNo: string): boolean => LONG_PART_DRAWING_NO.test(drawingKey(drawingNo));
+
+/**
  * 図番の12桁目は用紙サイズ（`4` = A4）を表し、図面そのものを指す番号ではない。
  * 例: `HD1AG0064204` は図番 `HD1AG006420`（11桁目 `0` が1枚目）＋ 用紙サイズ `4`。
  * 画面には出さず、品番の判定にも使わないため、11桁までを図番として扱う。
@@ -139,9 +154,15 @@ export function normalizeDrawingNo(value: string): string {
  *
  * 追加工図（11桁目が `T`）だけは枚数の桁がなく、10桁目までがそのまま品番なので、
  * 候補は1つに決まる（図番 `HH16001063T` → 品番 `HH16001063`）。
+ *
+ * 品番が11桁のもの（11桁目が `T` 以外の英字）は、図番が12桁になる。この場合は
+ * 先頭11桁がそのまま品番で、候補は1つに決まる
+ * （図番 `NP14734361B3` → 品番 `NP14734361B`）。
  */
 export function partNoCandidatesFromDrawingNo(drawingNo: string): string[] {
   const value = normalizeDrawingNo(drawingNo);
+  // 11桁の品番の図番。10桁の品番として読むと、別の品番へ結び付いてしまう。
+  if (LONG_PART_DRAWING_NO.test(value)) return [value.slice(0, 11)];
   if (!DRAWING_NO_11.test(value)) return [];
   // 追加工図は10桁目までが品番。Verとして読み替えると別品番へ結び付いてしまう。
   if (DRAWING_NO_11_MACHINING.test(value)) return [value.slice(0, 10)];
@@ -235,6 +256,8 @@ export function partNosForDrawing(drawingNo: string, knownPartNos: Iterable<stri
   if (exact.length) return exact;
   // 電気図面は「品番 + 枚数」で品番が決まるため、基本番号を広げて探さない。
   if (isElectricalDrawingNo(drawingNo)) return candidates;
+  // 11桁の品番も「品番 + 1桁」で決まるため、10桁の品番へ広げて探さない。
+  if (LONG_PART_DRAWING_NO.test(normalizeDrawingNo(drawingNo))) return candidates;
   const base = normalizeDrawingNo(drawingNo).slice(0, 9);
   const sameBase = known.filter(partNo => partNo.length === 10 && partNo.startsWith(base));
   return sameBase.length ? sameBase : [candidates[candidates.length - 1]];
