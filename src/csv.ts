@@ -96,7 +96,7 @@ export const findRegisteredPlIds=(existing:PartsList[],candidates:PartsList[]):S
 export function findDuplicatePls(existing:PartsList[],candidates:PartsList[]):Map<string,string>{
   const reasons=new Map<string,string>(),existingKeys=new Set(existing.map(plIdentityKey)),counts=new Map<string,number>();
   candidates.forEach(list=>{if(list.plVersion.trim()){const key=plIdentityKey(list);counts.set(key,(counts.get(key)||0)+1)}});
-  candidates.forEach(list=>{if(!list.plVersion.trim())return;const key=plIdentityKey(list);if(existingKeys.has(key))reasons.set(list.id,`${plLabel(list)} はすでに登録済みです。`);else if((counts.get(key)||0)>1)reasons.set(list.id,`${plLabel(list)} が読み込みファイル内で重複しています。`)});
+  candidates.forEach(list=>{if(!list.plVersion.trim())return;const key=plIdentityKey(list);if(existingKeys.has(key))reasons.set(list.id,`${plLabel(list)} はすでに登録済みです。上書きはできないため、入れ替えるときは登録済みのPLを削除してから読み込み直してください。`);else if((counts.get(key)||0)>1)reasons.set(list.id,`${plLabel(list)} が読み込みファイル内で重複しています。`)});
   return reasons;
 }
 export const partKey=(p:Part)=>[p.balloon,p.partNo,p.version,p.name,p.material,p.quantity].join('\u001f').toLocaleUpperCase();
