@@ -106,6 +106,10 @@ th.plhead {
   font: inherit;
 }
 .version-input input:placeholder-shown, .version-input input.is-invalid { border-color: #dc3545; background: #fff6f7; }
+/* PL Ver.は01〜99から選べるコンボボックス。プルダウンの矢印を常に出して、押せることが分かるようにする。 */
+.version-input input { width: 84px; padding-right: 4px; }
+.version-input input::-webkit-calendar-picker-indicator { opacity: .55; margin-left: 0; cursor: pointer; }
+.version-input input:hover::-webkit-calendar-picker-indicator, .version-input input:focus::-webkit-calendar-picker-indicator { opacity: 1; }
 .version-message { grid-column: 1 / -1; color: #bd2634; font-size: 13px; font-weight: 700; }
 
 .standard-badge {
@@ -147,16 +151,16 @@ th.plhead.standard-pl { background: #dff3ff; color: #175f95; }
 .mode-picker select { font-size: 17px; font-weight: 700; }
 .modal { width: min(920px, 94vw); }
 .preview { grid-template-columns: 120px minmax(150px, 1fr) 125px 250px auto; }
-.mode-input { display: flex; align-items: center; gap: 7px; color: #667085; font-size: 13px; font-weight: 600; }
+.mode-input { display: flex; align-items: center; gap: 7px; color: #667085; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .mode-input select { min-width: 205px; padding-top: 7px; padding-bottom: 7px; }
 .mode-input select:has(option[value=""]:checked) { border-color: #dc3545; background: #fff6f7; }
 /* 40レベルはユニットを選ばないため、選択欄の代わりに登録先のユニットを示す。 */
 /* 40レベルは機種・ユニットに属さないため、選択欄の代わりに「不問」と示す。 */
 .mode-input.is-level40 b, .machine-input.is-level40 b { box-sizing: border-box; padding: 8px 12px; border: 1px dashed #cfd6e3; border-radius: 8px; background: #f5f7fb; color: #25324a; font-weight: 700; }
-.mode-input.is-level40 b { min-width: 205px; }
+.mode-input.is-level40 b { min-width: 150px; }
 .machine-input.is-level40 b { min-width: 90px; text-align: center; }
 /* 読み込みプレビューで、その番号が40レベルであることを番号の横に示す。 */
-.level40-chip { margin-left: 6px; padding: 1px 6px; border-radius: 8px; background: #eef0ff; color: #4651bc; font-size: 10px; font-style: normal; font-weight: 800; vertical-align: middle; }
+.level40-chip { display: block; width: fit-content; margin: 3px 0 0; padding: 1px 6px; border-radius: 8px; background: #eef0ff; color: #4651bc; font-size: 10px; font-style: normal; font-weight: 800; white-space: nowrap; }
 @media(max-width:900px) {
   .mode-picker { gap: 7px; font-size: 15px; }
   .mode-picker select { min-width: 180px; font-size: 14px; }
@@ -473,7 +477,7 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
   font-weight: 700;
 }
 .preview { grid-template-columns: 110px minmax(140px, 1fr) 120px 140px 240px auto; }
-.machine-input { display: flex; align-items: center; gap: 7px; color: #667085; font-size: 13px; font-weight: 600; }
+.machine-input { display: flex; align-items: center; gap: 7px; color: #667085; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .machine-input select { min-width: 90px; padding-top: 7px; padding-bottom: 7px; }
 .machine-confirm {
   grid-column: 1 / -1;
