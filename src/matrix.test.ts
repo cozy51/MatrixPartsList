@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonDuplicates, buildBalloonGroups, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildMaterialConflicts, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutMaterial, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonDuplicates, buildBalloonGroups, buildPlVersionGroups, plVersionLabel, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildMaterialConflicts, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutMaterial, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import { partKey } from './csv';
 import type { Part, PartsList } from './types';
 
@@ -371,6 +371,35 @@ describe('同じ品番が別の風船番号にもある行', () => {
   it('表記ゆれは同じ品番として扱う', () => {
     const duplicates = buildBalloonDuplicates([part('66', ' hh03704060 '), part('67', 'HH03704060')]);
     expect(duplicates.get('HH03704060')).toEqual(['66', '67']);
+  });
+});
+
+describe('同じPL番号でVer.が違うPL', () => {
+  const withPlVersion = (plNo: string, plVersion: string) => ({ ...list(plNo), id: `${plNo}-${plVersion}`, plVersion });
+
+  it('Ver.が2通り以上あるPL番号だけをまとめ、Ver.は昇順で返す', () => {
+    const groups = buildPlVersionGroups([
+      withPlVersion('HJ02102010', '5'),
+      withPlVersion('HJ02102010', '3'),
+      withPlVersion('HJ02103010', '1'),
+    ]);
+    expect(groups.size).toBe(1);
+    // 1桁のVer.は2桁へそろえてから比べる（v3 と v05 が並んでも見分けられるようにする）。
+    expect(groups.get('HJ02102010')).toEqual(['03', '05']);
+    // Ver.が1通りだけのPLは対象外。
+    expect(groups.get('HJ02103010')).toBeUndefined();
+  });
+
+  it('Ver.なしと数字のVer.が混ざっている場合も違いとして扱う', () => {
+    const groups = buildPlVersionGroups([withPlVersion('HJ02102010', ''), withPlVersion('HJ02102010', '2')]);
+    expect(groups.get('HJ02102010')).toEqual(['-', '02']);
+    expect(plVersionLabel('')).toBe('-');
+    expect(plVersionLabel('v3')).toBe('03');
+  });
+
+  it('大文字・小文字の違いは同じPL番号として扱う', () => {
+    const groups = buildPlVersionGroups([withPlVersion('HJ02102010', '3'), withPlVersion('hj02102010', '5')]);
+    expect(groups.get('HJ02102010')).toEqual(['03', '05']);
   });
 });
 

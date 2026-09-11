@@ -1,5 +1,5 @@
 import type { Part, PartsList } from './types';
-import { partKey } from './csv';
+import { normalizePlVersion, partKey } from './csv';
 
 const natural = new Intl.Collator('ja', {
   numeric: true,
@@ -112,6 +112,30 @@ export function buildVersionConflicts(parts: Part[]): Map<string, string[]> {
   }
   return groups;
 }
+
+/**
+ * 同じPL番号でVer.が違うPLのまとまり。値はそのPL番号で登録されているVer.（昇順）。
+ * 一覧にVer.違いが並んでいても番号が同じで見分けにくく、古いVer.を見たまま作業して
+ * しまうため、気づけるように集めておく。
+ */
+export function buildPlVersionGroups(lists: Pick<PartsList, 'plNo' | 'plVersion'>[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const list of lists) {
+    const key = list.plNo.trim().toUpperCase();
+    const version = plVersionLabel(list.plVersion);
+    const found = groups.get(key);
+    if (!found) groups.set(key, [version]);
+    else if (!found.includes(version)) found.push(version);
+  }
+  for (const [key, versions] of groups) {
+    if (versions.length < 2) groups.delete(key);
+    else versions.sort((a, b) => natural.compare(a, b));
+  }
+  return groups;
+}
+
+/** 表示に使うVer.。Ver.がないPLは `-` にして、Ver.ありと区別できるようにする。 */
+export const plVersionLabel = (plVersion: string): string => normalizePlVersion(plVersion || '') || '-';
 
 /**
  * 部品図（9文字目が `5`・`6`）と組立図の `4` は、末尾の1桁が違っても互換性が
