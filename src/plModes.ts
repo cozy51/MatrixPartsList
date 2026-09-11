@@ -17,9 +17,23 @@ const HU300_MODES: PlMode[] = [
   ['01', 'HOIST UNIT'], ['02', 'HAND UNIT'], ['03', 'CARRY FIXTURE(JIG)'],
 ].map(([id, name]) => ({ id, label: `${id} ${name}` }));
 
+/**
+ * 9桁目が `4` の番号は40レベル（分解できる部品の組立図）。PLと同じようにリストを
+ * 読み込めるが、どのユニットの部品かは決まっていないため、ユニットは特定しない。
+ * 機種ごとに専用のユニットを1つ用意して、そこへまとめる。
+ */
+export const LEVEL40_MODE_ID = '40';
+const LEVEL40_MODE: PlMode = { id: LEVEL40_MODE_ID, label: `${LEVEL40_MODE_ID} 40レベル部品` };
+
+/** 9桁目が `4` の番号（10桁・11桁）かどうか。PL番号にも品番にも使える。 */
+export function isLevel40No(no: string): boolean {
+  const value = (no ?? '').trim().toUpperCase();
+  return /^[A-Z][A-Z0-9]{9,10}$/.test(value) && value[8] === '4';
+}
+
 export const MACHINES: Machine[] = [
-  { id: 'SRC350', label: 'SRC350', modes: SRC350_MODES },
-  { id: 'HU300', label: 'HU300', modes: HU300_MODES },
+  { id: 'SRC350', label: 'SRC350', modes: [...SRC350_MODES, LEVEL40_MODE] },
+  { id: 'HU300', label: 'HU300', modes: [...HU300_MODES, LEVEL40_MODE] },
 ];
 export const PL_MODES = SRC350_MODES;
 export const plModesForMachine = (machineId: string) => MACHINES.find(machine => machine.id === machineId)?.modes ?? [];
@@ -38,6 +52,7 @@ export function inferMachine(...values: string[]): string {
   // Otherwise infer the machine from the current unit catalogs. Prefer the
   // longest matching unit name so "HAND UNIT" wins over the shorter "HAND".
   const matches = MACHINES.flatMap(machine => machine.modes
+    .filter(mode => mode.id !== LEVEL40_MODE_ID)
     .map(mode => normalized(mode.label.replace(/^\d+\s+/, '')))
     .filter(name => text.includes(name))
     .map(name => ({ machineId: machine.id, length: name.length })));
@@ -49,11 +64,19 @@ export function inferMachine(...values: string[]): string {
 export function inferPlMode(machineId: string, ...values: string[]): string {
   const candidates = values.map(normalized).filter(Boolean);
   for (const mode of plModesForMachine(machineId)) {
+    if (mode.id === LEVEL40_MODE_ID) continue;
     const name = normalized(mode.label.replace(/^\d+\s+/, ''));
     if (candidates.some(value => value.includes(name))) return mode.id;
   }
   return '';
 }
+
+/**
+ * 読み込むリストのユニット。40レベルはユニットを特定せず専用のユニットへまとめ、
+ * それ以外はこれまでどおりファイル名・PL名称から推定する。
+ */
+export const resolvePlMode = (machineId: string, plNo: string, ...values: string[]): string =>
+  isLevel40No(plNo) ? LEVEL40_MODE_ID : inferPlMode(machineId, ...values);
 
 export const plModeLabel = (machineId: string, id: string) => plModesForMachine(machineId).find(mode => mode.id === id)?.label ?? 'ユニット未設定';
 

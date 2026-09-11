@@ -150,6 +150,8 @@ th.plhead.standard-pl { background: #dff3ff; color: #175f95; }
 .mode-input { display: flex; align-items: center; gap: 7px; color: #667085; font-size: 13px; font-weight: 600; }
 .mode-input select { min-width: 205px; padding-top: 7px; padding-bottom: 7px; }
 .mode-input select:has(option[value=""]:checked) { border-color: #dc3545; background: #fff6f7; }
+/* 40レベルはユニットを選ばないため、選択欄の代わりに登録先のユニットを示す。 */
+.mode-input.is-level40 b { box-sizing: border-box; min-width: 205px; padding: 8px 12px; border: 1px dashed #cfd6e3; border-radius: 8px; background: #f5f7fb; color: #25324a; font-weight: 700; }
 @media(max-width:900px) {
   .mode-picker { gap: 7px; font-size: 15px; }
   .mode-picker select { min-width: 180px; font-size: 14px; }
