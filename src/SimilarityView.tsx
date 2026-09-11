@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { plLabel } from './csv';
-import { calculatePlSimilarities, comparePlParts, isCustomerSpecialPl, plKindLabel, type PlPartComparison } from './matrix';
+import { buildPlVersionGroups, calculatePlSimilarities, comparePlParts, isCustomerSpecialPl, plKindLabel, plVersionLabel, type PlPartComparison } from './matrix';
 import type { Part, PartsList } from './types';
 
 type Props = { lists: PartsList[]; sequence: Map<string,number>; baseId: string; onBaseChange: (id: string) => void };
@@ -51,6 +51,15 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange }
     () => calculatePlSimilarities(lists, effectiveBaseId),
     [lists, effectiveBaseId],
   );
+  /** 同じPL番号でVer.が違うPLは、番号が同じで見分けにくい。どの行がどのVer.かを印で示す。 */
+  const versionGroups = useMemo(() => buildPlVersionGroups(lists), [lists]);
+  const versionNote = (list: PartsList) => {
+    const versions = versionGroups.get(list.plNo.trim().toUpperCase());
+    if (!versions) return '';
+    const own = plVersionLabel(list.plVersion);
+    const others = versions.filter(version => version !== own);
+    return others.length ? `この行はVer.${own}です。同じPL番号でVer.${others.join('・')}も比較に入っています。` : '';
+  };
 
   if (!lists.length || !base) return <div className="similarity-empty">表示対象のPLを選択してください。</div>;
 
@@ -65,7 +74,7 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange }
       return <article className={`similarity-row ${result.list.id === effectiveBaseId ? 'is-base' : ''} ${expanded ? 'is-expanded' : ''}`} key={result.list.id}>
         <button className="similarity-summary" type="button" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? '' : result.list.id)}>
           <span className="similarity-rank">{index + 1}</span>
-          <span className="similarity-name"><b><span className="pl-sequence">{sequence.get(result.list.id)}.</span>{plLabel(result.list)}</b>{plKindLabel(result.list.plNo) && <span className={`standard-badge ${isCustomerSpecialPl(result.list.plNo) ? 'is-custom' : ''}`}>{plKindLabel(result.list.plNo)}</span>}<small>{result.list.plName}</small></span>
+          <span className="similarity-name"><b><span className="pl-sequence">{sequence.get(result.list.id)}.</span>{plLabel(result.list)}</b>{versionNote(result.list) && <span className="pl-version-badge" title={versionNote(result.list)}>Ver違い</span>}{plKindLabel(result.list.plNo) && <span className={`standard-badge ${isCustomerSpecialPl(result.list.plNo) ? 'is-custom' : ''}`}>{plKindLabel(result.list.plNo)}</span>}<small>{result.list.plName}</small></span>
           <span className="similarity-meter"><span style={{ width: `${result.score * 100}%` }} /></span>
           <strong>{(result.score * 100).toFixed(1)}%</strong>
           <small>{result.common} 共通 / {result.union} 全部品</small>
