@@ -82,6 +82,12 @@ export const normalizePlVersion=(value:string)=>{
   const version=value.trim().replace(/^v/i,'');
   return /^\d$/.test(version)?version.padStart(2,'0'):version;
 };
+/**
+ * 明細のVer.と、登録したリストのVer.を突き合わせるためのキー。
+ * 明細のVer.なしは `-`、リストのVer.なしは空欄で表されるため、同じものとして扱う。
+ * 40レベルはVer.ごとに中身が違うため、この一致でだけ結び付ける。
+ */
+export const versionMatchKey=(value:string)=>{const version=(value??'').trim();return version==='-'?'':normalizePlVersion(version)};
 export const plLabel=(list:Pick<PartsList,'plNo'|'plVersion'>)=>{
   const version=normalizePlVersion(list.plVersion||'');
   return version?`${list.plNo} v${version}`:list.plNo;

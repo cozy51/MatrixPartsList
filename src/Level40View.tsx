@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { PartsList } from './types';
-import { plLabel } from './csv';
+import { normalizePlVersion, plLabel } from './csv';
 import { sortPartsLists } from './matrix';
 
 type Props = {
@@ -64,7 +64,7 @@ export default function Level40View({ lists, onOpen, onRemove, renderBadges }: P
           {multiVersionNos.has(list.plNo.trim().toUpperCase()) && <span className="pl-version-badge" title="同じ番号でVer.違いが登録されています。">Ver違い</span>}
           <small>{list.fileName}</small>
         </td>
-        <td>{list.plVersion ? `v${list.plVersion}` : '—'}</td>
+        <td>{normalizePlVersion(list.plVersion) ? `v${normalizePlVersion(list.plVersion)}` : '—'}</td>
         <td>{list.plName || '—'}</td>
         <td>{list.parts.length}</td>
         <td>{renderBadges(list.plNo)}</td>

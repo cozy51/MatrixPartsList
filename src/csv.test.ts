@@ -1,4 +1,4 @@
-import{describe,expect,it,vi}from'vitest';import{extractPlVersion,findDuplicatePls,isValidPlVersion,findRegisteredPlIds,normalizePlVersion,parseCsv,parsePartsList,partKey,removeDeletedParts,plIdentityKey,plLabel,widenedSheetRange}from'./csv';
+import{describe,expect,it,vi}from'vitest';import{extractPlVersion,findDuplicatePls,isValidPlVersion,findRegisteredPlIds,normalizePlVersion,parseCsv,parsePartsList,partKey,removeDeletedParts,plIdentityKey,plLabel,versionMatchKey,widenedSheetRange}from'./csv';
 vi.stubGlobal('crypto',{randomUUID:()=> 'id'});
 const sample=`機構別部品明細表,,,,\nPLNO,HH110A0010,,PL名称,DRIVE GEAR BOX (350M3)\n,,,,\n出指,改廃,風船,品番,Ver.,品名,数量,単位,材質・メーカー,Size\n,D,9,DELETED,1,DELETED PART,1,,STEEL,\n,,1,HH110A0040,2,INITIAL WHEEL,1,,SUS,\n,,3,,,HCZr M5X10,2,,,,\n,,C,,,三菱支給品,,,,`;
 describe('CSV parser',()=>{it('quoted comma',()=>expect(parseCsv('a,"b,c"\n')[0]).toEqual(['a','b,c']));
@@ -30,4 +30,11 @@ it('明細の途中に引用符があっても、そのあとの明細まで読�
   /* 足りている範囲は広げない（そのまま読む）。 */
   expect(widenedSheetRange({'!ref':'A1:U232',A1:{v:'a'},U232:{v:'x'}})).toBe('');
   /* セルがないシートは何もしない。 */
-  expect(widenedSheetRange({'!ref':'A1:B2'})).toBe('')});it('rejects bad files',()=>expect(()=>parsePartsList('a,b','x.csv')).toThrow('ヘッダー'))});
+  expect(widenedSheetRange({'!ref':'A1:B2'})).toBe('')});it('明細のVer.と登録のVer.は、桁数や表記が違っても同じものだけを結び付ける',()=>{/* 40レベルはVer.ごとに中身が違うため、一致するVer.だけを結び付ける。 */
+  expect(versionMatchKey('1')).toBe(versionMatchKey('01'));
+  expect(versionMatchKey('2')).toBe(versionMatchKey('v02'));
+  expect(versionMatchKey('1')).not.toBe(versionMatchKey('2'));
+  /* 明細のVer.なし（-）と、登録のVer.なし（空欄）は同じものとして扱う。 */
+  expect(versionMatchKey('-')).toBe(versionMatchKey(''));
+  expect(versionMatchKey(' - ')).toBe('');
+  expect(versionMatchKey('-')).not.toBe(versionMatchKey('01'))});it('rejects bad files',()=>expect(()=>parsePartsList('a,b','x.csv')).toThrow('ヘッダー'))});

@@ -882,6 +882,9 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
    押せることは下線と色で示す。 */
 .level40-open { display: inline; padding: 0; border: 0; background: none; color: #3346ba; font: inherit; font-weight: 700; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
 .level40-open:hover { color: #1a2a8f; text-decoration-style: solid; }
+/* 同じ番号でもVer.が違う40レベルは中身が別物のため、リンクにしない。
+   登録済みのVer.を吹き出しで知らせるだけにして、リンクと見分けられるよう灰色の点線にする。 */
+.level40-unlinked { text-decoration: underline dotted #c4cbd8; text-underline-offset: 3px; cursor: help; }
 
 /* 40レベル部品はマトリックスに並べないため、専用タブに一覧をまとめる。 */
 .level40-view .level40-note { margin: 12px 0 14px; padding: 10px 13px; border: 1px solid #dfe4ee; border-radius: 9px; background: #f8f9ff; color: #475467; font-size: 13px; line-height: 1.7; }
