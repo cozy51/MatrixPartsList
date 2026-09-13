@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonDuplicates, buildBalloonGroups, buildPlVersionGroups, plVersionLabel, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildMaterialConflicts, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutMaterial, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonDuplicates, buildBalloonGroups, countParts, excludeNoteParts, isNotePart, buildPlVersionGroups, plVersionLabel, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildMaterialConflicts, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutMaterial, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import { partKey } from './csv';
 import type { Part, PartsList } from './types';
 
@@ -28,6 +28,29 @@ const list = (plNo: string): PartsList => ({
   parts: [],
   visible: true,
   importedAt: '',
+});
+
+describe('注記行（風船 C）の扱い', () => {
+  it('風船が C の行は、前後の空白や小文字でも注記とみなす', () => {
+    expect(isNotePart(part('C', '+'))).toBe(true);
+    expect(isNotePart(part(' c ', '+'))).toBe(true);
+    expect(isNotePart(part('1', 'HM1G1010510'))).toBe(false);
+    expect(isNotePart(part('Z1', 'RJ000087H00'))).toBe(false);
+  });
+
+  it('注記行を除いた明細と部品数を返す（10レベル・40レベルで同じルール）', () => {
+    const parts = [
+      part('1', 'HM1G1010510'),
+      part('C', '+'),
+      part('2', 'NP14604260'),
+      part('C', '+'),
+      part('Z2', 'HM0Q0417X4'),
+    ];
+    expect(excludeNoteParts(parts).map(({ partNo }) => partNo)).toEqual(['HM1G1010510', 'NP14604260', 'HM0Q0417X4']);
+    expect(countParts(parts)).toBe(3);
+    // 注記行がなければ、明細をそのまま数える。
+    expect(countParts([part('1', 'HM1G1010510')])).toBe(1);
+  });
 });
 
 describe('reference workbook ordering', () => {

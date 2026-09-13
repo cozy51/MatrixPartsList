@@ -35,6 +35,19 @@ export const isCustomerSpecialPl = (plNo: string): boolean => /^(HH3|HJ3)/i.test
 export const plKindLabel = (plNo: string): string =>
   isStandardPl(plNo) ? 'STD' : isCustomerSpecialPl(plNo) ? 'CST' : '';
 
+/**
+ * 風船が `C` の行は部品ではなく注記（コメント）です。出荷検査基準書のような連絡事項が
+ * 明細に混ざっているだけなので、10レベル・40レベルのどちらでも部品として扱わず、
+ * 一覧・部品数・比較から除きます。
+ */
+export const isNotePart = (part: Part): boolean => part.balloon.trim().toUpperCase() === 'C';
+
+/** 注記行（風船 `C`）を除いた明細。部品として並べる・数えるときはこちらを使う。 */
+export const excludeNoteParts = (parts: Part[]): Part[] => parts.filter(part => !isNotePart(part));
+
+/** 注記行（風船 `C`）を除いた部品数。画面に出す「N 部品」はこの数で数える。 */
+export const countParts = (parts: Part[]): number => excludeNoteParts(parts).length;
+
 /** `Z` で始まる品番は購入品。部品表で見分けられるよう色を変える。 */
 export const isPurchasedPart = (partNo: string): boolean => /^Z/i.test(partNo.trim());
 
@@ -209,7 +222,7 @@ export function buildCompatibleGroups(parts: Part[]): Map<string, string[]> {
 
 /** 1つのPLについて、基本番号 → そのPLにある品番 の索引を作る。互換品の表示に使う。 */
 export const buildListCompatibleIndex = (list: PartsList): Map<string, string[]> =>
-  collectByBaseNo(list.parts.filter(part => part.balloon.toUpperCase() !== 'C'));
+  collectByBaseNo(excludeNoteParts(list.parts));
 
 function collectByBaseNo(parts: Part[]): Map<string, string[]> {
   const groups = new Map<string, string[]>();
@@ -247,8 +260,8 @@ export function buildListPartIndex(list: PartsList): ListPartIndex {
   for (const item of list.parts) {
     const key = partKey(item);
     keys.add(key);
-    // 補材（風船 C）は員数に数えない。
-    if (item.balloon.toUpperCase() === 'C') continue;
+    // 注記行（風船 C）は員数に数えない。
+    if (isNotePart(item)) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return { counts, keys };
@@ -264,7 +277,7 @@ export type PlPartComparison = { common: Part[]; baseOnly: Part[]; targetOnly: P
 
 export function comparePlParts(base: PartsList, target: PartsList): PlPartComparison {
   const uniqueParts = (list: PartsList) => new Map(
-    list.parts.filter(part => part.balloon.toUpperCase() !== 'C').map(part => [partKey(part), part]),
+    excludeNoteParts(list.parts).map(part => [partKey(part), part]),
   );
   const baseParts = uniqueParts(base);
   const targetParts = uniqueParts(target);
@@ -278,9 +291,9 @@ export function comparePlParts(base: PartsList, target: PartsList): PlPartCompar
 export function calculatePlSimilarities(lists: PartsList[], baseId: string): PlSimilarity[] {
   const base = lists.find(list => list.id === baseId);
   if (!base) return [];
-  const baseKeys = new Set(base.parts.filter(part => part.balloon.toUpperCase() !== 'C').map(partKey));
+  const baseKeys = new Set(excludeNoteParts(base.parts).map(partKey));
   return lists.map(list => {
-    const keys = new Set(list.parts.filter(part => part.balloon.toUpperCase() !== 'C').map(partKey));
+    const keys = new Set(excludeNoteParts(list.parts).map(partKey));
     const common = [...baseKeys].filter(key => keys.has(key)).length;
     const union = new Set([...baseKeys, ...keys]).size;
     return { list, common, union, score: union ? common / union : 1 };
@@ -297,7 +310,7 @@ export function collectPartsInSourceOrder(lists: PartsList[]): Part[] {
   for (const list of lists) {
     for (const part of list.parts) {
       const key = partKey(part);
-      if (part.balloon.toUpperCase() !== 'C' && !unique.has(key)) unique.set(key, part);
+      if (!isNotePart(part) && !unique.has(key)) unique.set(key, part);
     }
   }
   return sortPartsByBalloon([...unique.values()]);
