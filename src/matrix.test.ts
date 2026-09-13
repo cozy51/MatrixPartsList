@@ -51,6 +51,18 @@ describe('注記行（風船 C）の扱い', () => {
     // 注記行がなければ、明細をそのまま数える。
     expect(countParts([part('1', 'HM1G1010510')])).toBe(1);
   });
+
+  it('40レベルの中身も、注記行を除いてから10レベルと同じ並びにする', () => {
+    const shown = sortPartsByBalloon(excludeNoteParts([
+      part('2', 'NP14604260'),
+      part('C', '+'),
+      part('1', 'HM1G1010510'),
+      part('1', '+'),
+    ]));
+    // 風船の昇順、同じ風船の中は品番の昇順で補材（+）が最後、注記行は並ばない。
+    expect(shown.map(({ balloon, partNo }) => `${balloon}:${partNo}`))
+      .toEqual(['1:HM1G1010510', '1:+', '2:NP14604260']);
+  });
 });
 
 describe('reference workbook ordering', () => {
