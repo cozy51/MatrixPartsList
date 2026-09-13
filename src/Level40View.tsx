@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { PartsList } from './types';
 import { normalizePlVersion, plLabel } from './csv';
-import { sortPartsLists } from './matrix';
+import { countParts, sortPartsLists } from './matrix';
 
 type Props = {
   /** 登録済みの40レベル部品。 */
@@ -66,7 +66,7 @@ export default function Level40View({ lists, onOpen, onRemove, renderBadges }: P
         </td>
         <td>{normalizePlVersion(list.plVersion) ? `v${normalizePlVersion(list.plVersion)}` : '—'}</td>
         <td>{list.plName || '—'}</td>
-        <td>{list.parts.length}</td>
+        <td>{countParts(list.parts)}</td>
         <td>{renderBadges(list.plNo)}</td>
         <td className="drawing-actions">
           <button type="button" onClick={() => onOpen(list)}>中身を開く</button>
