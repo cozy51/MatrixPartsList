@@ -422,7 +422,7 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-summary > small { color: #667085; }
 .similarity-chevron { color: #667085; font-size: 20px; transition: transform .15s; }
 .similarity-row.is-expanded .similarity-chevron { transform: rotate(180deg); }
-.similarity-details { display: grid; grid-template-columns: repeat(3,minmax(300px,1fr)); gap: 12px; padding: 0 15px 15px; border-top: 1px dashed #cbd3e2; background: #fffdf9; }
+.similarity-details { display: grid; grid-template-columns: repeat(3,minmax(300px,1fr)); align-items: start; gap: 12px; padding: 0 15px 15px; border-top: 1px dashed #cbd3e2; background: #fffdf9; }
 .similarity-detail-section { min-width: 0; margin-top: 14px; border: 1px solid #dfe4ec; border-radius: 8px; overflow: hidden; background: #fff; }
 .similarity-detail-section h3 { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 9px 11px; font-size: 14px; background: #f4f6f9; }
 .similarity-detail-section h3 span { font-size: 12px; font-weight: 600; color: #667085; }
@@ -430,7 +430,10 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-detail-section.base h3 { background: #eef2ff; color: #4054ae; }
 .similarity-detail-section.target h3 { background: #fff0e5; color: #a65322; }
 .similarity-detail-section > p { margin: 0; padding: 14px; color: #7b8493; font-size: 13px; }
-.similarity-detail-table { max-height: 300px; overflow: auto; }
+/* 差分は数十行になることが多く、数行ずつスクロールして見るのは確認に時間が掛かる。
+   1行の高さ（見出し32px・明細はそれより少し低い）の21行分を取り、見出し1行と
+   明細20行以上がスクロールなしで収まるようにする。 */
+.similarity-detail-table { --detail-row-height: 32px; max-height: calc(var(--detail-row-height) * 21); overflow: auto; }
 .similarity-detail-table table { width: 100%; font-size: 12px; }
 .similarity-detail-table th, .similarity-detail-table td { position: static; min-width: 0; width: auto; max-width: 180px; padding: 7px 8px; background: #fff; }
 .similarity-detail-table th { position: sticky; top: 0; z-index: 1; background: #f8f9fb; color: #475467; }
@@ -445,11 +448,16 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-detail-table th:nth-child(n),
 .similarity-detail-table td:nth-child(n) { left: auto !important; width: auto !important; min-width: 0 !important; max-width: none !important; text-align: left; }
 .similarity-detail-table col.detail-balloon { width: 52px; }
-.similarity-detail-table col.detail-part-no { width: 130px; }
+.similarity-detail-table col.detail-part-no { width: 200px; }
 .similarity-detail-table col.detail-version { width: 54px; }
 .similarity-detail-table col.detail-name { width: 220px; }
 .similarity-detail-table col.detail-quantity { width: 58px; }
 .similarity-detail-table col.detail-material { width: 150px; }
+/* 品番のうしろに図面・3Dモデルの印を出す。マトリックス部品表の品番列と同じ並びにそろえる。 */
+.similarity-detail-table .model-slot { margin-left: 4px; }
+/* 3Dモデルのサムネイルは画面に対して固定で置いている。展開中の行に transform が掛かると
+   その行が位置の基準になり、吹き出しが離れた場所へ飛んでしまうため、展開中は浮き上がりを止める。 */
+.similarity-row.is-expanded:hover { transform: none; }
 .similarity-detail-table th:nth-child(1), .similarity-detail-table th:nth-child(3), .similarity-detail-table th:nth-child(5),
 .similarity-detail-table td:nth-child(1), .similarity-detail-table td:nth-child(3), .similarity-detail-table td:nth-child(5) { text-align: center; }
 
