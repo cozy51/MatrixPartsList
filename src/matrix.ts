@@ -275,9 +275,27 @@ export type PlSimilarity = { list: PartsList; score: number; common: number; uni
 
 export type PlPartComparison = { common: Part[]; baseOnly: Part[]; targetOnly: Part[] };
 
+/** 数量の表記ゆれ（`1` と `1.0`、全角空白など）をそろえる。 */
+const normalizeQuantity = (value: string): string => {
+  const quantity = (value ?? '').trim();
+  return quantity !== '' && Number.isFinite(Number(quantity)) ? String(Number(quantity)) : quantity.toLocaleUpperCase();
+};
+
+/**
+ * PL同士を比べるときの部品の同一性。**品番と数量が同じなら同じ部品**として扱う。
+ * 風船番号・Ver.・品名・材質は、同じ部品でもPLによって書き方が変わる（風船を振り直した、
+ * 品名の表記が変わった、材質欄が空欄のまま）ため、これらの違いだけで「片方のPLにしかない
+ * 部品」として並べると、実際には変わっていない部品が変更のように見えてしまう。
+ * 補材（品番が `+`・空欄）は品番で区別できないため、これまで通り明細全体で見分ける。
+ */
+export const comparisonPartKey = (part: Part): string =>
+  isSupplementPart(part.partNo)
+    ? partKey(part)
+    : [part.partNo.trim(), normalizeQuantity(part.quantity)].join('\u001f').toLocaleUpperCase();
+
 export function comparePlParts(base: PartsList, target: PartsList): PlPartComparison {
   const uniqueParts = (list: PartsList) => new Map(
-    excludeNoteParts(list.parts).map(part => [partKey(part), part]),
+    excludeNoteParts(list.parts).map(part => [comparisonPartKey(part), part]),
   );
   const baseParts = uniqueParts(base);
   const targetParts = uniqueParts(target);
@@ -291,9 +309,9 @@ export function comparePlParts(base: PartsList, target: PartsList): PlPartCompar
 export function calculatePlSimilarities(lists: PartsList[], baseId: string): PlSimilarity[] {
   const base = lists.find(list => list.id === baseId);
   if (!base) return [];
-  const baseKeys = new Set(excludeNoteParts(base.parts).map(partKey));
+  const baseKeys = new Set(excludeNoteParts(base.parts).map(comparisonPartKey));
   return lists.map(list => {
-    const keys = new Set(excludeNoteParts(list.parts).map(partKey));
+    const keys = new Set(excludeNoteParts(list.parts).map(comparisonPartKey));
     const common = [...baseKeys].filter(key => keys.has(key)).length;
     const union = new Set([...baseKeys, ...keys]).size;
     return { list, common, union, score: union ? common / union : 1 };

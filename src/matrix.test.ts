@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBalloonDuplicates, buildBalloonGroups, countParts, excludeNoteParts, isNotePart, buildPlVersionGroups, plVersionLabel, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildMaterialConflicts, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutMaterial, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
+import { buildBalloonDuplicates, buildBalloonGroups, countParts, excludeNoteParts, isNotePart, buildPlVersionGroups, plVersionLabel, buildCompatibleGroups, buildListCompatibleIndex, buildListPartIndex, buildMaterialConflicts, buildQuantityConflicts, buildVersionConflicts, partKeyWithoutMaterial, partKeyWithoutQuantity, calculatePlSimilarities, compatibleBaseNo, compatibleDigitLabel, collectPartsInSourceOrder, comparePlParts, comparisonPartKey, countPartOccurrences, filterPartsByBalloon, filterSupplementParts, isCustomerSpecialPl, isPurchasedPart, isStandardPl, plKindLabel, setListsVisibilityByMode, sortPartsByBalloon, sortPartsLists } from './matrix';
 import { partKey } from './csv';
 import type { Part, PartsList } from './types';
 
@@ -212,6 +212,52 @@ describe('reference workbook ordering', () => {
     expect(detail.common.map(item => item.partNo)).toEqual(['common']);
     expect(detail.baseOnly.map(item => item.partNo)).toEqual(['base-only']);
     expect(detail.targetOnly.map(item => item.partNo)).toEqual(['target-only']);
+  });
+
+  it('品番と数量が同じ部品は、風船・Ver.・品名・材質が違っても共通部品として扱う', () => {
+    const base = list('HJ02101010');
+    const target = list('HJ02101010');
+    base.parts = [{ ...part('125', 'Z908183600'), version: '-', name: 'MOTOR-P CPMA0219EP7 モータケーブル', material: '' }];
+    target.parts = [{ ...part('126', 'Z908183600'), version: '01', name: 'MOTOR-P CPMA0219EP7', material: 'ANCA' }];
+    const detail = comparePlParts(base, target);
+    expect(detail.common.map(item => item.partNo)).toEqual(['Z908183600']);
+    expect(detail.baseOnly).toEqual([]);
+    expect(detail.targetOnly).toEqual([]);
+  });
+
+  it('品番が同じでも数量が違えば、それぞれのPLだけの部品として並べる', () => {
+    const base = list('HJ02101010');
+    const target = list('HJ02101010');
+    base.parts = [{ ...part('1', 'HJ02151060'), quantity: '5' }];
+    target.parts = [{ ...part('1', 'HJ02151060'), quantity: '6' }];
+    const detail = comparePlParts(base, target);
+    expect(detail.common).toEqual([]);
+    expect(detail.baseOnly.map(item => item.quantity)).toEqual(['5']);
+    expect(detail.targetOnly.map(item => item.quantity)).toEqual(['6']);
+  });
+
+  it('数量の表記ゆれ（1 と 1.0）は同じ数量として扱う', () => {
+    expect(comparisonPartKey({ ...part('1', 'HJ02151060'), quantity: '1' }))
+      .toBe(comparisonPartKey({ ...part('9', 'hj02151060'), quantity: '1.0' }));
+  });
+
+  it('補材（品番 +）は品番で見分けられないため、明細全体で比べる', () => {
+    const base = list('HJ02101010');
+    const target = list('HJ02101010');
+    base.parts = [{ ...part('1', '+'), name: 'HCZr M5X12', quantity: '3' }];
+    target.parts = [{ ...part('1', '+'), name: 'HCZr M6X20', quantity: '3' }];
+    const detail = comparePlParts(base, target);
+    expect(detail.common).toEqual([]);
+    expect(detail.baseOnly.map(item => item.name)).toEqual(['HCZr M5X12']);
+    expect(detail.targetOnly.map(item => item.name)).toEqual(['HCZr M6X20']);
+  });
+
+  it('類似度も品番と数量で数える', () => {
+    const base = list('BASE'), target = list('TARGET');
+    base.parts = [part('1', 'a'), part('2', 'b')];
+    target.parts = [{ ...part('7', 'a'), name: '別表記' }, part('3', 'c')];
+    const results = calculatePlSimilarities([base, target], base.id);
+    expect(results.find(result => result.list.id === target.id)).toMatchObject({ common: 1, union: 3 });
   });
 });
 

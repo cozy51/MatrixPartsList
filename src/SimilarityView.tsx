@@ -65,7 +65,7 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange }
 
   return <section className="similarity-view">
     <div className="similarity-controls">
-      <div><h2>PL間の類似度</h2><p>共通部品 ÷ 全部品（Jaccard係数）・行をクリックすると詳細を表示</p></div>
+      <div><h2>PL間の類似度</h2><p>共通部品 ÷ 全部品（Jaccard係数）・品番と数量が同じ部品は同じものとして数えます・行をクリックすると詳細を表示</p></div>
       <label><span>基準PL</span><select value={effectiveBaseId} onChange={event => { onBaseChange(event.target.value); setExpandedId(''); }}>{lists.map(list => <option key={list.id} value={list.id}>{sequence.get(list.id)}. {plLabel(list)}</option>)}</select></label>
     </div>
     <div className="similarity-list">{results.map((result, index) => {
