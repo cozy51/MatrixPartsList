@@ -453,7 +453,7 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-detail-table col.detail-name { width: 220px; }
 .similarity-detail-table col.detail-quantity { width: 58px; }
 .similarity-detail-table col.detail-material { width: 150px; }
-/* 品番のうしろに図面・3Dモデルの印を出す。マトリックス部品表の品番列と同じ並びにそろえる。 */
+/* 品番のうしろに図面・3Dモデルの印を出す。マトリックスBOMの品番列と同じ並びにそろえる。 */
 .similarity-detail-table .model-slot { margin-left: 4px; }
 /* 3Dモデルのサムネイルは画面に対して固定で置いている。展開中の行に transform が掛かると
    その行が位置の基準になり、吹き出しが離れた場所へ飛んでしまうため、展開中は浮き上がりを止める。 */
@@ -901,7 +901,7 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .level40-view td small { display: block; margin-top: 3px; color: #8a93a4; font-size: 11px; word-break: break-all; }
 
 /* 40レベルの中身を出すポップアップ。明細を読むため、図面選択より広くする。 */
-.level40-modal { width: min(860px, 94vw); }
+
 .level40-heading { display: flex; align-items: flex-start; gap: 12px; }
 .level40-heading > div:first-child { flex: 1; min-width: 0; }
 .level40-heading h2 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 19px; }
@@ -910,20 +910,6 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .level40-heading > button:last-child { border: 0; padding: 2px 8px; font-size: 18px; color: #8a93a4; }
 .level40-version { display: flex; align-items: center; gap: 6px; color: #667085; font-size: 13px; font-weight: 700; }
 .level40-version select { padding: 7px 10px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; font: inherit; }
-.level40-table { margin-top: 14px; max-height: min(58vh, 460px); overflow: auto; border: 1px solid #e2e6ed; border-radius: 10px; }
-/* 列幅を決めて、横にはみ出さず折り返して読めるようにする。 */
-.level40-table table { width: 100%; table-layout: fixed; font-size: 12px; }
-.level40-table th:nth-child(1), .level40-table td:nth-child(1) { width: 56px; }
-.level40-table th:nth-child(2), .level40-table td:nth-child(2) { width: 152px; }
-.level40-table th:nth-child(3), .level40-table td:nth-child(3) { width: 56px; }
-.level40-table th:nth-child(5), .level40-table td:nth-child(5) { width: 64px; }
-.level40-table th:nth-child(6), .level40-table td:nth-child(6) { width: 160px; }
-/* 部品表の表は左の列を固定表示にしているが、ポップアップでは横に流れないため固定しない。
-   見出しだけは縦スクロールで隠れないよう残す。 */
-.level40-table td { position: static; }
-.level40-table thead th { position: sticky; top: 0; left: auto; z-index: 1; background: #eef0ff; color: #4651bc; text-align: left; }
-.level40-table th, .level40-table td { border-right: 0; max-width: none; white-space: normal; word-break: break-word; }
-.level40-table tbody tr:last-child td { border-bottom: 0; }
 
 /* 複数枚から選ぶポップアップ。枚数だけを選ぶので、幅は狭くする。 */
 .drawing-choice { width: min(560px, 94vw); }
@@ -958,15 +944,15 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .cadid-missing { color: #b4232d; font-size: 12px; }
 @media(max-width:1000px) { .drawing-form-grid { grid-template-columns: 1fr; } .drawings-capture-head { flex-direction: column; } }
 
-/* 左のPL一覧は、チェック（マトリックス部品表に出すかどうか）とは別に、
-   「単独部品表」に出す1つのPLをクリックで選ぶ。選択中は枠で囲み、印を添える。 */
+/* 左のPL一覧は、チェック（マトリックスBOMに出すかどうか）とは別に、
+   「単体BOM」に出す1つのPLをクリックで選ぶ。選択中は枠で囲み、印を添える。 */
 .pl { cursor: pointer; border-left: 3px solid transparent; border-radius: 8px; }
 .pl:hover { background: #f7f8ff; }
 .pl.is-solo { border: 1px solid #5865e8; border-left-width: 3px; background: #f2f4ff; box-shadow: 0 0 0 2px #5865e824; }
 .pl:focus-visible { outline: 2px solid #5865e8; outline-offset: -2px; }
 .solo-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 8px; background: #5865e8; color: #fff; font-size: 10px; font-weight: 800; vertical-align: 1px; }
 
-/* 単独部品表。PLを1つだけ出し、空いた幅を質量・価格・.shai の列に充てる。 */
+/* 単体BOM。PLを1つだけ出し、空いた幅を質量・価格・.shai の列に充てる。 */
 .solo-view { display: flex; flex-direction: column; min-height: 0; overflow: auto; padding: 18px; background: #fff; border: 1px solid #e2e6ed; border-radius: 10px; }
 .solo-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .solo-picker { display: flex; align-items: center; gap: 9px; margin-right: auto; font-weight: 750; }
@@ -984,23 +970,23 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .solo-note { margin: 14px 0 0; color: #667085; font-size: 13px; line-height: 1.7; }
 .solo-note code { padding: 1px 5px; border-radius: 5px; background: #eef0ff; color: #4651bc; }
 
-.solo-table { margin-top: 12px; min-height: 0; overflow: auto; border: 1px solid #e2e6ed; border-radius: 9px; }
-.solo-table table { width: 100%; table-layout: fixed; font-size: 12px; }
-/* 単独部品表は横に流れないため、マトリックス部品表の列固定は解く。見出しだけ残す。 */
-.solo-table th, .solo-table td { position: static; width: auto; min-width: 0; max-width: none; left: auto; padding: 7px 9px; background: #fff; white-space: normal; word-break: break-word; }
-.solo-table thead th { position: sticky; top: 0; z-index: 1; background: #eef0ff; color: #4651bc; text-align: left; }
-.solo-table tbody tr:nth-child(even) td { background: #fafbff; }
-.solo-table col.solo-balloon { width: 50px; }
-.solo-table col.solo-part-no { width: 165px; }
-.solo-table col.solo-version { width: 48px; }
-.solo-table col.solo-name { width: 210px; }
-.solo-table col.solo-quantity { width: 52px; }
-.solo-table col.solo-material { width: 140px; }
-.solo-table col.solo-mass, .solo-table col.solo-price { width: 96px; }
-.solo-table col.solo-total-mass, .solo-table col.solo-total-price { width: 92px; }
-.solo-table col.solo-shai-col { width: 116px; }
-.solo-table tfoot td { position: sticky; bottom: 0; z-index: 1; background: #f4f6ff; font-weight: 800; color: #3346ba; border-top: 1px solid #d9dfeb; }
-.solo-table tfoot td:first-child { text-align: right; }
+.bom-table { margin-top: 12px; min-height: 0; overflow: auto; border: 1px solid #e2e6ed; border-radius: 9px; }
+.bom-table table { width: 100%; table-layout: fixed; font-size: 12px; }
+/* 単体BOMは横に流れないため、マトリックスBOMの列固定は解く。見出しだけ残す。 */
+.bom-table th, .bom-table td { position: static; width: auto; min-width: 0; max-width: none; left: auto; padding: 7px 9px; background: #fff; white-space: normal; word-break: break-word; }
+.bom-table thead th { position: sticky; top: 0; z-index: 1; background: #eef0ff; color: #4651bc; text-align: left; }
+.bom-table tbody tr:nth-child(even) td { background: #fafbff; }
+.bom-table col.bom-balloon { width: 50px; }
+.bom-table col.bom-part-no { width: 155px; }
+.bom-table col.bom-version { width: 48px; }
+.bom-table col.bom-name { width: 190px; }
+.bom-table col.bom-quantity { width: 52px; }
+.bom-table col.bom-material { width: 130px; }
+.bom-table col.bom-mass, .bom-table col.bom-price { width: 96px; }
+.bom-table col.bom-total-mass, .bom-table col.bom-total-price { width: 92px; }
+.bom-table col.bom-shai { width: 116px; }
+.bom-table tfoot td { position: sticky; bottom: 0; z-index: 1; background: #f4f6ff; font-weight: 800; color: #3346ba; border-top: 1px solid #d9dfeb; }
+.bom-table tfoot td:first-child { text-align: right; }
 /* 計算列（合計質量・金額）は、手で入れる列と区別が付くよう右寄せの太字にする。 */
 .solo-calc { text-align: right; font-weight: 700; color: #3346ba; }
 .solo-blank { color: #b0b7c3; }
@@ -1016,6 +1002,14 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .shai-edit { padding: 2px 7px; border-radius: 6px; font-size: 11px; }
 /* 未登録の行は、カーソルを合わせたときだけ登録ボタンをはっきり出す。 */
 .shai-edit.is-empty { border-style: dashed; color: #8a93a4; opacity: .55; }
-.solo-table tbody tr:hover .shai-edit.is-empty, .shai-edit.is-empty:focus-visible { opacity: 1; }
+.bom-table tbody tr:hover .shai-edit.is-empty, .shai-edit.is-empty:focus-visible { opacity: 1; }
 .shai-modal { width: min(560px, 92vw); }
 @media(max-width:1000px) { .solo-picker select { min-width: 200px; } .solo-summary { flex-direction: column; align-items: flex-start; } }
+
+/* 40レベル部品の質量・単価は中身の合計で決まるため、入力欄ではなく計算結果を出す。
+   手で入れる列と取り違えないよう、値の下に「中身の合計」と添える。 */
+.bom-derived { display: block; text-align: right; font-weight: 700; color: #14755f; }
+.bom-derived i { display: block; margin-top: 1px; color: #8a93a4; font-size: 10px; font-style: normal; font-weight: 600; }
+/* 40レベル部品の中身のポップアップでも、単体BOMと同じ表を使う。列が増えたぶん幅を広げる。 */
+.level40-modal { width: min(1280px, 96vw); }
+.level40-modal .bom-table { max-height: min(58vh, 460px); }
