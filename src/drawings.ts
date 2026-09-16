@@ -37,7 +37,24 @@ export type CadIdLink = { partNo: string; cadId: string; updatedAt: string };
  */
 export type PartModelLink = { partNo: string; fileId: string; updatedAt: string };
 
-export type DrawingData = { revision: number; updatedAt: string; drawings: DrawingLink[]; cadIds?: CadIdLink[]; models?: PartModelLink[] };
+/**
+ * 品番ごとの質量・価格と、chemSHERPA（`.shai`）ファイルのリンク。単独部品表で入力する。
+ * 同じ品番ならどのPLでも同じ値のため、PLごとではなく**品番ごと**に1件だけ持つ。
+ * 部品表（PL）は読み込んだCSV・Excelをそのまま保つ場所にしておきたいため、図面リンク・
+ * CAD ID・3Dモデルと同じデータに入れて、同じ仕組みでGoogle Driveへ同期する。
+ */
+export type PartFact = {
+  partNo: string;
+  /** 単品質量（kg）。CSVの単品質量が空のとき、または実測で直したいときに入れる。 */
+  mass: string;
+  /** 単価（円）。CSV・Excelには無いため、この画面だけで持つ。 */
+  price: string;
+  /** chemSHERPA（`.shai`）ファイルのリンク。置き場所（Google Drive・SharePointなど）は問わない。 */
+  shaiUrl: string;
+  updatedAt: string;
+};
+
+export type DrawingData = { revision: number; updatedAt: string; drawings: DrawingLink[]; cadIds?: CadIdLink[]; models?: PartModelLink[]; partFacts?: PartFact[] };
 
 export const emptyDrawingData: DrawingData = {
   revision: 0,
@@ -45,6 +62,7 @@ export const emptyDrawingData: DrawingData = {
   drawings: [],
   cadIds: [],
   models: [],
+  partFacts: [],
 };
 
 export type ParsedDrawing = {
@@ -544,6 +562,48 @@ export function upsertPartModel(models: PartModelLink[], entry: PartModelLink): 
 
 export const removePartModel = (models: PartModelLink[], partNo: string): PartModelLink[] =>
   models.filter(item => drawingKey(item.partNo) !== drawingKey(partNo));
+
+export const emptyPartFact = (partNo: string): PartFact =>
+  ({ partNo: partNo.trim(), mass: '', price: '', shaiUrl: '', updatedAt: new Date(0).toISOString() });
+
+export const partFactFor = (facts: PartFact[], partNo: string): PartFact | undefined =>
+  facts.find(item => drawingKey(item.partNo) === drawingKey(partNo));
+
+/**
+ * 同じ品番の質量・価格・`.shai` は1件だけ持つ。入れ直すと上書きし、3つとも空に
+ * なった品番は記録ごと消す（同期するデータに空の記録を残さないため）。
+ */
+export function upsertPartFact(facts: PartFact[], entry: PartFact): PartFact[] {
+  const key = drawingKey(entry.partNo);
+  const others = facts.filter(item => drawingKey(item.partNo) !== key);
+  const next: PartFact = {
+    ...entry,
+    partNo: entry.partNo.trim(),
+    mass: entry.mass.trim(),
+    price: entry.price.trim(),
+    shaiUrl: entry.shaiUrl.trim(),
+  };
+  return next.mass || next.price || next.shaiUrl ? [...others, next] : others;
+}
+
+export const removePartFact = (facts: PartFact[], partNo: string): PartFact[] =>
+  facts.filter(item => drawingKey(item.partNo) !== drawingKey(partNo));
+
+/**
+ * 「1,200」「1.5 kg」「¥980」のような書き方から数値を取り出す。全角で入力されても
+ * 読めるようにそろえてから数える。数として読めないときは undefined を返し、
+ * 合計には入れない（0として足すと、未入力を0円・0kgと見誤るため）。
+ */
+export function parseAmount(value: string): number | undefined {
+  const text = (value ?? '').normalize('NFKC').replace(/[,\s]/g, '').replace(/^¥/, '').replace(/(kg|円)$/i, '');
+  if (!text || !/^-?\d*\.?\d+$/.test(text)) return undefined;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** 質量・金額の表示。桁を区切り、端数は最大 digits 桁まで出す。 */
+export const formatAmount = (value: number, digits = 3): string =>
+  value.toLocaleString('ja-JP', { maximumFractionDigits: digits });
 
 /** 品番自身の図面と、CAD IDから流用する図面。流用分は viaCadId を持つ。 */
 export type ResolvedDrawing = { drawing: DrawingLink; viaCadId?: string };

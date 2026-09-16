@@ -12,6 +12,12 @@ import {
   parseDriveFileId,
   removePartModel,
   upsertPartModel,
+  emptyPartFact,
+  formatAmount,
+  parseAmount,
+  partFactFor,
+  removePartFact,
+  upsertPartFact,
   drawingSheetLabel,
   drawingSheetName,
   drawingSheetNo,
@@ -762,5 +768,50 @@ describe('品番ごとの3Dモデル（Google Drive）', () => {
     expect(modelFileIdFor(models, 'Z080670500')).toBe('2ZzYyXxWwVvUuTtSs');
     expect(removePartModel(models, 'Z080670500')).toEqual([]);
     expect(removePartModel(models, 'HH110A5060')).toHaveLength(1);
+  });
+});
+
+describe('品番ごとの質量・価格・chemSHERPA（.shai）', () => {
+  const at = '2026-01-01T00:00:00.000Z';
+
+  it('品番ごとに1件だけ持ち、入れ直すと上書きする', () => {
+    let facts = upsertPartFact([], { ...emptyPartFact('HH110A5060'), mass: '1.25', updatedAt: at });
+    expect(partFactFor(facts, 'HH110A5060')?.mass).toBe('1.25');
+    // 品番の照合は前後の空白と大文字小文字を無視する。
+    expect(partFactFor(facts, ' hh110a5060 ')?.mass).toBe('1.25');
+    expect(partFactFor(facts, 'Z080670500')).toBeUndefined();
+    facts = upsertPartFact(facts, { ...partFactFor(facts, 'HH110A5060')!, price: ' 1,200 ', updatedAt: at });
+    expect(facts).toHaveLength(1);
+    expect(partFactFor(facts, 'HH110A5060')).toMatchObject({ mass: '1.25', price: '1,200' });
+  });
+
+  it('3つとも空になった品番は記録ごと消す', () => {
+    const facts = upsertPartFact([], { ...emptyPartFact('HH110A5060'), shaiUrl: 'https://example.com/a.shai', updatedAt: at });
+    expect(upsertPartFact(facts, { ...emptyPartFact('HH110A5060'), updatedAt: at })).toEqual([]);
+    expect(removePartFact(facts, 'hh110a5060')).toEqual([]);
+    expect(removePartFact(facts, 'Z080670500')).toHaveLength(1);
+  });
+
+  it('桁区切り・単位・全角を含む入力から数値を読み取る', () => {
+    expect(parseAmount('1,200')).toBe(1200);
+    expect(parseAmount(' 1.5 kg ')).toBe(1.5);
+    expect(parseAmount('¥980')).toBe(980);
+    expect(parseAmount('980円')).toBe(980);
+    expect(parseAmount('１２００')).toBe(1200);
+    expect(parseAmount('.5')).toBe(0.5);
+  });
+
+  it('数として読めないものは undefined にして合計から外す', () => {
+    expect(parseAmount('')).toBeUndefined();
+    expect(parseAmount('   ')).toBeUndefined();
+    expect(parseAmount('未定')).toBeUndefined();
+    expect(parseAmount('500g')).toBeUndefined();
+    expect(parseAmount('1.2.3')).toBeUndefined();
+  });
+
+  it('質量・金額は桁を区切って表示する', () => {
+    expect(formatAmount(1234.5)).toBe('1,234.5');
+    expect(formatAmount(1234.5678)).toBe('1,234.568');
+    expect(formatAmount(1234.5, 0)).toBe('1,235');
   });
 });
