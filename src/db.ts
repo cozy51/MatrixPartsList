@@ -20,3 +20,48 @@ export function backupFileName(at: Date = new Date()): string {
   const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
   return `MatrixPartsList-backup_${date}_${pad(at.getHours())}${pad(at.getMinutes())}.json`;
 }
+
+/**
+ * JSONバックアップの中身。以前は部品表（AppData）だけを保存していたため、
+ * 図面リンク・CAD ID・3Dモデルリンクは復元できなかった。両方を1ファイルに
+ * まとめて、バックアップ1つで元どおりに戻せるようにする。
+ */
+export type BackupFile = {
+  kind: 'matrix-parts-list-backup';
+  version: 1;
+  exportedAt: string;
+  data: AppData;
+  drawings: DrawingData;
+};
+
+/** 図面リンク側は後から増えた項目があるため、欠けていても空配列で補う。 */
+function normalizeDrawings(value: DrawingData): DrawingData {
+  return {
+    revision: value.revision || 0,
+    updatedAt: value.updatedAt || new Date(0).toISOString(),
+    drawings: value.drawings || [],
+    cadIds: value.cadIds || [],
+    models: value.models || [],
+    partFacts: value.partFacts || [],
+  };
+}
+
+export function buildBackup(data: AppData, drawings: DrawingData, at: Date = new Date()): BackupFile {
+  return { kind: 'matrix-parts-list-backup', version: 1, exportedAt: at.toISOString(), data, drawings: normalizeDrawings(drawings) };
+}
+
+/**
+ * バックアップJSONを読み取る。図面リンクを含む新しい形式と、部品表だけの
+ * 古い形式（AppDataをそのまま保存したもの）のどちらも復元できる。
+ * 中身が部品表として読めないときは例外を投げる。
+ */
+export function parseBackup(text: string): { data: AppData; drawings: DrawingData | null } {
+  const parsed = JSON.parse(text) as Partial<BackupFile> & Partial<AppData>;
+  // 新しい形式は `data` の下に部品表が入っている。古い形式は直下に `lists` がある。
+  const data = (parsed.kind === 'matrix-parts-list-backup' ? parsed.data : parsed) as AppData | undefined;
+  if (!data || !Array.isArray(data.lists)) throw new Error('バックアップJSONが不正です。');
+  const drawings = parsed.kind === 'matrix-parts-list-backup' && parsed.drawings && Array.isArray(parsed.drawings.drawings)
+    ? normalizeDrawings(parsed.drawings)
+    : null;
+  return { data: { ...data, revision: data.revision || 0, updatedAt: data.updatedAt || new Date(0).toISOString() }, drawings };
+}
