@@ -106,7 +106,8 @@ const captureDrawings=async()=>{setDrawingNotice(null);let text='';try{text=awai
 const syncWithCloud=async()=>{
 /* 図面リンクは部品表と別ファイルのため、リビジョンが新しい方を採用する。 */
 const cloudDrawings=await readCloudDrawings();drawingsFileId.current=cloudDrawings.id;let nextDrawings=drawingData;if(cloudDrawings.data&&(cloudDrawings.data.revision||0)>drawingData.revision){nextDrawings={...cloudDrawings.data,drawings:cloudDrawings.data.drawings||[],cadIds:cloudDrawings.data.cadIds||[],models:cloudDrawings.data.models||[],partFacts:cloudDrawings.data.partFacts||[]};setDrawingData(nextDrawings)}else drawingsFileId.current=await writeCloudDrawings(nextDrawings,cloudDrawings.id);syncedDrawingRevision.current=nextDrawings.revision;
-const cloud=await readCloud();cloudFileId.current=cloud.id;if(cloud.data&&cloud.data.revision>data.revision){const useCloud=confirm('クラウド版の方が新しいです。\nOK: クラウド版を使う / キャンセル: ローカル版を使う');if(useCloud){setData({...cloud.data,lists:removeDeletedParts(cloud.data.lists.map(list=>migrateList(list)))});syncedRevision.current=cloud.data.revision;setSignedIn(true);setSync('同期済み');return}}cloudFileId.current=await writeCloud(data,cloud.id);syncedRevision.current=data.revision;setSignedIn(true);setSync('同期済み')};
+/* クラウド版が新しいときは確認せずにクラウド版を採用する（図面リンクと同じ扱い）。 */
+const cloud=await readCloud();cloudFileId.current=cloud.id;if(cloud.data&&cloud.data.revision>data.revision){setData({...cloud.data,lists:removeDeletedParts(cloud.data.lists.map(list=>migrateList(list)))});syncedRevision.current=cloud.data.revision;setSignedIn(true);setSync('同期済み');return}cloudFileId.current=await writeCloud(data,cloud.id);syncedRevision.current=data.revision;setSignedIn(true);setSync('同期済み')};
 const login=async()=>{try{setSync('同期中');await signIn();await syncWithCloud()}catch(e){setSync('エラー');setError(e instanceof Error?e.message:'同期に失敗しました。')}};
 /* すでにDriveを許可していれば、起動時に黙ってログインし直して同期する。許可がないときは
    同意画面を出さず、これまでどおり「Google ログイン・同期」を押してもらう。 */
