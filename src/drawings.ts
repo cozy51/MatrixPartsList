@@ -38,7 +38,7 @@ export type CadIdLink = { partNo: string; cadId: string; updatedAt: string };
 export type PartModelLink = { partNo: string; fileId: string; updatedAt: string };
 
 /**
- * 品番ごとの質量・価格と、chemSHERPA（`.shai`）ファイルのリンク。単独部品表で入力する。
+ * 品番ごとの質量・価格と、chemSHERPA（`.shai`）ファイルのリンク。単体BOMで入力する。
  * 同じ品番ならどのPLでも同じ値のため、PLごとではなく**品番ごと**に1件だけ持つ。
  * 部品表（PL）は読み込んだCSV・Excelをそのまま保つ場所にしておきたいため、図面リンク・
  * CAD ID・3Dモデルと同じデータに入れて、同じ仕組みでGoogle Driveへ同期する。
@@ -707,7 +707,7 @@ export type DrawingIntakeResult = {
 /**
  * 貼り付けやクリップボードの文字列から図面リンクを取り込む。図番・リンク・
  * 対象品番がそろったものだけ登録し、判定できなかったものは確認へ回す。
- * 図面リンクタブとマトリックス部品表のどちらから取り込んでも同じ結果になる。
+ * 図面リンクタブとマトリックスBOMのどちらから取り込んでも同じ結果になる。
  */
 export function registerDrawings(drawings: DrawingLink[], text: string, knownPartNos: Iterable<string> = []): DrawingIntakeResult {
   let next = drawings;
@@ -743,7 +743,7 @@ export type DrawingIntakeSummary = {
 /**
  * 取り込み結果の内訳を数え、そのままメッセージとして出せる文にする。
  * 追加できたときだけでなく、追加できなかったときも必ず理由を伝えるため、
- * マトリックス部品表と図面リンクタブの両方でこの文を使う。
+ * マトリックスBOMと図面リンクタブの両方でこの文を使う。
  */
 export function summarizeDrawingIntake(result: DrawingIntakeResult): DrawingIntakeSummary {
   const added = result.done.filter(item => item.isNew).length;

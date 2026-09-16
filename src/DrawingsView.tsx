@@ -153,7 +153,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
     return true;
   };
 
-  // マトリックス部品表から引き継いだ取り込みを、この画面で処理する。
+  // マトリックスBOMから引き継いだ取り込みを、この画面で処理する。
   useEffect(() => {
     if (!intakeText?.trim()) return;
     intake(intakeText);

@@ -16,7 +16,7 @@ type Props = {
 
 /**
  * 40レベル（9桁目が `4`）は分解できる部品です。部品と同じ扱いで機種・ユニットに属さず、
- * マトリックス部品表には並べないため、登録済みの一覧はこのタブにまとめています。
+ * マトリックスBOMには並べないため、登録済みの一覧はこのタブにまとめています。
  * 番号を押すと、その中身（50/60レベル）をポップアップで開きます。
  */
 export default function Level40View({ lists, onOpen, onRemove, renderBadges }: Props) {
@@ -50,7 +50,7 @@ export default function Level40View({ lists, onOpen, onRemove, renderBadges }: P
     </div>
 
     <p className="level40-note">
-      40レベル（9桁目が <code>4</code>）は分解できる部品です。<b>部品と同じ扱い</b>で機種・ユニットに属さないため、マトリックス部品表には並べません。
+      40レベル（9桁目が <code>4</code>）は分解できる部品です。<b>部品と同じ扱い</b>で機種・ユニットに属さないため、マトリックスBOMには並べません。
       部品表の明細で40レベルの品番を押すか、この一覧の番号を押すと、中身（50/60レベル）を開けます。
     </p>
 

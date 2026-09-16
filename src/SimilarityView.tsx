@@ -9,7 +9,7 @@ type Props = {
   sequence: Map<string,number>;
   baseId: string;
   onBaseChange: (id: string) => void;
-  /** 品番に紐づく図面・3Dモデルの印。マトリックス部品表と同じものを使う。 */
+  /** 品番に紐づく図面・3Dモデルの印。マトリックスBOMと同じものを使う。 */
   renderBadges: (partNo: string) => ReactNode;
 };
 type DetailSectionProps = { title: string; parts: Part[]; tone: 'common' | 'base' | 'target'; renderBadges: (partNo: string) => ReactNode };

@@ -1,5 +1,5 @@
 // アプリのブランドマーク。左の3本のバーが部品行、右の2列のドットがPL列を表し、
-// 1列目を選択中のPLとして強調したマトリックス部品表の図案。
+// 1列目を選択中のPLとして強調したマトリックスBOMの図案。
 // public/ のアイコン・Faviconと同じデザインで、scripts/generate-icons.py が元データ。
 export default function BrandMark({className='logo'}:{className?:string}){
 return <svg className={className} viewBox="0 0 64 64" role="img" aria-label="Matrix Parts List">
