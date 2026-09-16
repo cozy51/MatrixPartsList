@@ -9,3 +9,14 @@ export const saveLocal=(data:AppData)=>save(KEY,data);
 /** 図面リンクは部品表と別レコードで保存し、Drive上も別ファイルへ同期する。 */
 export const loadLocalDrawings=()=>load<DrawingData>(DRAWING_KEY);
 export const saveLocalDrawings=(data:DrawingData)=>save(DRAWING_KEY,data);
+
+/**
+ * JSONバックアップのファイル名。いつ取ったバックアップかをファイル名だけで
+ * 見分けられるよう、取得した日時（そのパソコンの時刻）を付ける。
+ * 例: `MatrixPartsList-backup_2026-09-17_0533.json`
+ */
+export function backupFileName(at: Date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+  return `MatrixPartsList-backup_${date}_${pad(at.getHours())}${pad(at.getMinutes())}.json`;
+}
