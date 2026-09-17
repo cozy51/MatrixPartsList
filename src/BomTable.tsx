@@ -92,19 +92,25 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
   /**
    * 質量・単価のセル。40レベル部品は中身の合計で決まるため入力欄にしない。
    * それ以外は入力欄にし、CSV・Excelの単品質量は薄い文字の目安として出す。
+   * 値が入っていないセルは背景に色を付け、入れ忘れに気づけるようにする。
+   * セル全体を塗るため、中身だけでなく `td` ごと組み立てている。
    */
   const amountCell = (row: BomRow, field: 'mass' | 'price') => {
     const partNo = row.part.partNo;
-    if (isSupplementPart(partNo)) return <span className="solo-blank" title="補材は品番で見分けられないため、質量・価格を持ちません。">—</span>;
+    /* 補材は質量・価格を持たないため、空でも「入れ忘れ」ではない。 */
+    if (isSupplementPart(partNo)) return <td><span className="solo-blank" title="補材は品番で見分けられないため、質量・価格を持ちません。">—</span></td>;
     const source = field === 'mass' ? row.massSource : row.priceSource;
     if (source === 'children') {
       const value = field === 'mass' ? row.unitMass : row.unitPrice;
       const summary = row.childSummary;
       const counted = field === 'mass' ? summary?.massCounted ?? 0 : summary?.priceCounted ?? 0;
       const label = field === 'mass' ? '質量' : '単価';
-      return <span className="bom-derived" title={`40レベル部品のため、中身（${summary?.parts ?? 0} 部品）の合計です。${label}が入っているのは ${counted} 部品です。`}>
-        {value === undefined ? '—' : formatAmount(value, field === 'mass' ? 3 : 0)}<i>中身の合計</i>
-      </span>;
+      /* 中身の合計が出せないのは、中身の側が未入力だから。ここも色を付けて知らせる。 */
+      return <td className={value === undefined ? 'is-missing' : undefined}>
+        <span className="bom-derived" title={`40レベル部品のため、中身（${summary?.parts ?? 0} 部品）の合計です。${label}が入っているのは ${counted} 部品です。`}>
+          {value === undefined ? '—' : formatAmount(value, field === 'mass' ? 3 : 0)}<i>中身の合計</i>
+        </span>
+      </td>;
     }
     const editing = draft?.partNo === partNo && draft.field === field;
     const stored = field === 'mass' ? row.massInput : row.priceInput;
@@ -115,7 +121,9 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     const display = field === 'mass' ? displayMass : displayPrice;
     const shown = display(stored);
     const editable = unlocked[field];
-    return <input
+    /* CSV・Excelの値を引き継いでいる欄（is-inherited）は値があるため、入れ忘れではない。 */
+    const missing = !stored && !placeholder;
+    return <td className={missing ? 'is-missing' : undefined}><input
       className={`solo-amount ${!stored && placeholder ? 'is-inherited' : ''} ${editable ? '' : 'is-locked'}`}
       type="text" inputMode="decimal" readOnly={!editable}
       aria-label={`${partNo} の${columnLabel}`}
@@ -132,7 +140,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       onChange={editable ? event => setDraft({ partNo, field, value: event.target.value }) : undefined}
       onBlur={editable ? commitDraft : undefined}
       onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') setDraft({ partNo, field, value: stored }); }}
-    />;
+    /></td>;
   };
 
   const shaiCell = (row: BomRow) => {
@@ -166,9 +174,9 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         <td title={row.part.name}>{row.part.name}</td>
         <td>{row.part.quantity}</td>
         <td title={row.part.material}>{row.part.material}</td>
-        <td>{amountCell(row, 'mass')}</td>
+        {amountCell(row, 'mass')}
         <td className="solo-calc">{row.totalMass === undefined ? '—' : formatAmount(row.totalMass)}</td>
-        <td>{amountCell(row, 'price')}</td>
+        {amountCell(row, 'price')}
         <td className="solo-calc">{row.totalPrice === undefined ? '—' : formatAmount(row.totalPrice, 0)}</td>
         <td>{shaiCell(row)}</td>
       </tr>)}</tbody>
