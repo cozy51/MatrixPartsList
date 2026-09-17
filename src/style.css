@@ -448,11 +448,33 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-detail-table th:nth-child(n),
 .similarity-detail-table td:nth-child(n) { left: auto !important; width: auto !important; min-width: 0 !important; max-width: none !important; text-align: left; }
 .similarity-detail-table col.detail-balloon { width: 52px; }
-.similarity-detail-table col.detail-part-no { width: 200px; }
+.similarity-detail-table col.detail-part-no { width: 160px; }
 .similarity-detail-table col.detail-version { width: 54px; }
-.similarity-detail-table col.detail-name { width: 220px; }
+.similarity-detail-table col.detail-name { width: 180px; }
 .similarity-detail-table col.detail-quantity { width: 58px; }
-.similarity-detail-table col.detail-material { width: 150px; }
+/* 質量・金額の2列を足したぶん、文字の列を少し詰めて横スクロールを増やしすぎない。 */
+.similarity-detail-table col.detail-material { width: 120px; }
+.similarity-detail-table col.detail-mass, .similarity-detail-table col.detail-price { width: 84px; }
+/* 質量・金額は数字。桁をそろえて読めるよう右寄せにする。 */
+.similarity-detail-table td.detail-amount { text-align: right !important; font-weight: 700; color: #3346ba; }
+
+/* まとまりごとの合計。表の「質量」「金額」を足したもの。 */
+.similarity-detail-total { display: flex; flex-wrap: wrap; gap: 14px; padding: 7px 11px; border-bottom: 1px solid #e7ebf3; background: #fbfcff; font-size: 12px; color: #667085; }
+.similarity-detail-total b { margin-left: 5px; color: #3346ba; font-size: 13px; }
+.similarity-detail-total i { margin-left: 5px; color: #97a0b0; font-size: 11px; font-style: normal; }
+
+/* 質量・金額が2つのPLでどれだけ違うか。内訳（共通・各PLのみ）と合計・差を並べる。 */
+.similarity-amounts { grid-column: 1 / -1; padding: 12px 14px; border: 1px solid #dfe4ec; border-radius: 8px; background: #fff; }
+.similarity-amounts table { width: 100%; font-size: 12px; table-layout: auto; white-space: nowrap; }
+.similarity-amounts th, .similarity-amounts td { position: static; width: auto; min-width: 0; max-width: none; left: auto; padding: 6px 9px; background: transparent; text-align: right; }
+.similarity-amounts thead th { position: static; z-index: auto; background: transparent; color: #667085; font-size: 11px; font-weight: 700; }
+.similarity-amounts thead th:first-child, .similarity-amounts tbody th { text-align: left; background: transparent; color: #475467; }
+.similarity-amounts td.is-total { font-weight: 800; color: #3346ba; }
+.similarity-amounts td.is-diff { font-weight: 800; color: #667085; border-left: 1px solid #e7ebf3; }
+/* 増えたら赤、減ったら緑（軽くなる・安くなるのは良い向き）。 */
+.similarity-amounts td.is-diff.is-up { color: #c0392f; }
+.similarity-amounts td.is-diff.is-down { color: #14755f; }
+.similarity-amounts p { margin: 8px 0 0; color: #8a93a4; font-size: 11px; line-height: 1.7; white-space: normal; }
 /* 品番のうしろに図面・3Dモデルの印を出す。マトリックスBOMの品番列と同じ並びにそろえる。 */
 .similarity-detail-table .model-slot { margin-left: 4px; }
 /* 3Dモデルのサムネイルは画面に対して固定で置いている。展開中の行に transform が掛かると
