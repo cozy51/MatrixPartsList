@@ -108,12 +108,15 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       const summary = row.childSummary;
       const counted = field === 'mass' ? summary?.massCounted ?? 0 : summary?.priceCounted ?? 0;
       const label = field === 'mass' ? '質量' : '単価';
-      const unregistered = !summary;
+      /* リスト自体が未登録なら、入力不可の「—」だけを出す。中身が登録済みなのに
+         値が1件もない場合だけ、「中身の合計（未登録）」で入力漏れを知らせる。 */
+      if (!summary) return <td><span className="solo-blank" title="40レベル部品のリストが未登録のため、この欄には入力できません。">—</span></td>;
+      const unregistered = value === undefined;
       /* 40レベル部品は中身（50/60レベル）の合計で決まり、この欄には入力できない。
          合計が出せなくても入れ忘れではないため、未入力の色は付けない。 */
       return <td>
         <span className={`bom-derived ${unregistered ? 'is-unregistered' : ''}`} title={unregistered
-          ? `40レベル部品のリストが未登録のため、中身の${label}を合計できません。`
+          ? `中身（${summary.parts} 部品）の${label}が登録されていないため、合計できません。`
           : `40レベル部品のため、中身（${summary.parts} 部品）の合計です。${label}が入っているのは ${counted} 部品です。`}>
           {value === undefined ? '—' : formatAmount(value, field === 'mass' ? 3 : 0)}<i>{unregistered ? '中身の合計（未登録）' : '中身の合計'}</i>
         </span>
