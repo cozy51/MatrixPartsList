@@ -630,15 +630,25 @@ export const formatAmount = (value: number, digits = 3): string =>
   value.toLocaleString('ja-JP', { maximumFractionDigits: digits });
 
 /**
- * 単品質量の表示。図面の質量はグラムまでしか意味を持たないため、1g（小数3桁）で
- * 四捨五入して出す（0.00828 → 0.008）。合計質量の列と同じ丸め方にそろえている。
- * 保存している値は丸めないので、合計は入力どおりの精度で計算する。
- * 数として読めない入力（`8.28kg` など）は、消さずにそのまま出す。
+ * 入力欄の表示を、合計の列と同じ丸め方にそろえる。保存している値は丸めないので、
+ * 合計は入力どおりの精度で計算する。数として読めない入力はそのまま出す。
  */
-export function displayMass(value: string): string {
+const displayAmount = (value: string, digits: number): string => {
   const parsed = parseAmount(value);
-  return parsed === undefined ? value : formatAmount(parsed, 3);
-}
+  return parsed === undefined ? value : formatAmount(parsed, digits);
+};
+
+/**
+ * 単品質量の表示。図面の質量はグラムまでしか意味を持たないため、1g（小数3桁）で
+ * 四捨五入して出す（0.00828 → 0.008）。合計質量の列と同じ丸め方。
+ */
+export const displayMass = (value: string): string => displayAmount(value, 3);
+
+/**
+ * 単価の表示。金額の列と同じく、1円（整数）で四捨五入して桁を区切る
+ * （1350.00 → 1,350）。
+ */
+export const displayPrice = (value: string): string => displayAmount(value, 0);
 
 /** 品番自身の図面と、CAD IDから流用する図面。流用分は viaCadId を持つ。 */
 export type ResolvedDrawing = { drawing: DrawingLink; viaCadId?: string };

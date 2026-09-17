@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { displayMass, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact } from './drawings';
+import { displayMass, displayPrice, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
-import { BOM_COLUMNS, sumBomRows, type BomRow } from './bom';
+import { BOM_COLUMNS, MASS_COLUMN, PRICE_COLUMN, sumBomRows, type BomRow } from './bom';
 import type { PartsList } from './types';
 
 /** 40レベル部品の中身を開くための入口。マトリックスBOM・単体BOMで同じものを使う。 */
@@ -37,6 +37,14 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
      リビジョンが上がり続けるため、確定（フォーカスを外す・Enter）で書き込む。 */
   const [draft, setDraft] = useState<{ partNo: string; field: 'mass' | 'price'; value: string } | null>(null);
   const [shaiDraft, setShaiDraft] = useState<{ partNo: string; value: string; error: string } | null>(null);
+  /* 質量と単価は見た目が似ていて取り違えやすいため、初めは編集できない状態にし、
+     見出しの鍵ボタンで列ごとに切り替える。同じ画面でも別々に開け閉めできる。 */
+  const [unlocked, setUnlocked] = useState<{ mass: boolean; price: boolean }>({ mass: false, price: false });
+  const toggleLock = (field: 'mass' | 'price') => {
+    /* 編集中の列を閉じるときは、書きかけの下書きを捨てる（保存はしない）。 */
+    if (unlocked[field] && draft?.field === field) setDraft(null);
+    setUnlocked(current => ({ ...current, [field]: !current[field] }));
+  };
 
   const massTotal = sumBomRows(rows, row => row.totalMass);
   const priceTotal = sumBomRows(rows, row => row.totalPrice);
@@ -101,20 +109,28 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     const editing = draft?.partNo === partNo && draft.field === field;
     const stored = field === 'mass' ? row.massInput : row.priceInput;
     const placeholder = field === 'mass' ? row.csvMass : '';
-    /* 質量は表の見やすさを優先して 1g（小数3桁）に丸めて出す。編集を始めたら
-       丸める前の値に戻すので、0.00828 のような端数が消えることはない。 */
-    const shown = field === 'mass' ? displayMass(stored) : stored;
+    const columnLabel = field === 'mass' ? MASS_COLUMN : PRICE_COLUMN;
+    /* 表の見やすさを優先し、合計の列と同じ丸め方で出す（質量は1g、単価は1円）。
+       編集を始めたら丸める前の値に戻すので、0.00828 のような端数が消えることはない。 */
+    const display = field === 'mass' ? displayMass : displayPrice;
+    const shown = display(stored);
+    const editable = unlocked[field];
     return <input
-      className={`solo-amount ${!stored && placeholder ? 'is-inherited' : ''}`}
-      type="text" inputMode="decimal"
-      aria-label={`${partNo} の${field === 'mass' ? '単品質量（kg）' : '単価（円）'}`}
-      title={field === 'mass' ? [placeholder && `CSV・Excelの単品質量は ${placeholder} kg です。空欄のままならこの値を使います。`, stored && displayMass(stored) !== stored && `入力された値は ${stored} kg です（表示は1gに四捨五入）。`, 'g を付けて入力すると kg に直して保存します（8.28g → 0.00828）。'].filter(Boolean).join('') : undefined}
-      placeholder={(field === 'mass' ? displayMass(placeholder) : placeholder) || '—'}
+      className={`solo-amount ${!stored && placeholder ? 'is-inherited' : ''} ${editable ? '' : 'is-locked'}`}
+      type="text" inputMode="decimal" readOnly={!editable}
+      aria-label={`${partNo} の${columnLabel}`}
+      title={[
+        !editable && `${columnLabel}は編集できません。見出しの鍵を押すと編集できます。`,
+        field === 'mass' && placeholder && `CSV・Excelの単品質量は ${placeholder} kg です。空欄のままならこの値を使います。`,
+        stored && shown !== stored && `入力された値は ${stored} です（表示は${field === 'mass' ? '1g' : '1円'}に四捨五入）。`,
+        field === 'mass' && 'g を付けて入力すると kg に直して保存します（8.28g → 0.00828）。',
+      ].filter(Boolean).join('') || undefined}
+      placeholder={display(placeholder) || '—'}
       value={editing ? draft.value : shown}
       /* 丸めた表示のまま書き換えると端数が落ちるため、編集に入るときは元の値を下書きにする。 */
-      onFocus={() => setDraft({ partNo, field, value: stored })}
-      onChange={event => setDraft({ partNo, field, value: event.target.value })}
-      onBlur={commitDraft}
+      onFocus={editable ? () => setDraft({ partNo, field, value: stored }) : undefined}
+      onChange={editable ? event => setDraft({ partNo, field, value: event.target.value }) : undefined}
+      onBlur={editable ? commitDraft : undefined}
       onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') setDraft({ partNo, field, value: stored }); }}
     />;
   };
@@ -135,7 +151,14 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         <col className="bom-balloon" /><col className="bom-part-no" /><col className="bom-version" /><col className="bom-name" /><col className="bom-quantity" /><col className="bom-material" />
         <col className="bom-mass" /><col className="bom-total-mass" /><col className="bom-price" /><col className="bom-total-price" /><col className="bom-shai" />
       </colgroup>
-      <thead><tr>{BOM_COLUMNS.map(label => <th key={label}>{label}</th>)}</tr></thead>
+      <thead><tr>{BOM_COLUMNS.map(label => {
+        /* 手入力する2列だけ、見出しに編集可・不可の切り替えを出す。 */
+        const field = label === MASS_COLUMN ? 'mass' : label === PRICE_COLUMN ? 'price' : null;
+        return <th key={label}>{label}{field && <button type="button" className={`bom-lock ${unlocked[field] ? 'is-unlocked' : ''}`} aria-pressed={unlocked[field]}
+          aria-label={`${label}を${unlocked[field] ? '編集できないようにする' : '編集できるようにする'}`}
+          title={unlocked[field] ? `${label}の編集を止めます。書き換えないときは閉じておくと安全です。` : `${label}を編集できるようにします。`}
+          onClick={() => toggleLock(field)}>{unlocked[field] ? '🔓' : '🔒'}</button>}</th>;
+      })}</tr></thead>
       <tbody>{rows.map((row, index) => <tr key={`${row.part.balloon}-${row.part.partNo}-${row.part.version}-${index}`}>
         <td>{row.part.balloon}</td>
         <td className={isPurchasedPart(row.part.partNo) ? 'purchased-part' : undefined}>{partNoCell(row)}{renderBadges(row.part.partNo)}</td>

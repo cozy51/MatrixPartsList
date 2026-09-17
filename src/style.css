@@ -998,6 +998,14 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 /* CSV・Excelから読み込んだ単品質量は、入力していないことが分かるよう薄い文字で出す。 */
 .solo-amount::placeholder { color: #9aa3b4; }
 .solo-amount.is-inherited { background: #f8f9fb; }
+/* 編集できない列は、枠を消して数字だけを見せる（押しても書き換わらないことが分かるように）。 */
+.solo-amount.is-locked { border-color: transparent; background: transparent; cursor: default; }
+.solo-amount.is-locked:hover { border-color: transparent; }
+.solo-amount.is-locked:focus { outline: none; border-color: transparent; }
+/* 見出しの鍵。閉じているときは控えめに、開けているときは色を付けて気づけるようにする。 */
+.bom-lock { margin-left: 5px; padding: 0 3px; border: 0; background: transparent; font-size: 12px; line-height: 1; opacity: .55; vertical-align: 1px; }
+.bom-lock:hover { opacity: 1; }
+.bom-lock.is-unlocked { opacity: 1; }
 .solo-shai { display: flex; align-items: center; gap: 6px; }
 .shai-link { padding: 1px 6px; border: 1px solid #14755f; border-radius: 6px; background: #e9f7f1; color: #14755f; font-size: 11px; font-weight: 800; text-decoration: none; }
 .shai-link:hover { background: #14755f; color: #fff; }

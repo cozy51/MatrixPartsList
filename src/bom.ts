@@ -135,8 +135,12 @@ export function sumBomRows(rows: BomRow[], pick: (row: BomRow) => number | undef
   return { total, counted };
 }
 
+/** 手で入力する2つの列。見出しに編集可・不可の切り替えを出すため、名前で引けるようにする。 */
+export const MASS_COLUMN = '単品質量（kg）';
+export const PRICE_COLUMN = '単価（円）';
+
 /** 単体BOM・40レベル部品の中身で共通の列。表とExcel出力で同じ並びにする。 */
-export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '材質・メーカー', '単品質量（kg）', '合計質量（kg）', '単価（円）', '金額（円）', 'Shaiファイル'];
+export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '材質・メーカー', MASS_COLUMN, '合計質量（kg）', PRICE_COLUMN, '金額（円）', 'Shaiファイル'];
 
 /**
  * 明細をExcelへ出します。単体BOMのタブと、40レベル部品の中身のポップアップで

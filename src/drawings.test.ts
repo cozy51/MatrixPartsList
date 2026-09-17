@@ -14,6 +14,7 @@ import {
   upsertPartModel,
   emptyPartFact,
   displayMass,
+  displayPrice,
   formatAmount,
   normalizeMassInput,
   parseAmount,
@@ -875,6 +876,20 @@ describe('品番ごとの質量・価格・chemSHERPA（.shai）', () => {
     // 表示は 0.008 でも、合計の計算には 0.00828 を使う。
     expect(displayMass('0.00828')).toBe('0.008');
     expect(parseAmount('0.00828')).toBe(0.00828);
+  });
+
+  it('単価の表示は金額の列と同じにする', () => {
+    // 見比べたときに桁がそろうよう、1円で四捨五入して桁を区切る。
+    expect(displayPrice('1350.00')).toBe('1,350');
+    expect(displayPrice('982.00')).toBe('982');
+    expect(displayPrice('380')).toBe('380');
+    expect(displayPrice('12.5')).toBe('13');
+    expect(displayPrice('1234567')).toBe('1,234,567');
+  });
+
+  it('単価も空欄・読めない入力はそのまま出す', () => {
+    expect(displayPrice('')).toBe('');
+    expect(displayPrice('未定')).toBe('未定');
   });
 
   it('質量・金額は桁を区切って表示する', () => {
