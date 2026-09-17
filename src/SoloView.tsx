@@ -23,6 +23,8 @@ type Props = {
   /** 40レベル部品の中身を開く・合計するための入口。 */
   level40: Level40Access;
   level40Parts: Level40Parts;
+  /** クリップボードから図面リンクを取り込む。マトリックスBOMの同名ボタンと同じ処理。 */
+  onCaptureDrawings: () => void;
 };
 
 /**
@@ -31,7 +33,7 @@ type Props = {
  * （`.shai`）の列に充てています。質量・価格・`.shai` は**品番ごと**に持つため、
  * どのPLから入力しても同じ品番なら同じ値を表示します。
  */
-export default function SoloView({ list, lists, sequence, onSelect, facts, onFactsChange, renderBadges, level40, level40Parts }: Props) {
+export default function SoloView({ list, lists, sequence, onSelect, facts, onFactsChange, renderBadges, level40, level40Parts, onCaptureDrawings }: Props) {
   const [search, setSearch] = useState('');
 
   /* 明細の並びはマトリックスBOMと同じ。注記行（風船C）は除く。 */
@@ -72,6 +74,8 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
       <label className="search-box"><span aria-hidden="true">🔍</span>
         <input className="search" aria-label="部品を検索" placeholder="品番・品名・材質を検索..." value={search} onChange={event => setSearch(event.target.value)} />
       </label>
+      {/* 図面リンクの取り込みは表示中のPLに依らず全品番が対象のため、PL未選択でも押せる。 */}
+      <button type="button" className="drawing-capture" onClick={onCaptureDrawings} title="社内システムでコピーした図面のリンクを、この画面のまま取り込みます">📋 図面リンク取得</button>
       <button type="button" className="excel" onClick={exportExcel} disabled={!list}>Excel出力</button>
     </div>
 
