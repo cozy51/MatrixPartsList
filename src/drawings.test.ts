@@ -13,6 +13,7 @@ import {
   removePartModel,
   upsertPartModel,
   emptyPartFact,
+  displayMass,
   formatAmount,
   normalizeMassInput,
   parseAmount,
@@ -842,6 +843,38 @@ describe('品番ごとの質量・価格・chemSHERPA（.shai）', () => {
   it('kgへ直した値は合計の計算にそのまま使える', () => {
     // 割り算だと 0.008280000000000001 になるため、文字列のまま桁をずらしている。
     expect(parseAmount(normalizeMassInput('8.28g'))).toBe(0.00828);
+  });
+
+  it('単品質量の表示は1g（小数3桁）で四捨五入する', () => {
+    // 図面の質量はグラムまでしか意味を持たないため、端数は表示だけ落とす。
+    expect(displayMass('0.00828')).toBe('0.008');
+    expect(displayMass('0.08644')).toBe('0.086');
+    expect(displayMass('0.06462')).toBe('0.065');
+    expect(displayMass('0.13642')).toBe('0.136');
+    expect(displayMass('0.0005')).toBe('0.001');
+  });
+
+  it('丸めの要らない値・空欄はそのまま出す', () => {
+    expect(displayMass('1.5')).toBe('1.5');
+    expect(displayMass('0.008')).toBe('0.008');
+    expect(displayMass('0')).toBe('0');
+    expect(displayMass('')).toBe('');
+  });
+
+  it('kg表記は数値として読めるため、単位を外して出す', () => {
+    expect(displayMass('8.28kg')).toBe('8.28');
+    expect(displayMass('1,200')).toBe('1,200');
+  });
+
+  it('数として読めない入力は消さずにそのまま出す', () => {
+    expect(displayMass('未定')).toBe('未定');
+    expect(displayMass('—')).toBe('—');
+  });
+
+  it('表示を丸めても、保存した値の精度は合計に残る', () => {
+    // 表示は 0.008 でも、合計の計算には 0.00828 を使う。
+    expect(displayMass('0.00828')).toBe('0.008');
+    expect(parseAmount('0.00828')).toBe(0.00828);
   });
 
   it('質量・金額は桁を区切って表示する', () => {
