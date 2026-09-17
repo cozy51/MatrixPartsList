@@ -1,10 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import * as XLSX from 'xlsx';
 import { normalizePlVersion, plLabel } from './csv';
 import { countParts, excludeNoteParts, plKindLabel, sortPartsByBalloon } from './matrix';
 import { formatAmount, type PartFact } from './drawings';
-import { buildBomRows, sumBomRows, type Level40Parts } from './bom';
-import BomTable, { BOM_COLUMNS, type Level40Access } from './BomTable';
+import { buildBomRows, exportBomExcel, sumBomRows, type Level40Parts } from './bom';
+import BomTable, { type Level40Access } from './BomTable';
 import type { PartsList } from './types';
 
 type Props = {
@@ -48,20 +47,8 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
   const massTotal = useMemo(() => sumBomRows(listed, row => row.totalMass), [listed]);
   const priceTotal = useMemo(() => sumBomRows(listed, row => row.totalPrice), [listed]);
 
-  const exportExcel = () => {
-    if (!list) return;
-    const aoa = [
-      BOM_COLUMNS,
-      ...listed.map(row => [
-        row.part.balloon, row.part.partNo, row.part.version, row.part.name, row.part.quantity, row.part.material,
-        row.unitMass ?? '', row.totalMass ?? '', row.unitPrice ?? '', row.totalPrice ?? '', row.shaiUrl,
-      ]),
-      ['', '', '', '', '', '合計', '', massTotal.total || '', '', priceTotal.total || '', ''],
-    ];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), '単体BOM');
-    XLSX.writeFile(workbook, `単体BOM_${`${list.plNo}_v${normalizePlVersion(list.plVersion) || '-'}`.replace(/[\\/:*?"<>|]/g, '_')}.xlsx`);
-  };
+  /* 出すのは検索で絞ったあとの行。40レベル部品の中身のポップアップと同じ処理を使う。 */
+  const exportExcel = () => { if (list) exportBomExcel(list, listed, '単体BOM'); };
 
   return <section className="solo-view">
     <div className="solo-head">

@@ -1,8 +1,9 @@
-import { versionMatchKey } from './csv';
+import * as XLSX from 'xlsx';
+import { normalizePlVersion, versionMatchKey } from './csv';
 import { parseAmount, partFactFor, type PartFact } from './drawings';
 import { isLevel40No, levelNoKey } from './levels';
 import { excludeNoteParts, isSupplementPart } from './matrix';
-import type { Part } from './types';
+import type { Part, PartsList } from './types';
 
 /**
  * 明細のVer.と一致する40レベル部品の中身（50/60レベル）を返します。
@@ -132,4 +133,31 @@ export function sumBomRows(rows: BomRow[], pick: (row: BomRow) => number | undef
     counted += 1;
   }
   return { total, counted };
+}
+
+/** 単体BOM・40レベル部品の中身で共通の列。表とExcel出力で同じ並びにする。 */
+export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '材質・メーカー', '単品質量（kg）', '合計質量（kg）', '単価（円）', '金額（円）', 'Shaiファイル'];
+
+/**
+ * 明細をExcelへ出します。単体BOMのタブと、40レベル部品の中身のポップアップで
+ * **同じ表**を出すため、ここにまとめています。`sheetName` はシート名と
+ * ファイル名の頭に使います（例: `40レベル部品_HJ02192040_v02.xlsx`）。
+ * 数値はkgと円のまま入れ、画面のような丸めはしません。
+ */
+export function exportBomExcel(list: PartsList, rows: BomRow[], sheetName: string) {
+  const massTotal = sumBomRows(rows, row => row.totalMass);
+  const priceTotal = sumBomRows(rows, row => row.totalPrice);
+  const aoa = [
+    BOM_COLUMNS,
+    ...rows.map(row => [
+      row.part.balloon, row.part.partNo, row.part.version, row.part.name, row.part.quantity, row.part.material,
+      row.unitMass ?? '', row.totalMass ?? '', row.unitPrice ?? '', row.totalPrice ?? '', row.shaiUrl,
+    ]),
+    ['', '', '', '', '', '合計', '', massTotal.total || '', '', priceTotal.total || '', ''],
+  ];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), sheetName);
+  /* ファイル名に使えない文字はWindowsに合わせて置き換える。 */
+  const name = `${list.plNo}_v${normalizePlVersion(list.plVersion) || '-'}`.replace(/[\\/:*?"<>|]/g, '_');
+  XLSX.writeFile(workbook, `${sheetName}_${name}.xlsx`);
 }
