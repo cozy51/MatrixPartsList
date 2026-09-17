@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { emptyPartFact, formatAmount, partFactFor, upsertPartFact, type PartFact } from './drawings';
+import { emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
 import { sumBomRows, type BomRow } from './bom';
@@ -43,12 +43,14 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
   const priceTotal = sumBomRows(rows, row => row.totalPrice);
 
   const saveFact = (partNo: string, field: 'mass' | 'price' | 'shaiUrl', value: string) => {
+    /* 単品質量は kg で持つため、`8.28g` のようにグラムで入れられたら kg へ直してから保存する。 */
+    const input = field === 'mass' ? normalizeMassInput(value) : value;
     const base = partFactFor(facts, partNo) ?? emptyPartFact(partNo);
-    if (base[field] === value.trim()) return;
+    if (base[field] === input.trim()) return;
     const next: PartFact = { ...base, partNo, updatedAt: new Date().toISOString() };
-    if (field === 'mass') next.mass = value;
-    else if (field === 'price') next.price = value;
-    else next.shaiUrl = value;
+    if (field === 'mass') next.mass = input;
+    else if (field === 'price') next.price = input;
+    else next.shaiUrl = input;
     onFactsChange(upsertPartFact(facts, next));
   };
   const commitDraft = () => {
@@ -103,7 +105,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       className={`solo-amount ${!stored && placeholder ? 'is-inherited' : ''}`}
       type="text" inputMode="decimal"
       aria-label={`${partNo} の${field === 'mass' ? '単品質量（kg）' : '単価（円）'}`}
-      title={field === 'mass' && placeholder ? `CSV・Excelの単品質量は ${placeholder} kg です。空欄のままならこの値を使います。` : undefined}
+      title={field === 'mass' ? [placeholder && `CSV・Excelの単品質量は ${placeholder} kg です。空欄のままならこの値を使います。`, 'g を付けて入力すると kg に直して保存します（8.28g → 0.00828）。'].filter(Boolean).join('') : undefined}
       placeholder={placeholder || '—'}
       value={editing ? draft.value : stored}
       onChange={event => setDraft({ partNo, field, value: event.target.value })}

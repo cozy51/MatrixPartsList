@@ -95,6 +95,7 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
       <p className="solo-note">
         質量・価格・chemSHERPA（<code>.shai</code>）は<b>品番ごと</b>に保存します。どのPLから入れても、同じ品番なら同じ値を表示します。
         単品質量は、CSV・Excelから読み込んだ値を薄い文字で出しています。<b>空欄のままならその値</b>を使い、入力すると入力した値で上書きします。
+        単位は<b>kg</b>ですが、<code>8.28g</code> のように<b>gを付けて入力するとkgに直して</b>保存します（<code>0.00828</code>）。
         <b>40レベル部品</b>（品番が下線付き）は分解できる部品のため、質量・単価は<b>中身（50/60レベル）の合計</b>で決まります。品番を押すと中身を開いて、そこでも同じ入力ができます。
       </p>
 

@@ -14,6 +14,7 @@ import {
   upsertPartModel,
   emptyPartFact,
   formatAmount,
+  normalizeMassInput,
   parseAmount,
   partFactFor,
   removePartFact,
@@ -807,6 +808,40 @@ describe('品番ごとの質量・価格・chemSHERPA（.shai）', () => {
     expect(parseAmount('未定')).toBeUndefined();
     expect(parseAmount('500g')).toBeUndefined();
     expect(parseAmount('1.2.3')).toBeUndefined();
+  });
+
+  it('グラムで入力された単品質量は kg へ直す', () => {
+    // 小さな部品は図面がグラム表記のため、そのまま入れても kg で保存できるようにする。
+    expect(normalizeMassInput('8.28g')).toBe('0.00828');
+    expect(normalizeMassInput('8g')).toBe('0.008');
+    expect(normalizeMassInput('0.5g')).toBe('0.0005');
+    expect(normalizeMassInput('12345g')).toBe('12.345');
+  });
+
+  it('kgに直したあとの余分な0は落とす', () => {
+    expect(normalizeMassInput('500g')).toBe('0.5');
+    expect(normalizeMassInput('100g')).toBe('0.1');
+    expect(normalizeMassInput('1000g')).toBe('1');
+    expect(normalizeMassInput('0g')).toBe('0');
+  });
+
+  it('全角・空白・大文字のgでも読み取る', () => {
+    expect(normalizeMassInput('１２３ｇ')).toBe('0.123');
+    expect(normalizeMassInput('8.28 g')).toBe('0.00828');
+    expect(normalizeMassInput('8.28G')).toBe('0.00828');
+  });
+
+  it('グラム以外はそのまま返す', () => {
+    // kg・単位なしは今までどおり。数として読めないものも入力を壊さない。
+    expect(normalizeMassInput('8.28')).toBe('8.28');
+    expect(normalizeMassInput('8.28kg')).toBe('8.28kg');
+    expect(normalizeMassInput('')).toBe('');
+    expect(normalizeMassInput('未定')).toBe('未定');
+  });
+
+  it('kgへ直した値は合計の計算にそのまま使える', () => {
+    // 割り算だと 0.008280000000000001 になるため、文字列のまま桁をずらしている。
+    expect(parseAmount(normalizeMassInput('8.28g'))).toBe(0.00828);
   });
 
   it('質量・金額は桁を区切って表示する', () => {
