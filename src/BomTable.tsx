@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { displayMass, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
-import { sumBomRows, type BomRow } from './bom';
+import { BOM_COLUMNS, sumBomRows, type BomRow } from './bom';
 import type { PartsList } from './types';
 
 /** 40レベル部品の中身を開くための入口。マトリックスBOM・単体BOMで同じものを使う。 */
@@ -25,7 +25,6 @@ type Props = {
   totalLabel: string;
 };
 
-export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '材質・メーカー', '単品質量（kg）', '合計質量（kg）', '単価（円）', '金額（円）', 'Shaiファイル'];
 
 /**
  * 部品明細に、質量・価格・chemSHERPA（`.shai`）の列を加えた表です。
