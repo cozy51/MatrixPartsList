@@ -133,8 +133,8 @@ function AmountChartDialog({ title, rows, display, onDisplayChange, sort, onSort
       {data.length ? <div className="amount-chart" role="img" aria-label={`${title}の${label}横棒グラフ`}>
         {data.map(({ row, value }, index) => <div className="amount-chart-row" key={`${row.part.balloon}-${row.part.partNo}-${row.part.version}-${index}`}>
           <span className="amount-chart-label"><span className="amount-chart-label-text" title={row.part.name || '品名なし'}>{chartRowLabel(row)}</span><span className="amount-chart-badges">{renderBadges(row.part.partNo)}</span></span>
-          <span className="amount-chart-track" title={`${formatAmount(value, digits)} ${unit}`} aria-label={`${chartRowLabel(row)}: ${formatAmount(value, digits)} ${unit}`}><span className="amount-chart-bar" style={{ width: `${max > 0 ? value / max * 100 : 0}%` }} /></span>
           <ChartAmount value={value} digits={digits} unit={unit} />
+          <span className="amount-chart-track" title={`${formatAmount(value, digits)} ${unit}`} aria-label={`${chartRowLabel(row)}: ${formatAmount(value, digits)} ${unit}`}><span className="amount-chart-bar" style={{ width: `${max > 0 ? value / max * 100 : 0}%` }} /></span>
         </div>)}
       </div> : <p className="amount-chart-empty">{label}が入力されている部品はありません。</p>}
       <div className="modal-actions"><button className="excel" type="button" onClick={() => exportChart(title, rows, sort)}>Excel出力</button><button type="button" onClick={onClose}>閉じる</button></div>

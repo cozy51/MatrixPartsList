@@ -462,7 +462,7 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .amount-chart-sort { display: flex; align-items: center; gap: 6px; color: #667085; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .amount-chart-sort select { padding: 8px 26px 8px 8px; border: 1px solid #d8dee9; border-radius: 8px; background: #fff; color: #344054; font: inherit; }
 .amount-chart { display: grid; gap: 7px; max-height: min(65vh, 680px); margin-top: 18px; padding: 12px; overflow: auto; border: 1px solid #e1e6ef; border-radius: 9px; background: #fbfcff; }
-.amount-chart-row { display: grid; grid-template-columns: minmax(180px, 280px) minmax(180px, 1fr) 120px; align-items: center; gap: 10px; min-height: 25px; }
+.amount-chart-row { display: grid; grid-template-columns: minmax(180px, 280px) 120px minmax(180px, 1fr); align-items: center; gap: 10px; min-height: 25px; }
 .amount-chart-label { display: flex; align-items: center; min-width: 0; color: #344054; font-size: 12px; font-weight: 650; white-space: nowrap; }
 .amount-chart-label-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .amount-chart-badges { display: inline-flex; align-items: center; flex: 0 0 auto; }
@@ -480,8 +480,7 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 @media(max-width:700px) {
   .amount-chart-heading { grid-template-columns: 1fr auto; }
   .amount-chart-controls { grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; justify-self: start; }
-  .amount-chart-row { grid-template-columns: minmax(100px, 140px) minmax(120px, 1fr); }
-  .amount-chart-row b { grid-column: 2; }
+  .amount-chart-row { grid-template-columns: minmax(100px, 140px) 100px minmax(120px, 1fr); }
 }
 .similarity-detail-section { margin-top: 0; }
 .similarity-detail-table table { table-layout: fixed; }
