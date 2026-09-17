@@ -89,9 +89,9 @@ function exportChart(title: string, rows: BomRow[]) {
   XLSX.writeFile(workbook, `部品グラフ_${safeTitle}.xlsx`);
 }
 
-type AmountChartDialogProps = ChartDialog & { display: AmountDisplay; onDisplayChange: (display: AmountDisplay) => void; onClose: () => void };
+type AmountChartDialogProps = ChartDialog & { display: AmountDisplay; onDisplayChange: (display: AmountDisplay) => void; onClose: () => void; renderBadges: (partNo: string) => ReactNode };
 
-function AmountChartDialog({ title, rows, display, onDisplayChange, onClose }: AmountChartDialogProps) {
+function AmountChartDialog({ title, rows, display, onDisplayChange, onClose, renderBadges }: AmountChartDialogProps) {
   const data = sortedChartRows(rows, display);
   const max = data[0]?.value ?? 0;
   const label = display === 'mass' ? '質量' : '金額';
@@ -109,7 +109,7 @@ function AmountChartDialog({ title, rows, display, onDisplayChange, onClose }: A
       </div>
       {data.length ? <div className="amount-chart" role="img" aria-label={`${title}の${label}横棒グラフ`}>
         {data.map(({ row, value }, index) => <div className="amount-chart-row" key={`${row.part.balloon}-${row.part.partNo}-${row.part.version}-${index}`}>
-          <span className="amount-chart-label" title={`${row.part.balloon} - ${row.part.partNo}`}>{row.part.balloon} - {row.part.partNo}</span>
+          <span className="amount-chart-label"><span className="amount-chart-label-text" title={row.part.name || '品名なし'}>{row.part.balloon} - {row.part.partNo}</span><span className="amount-chart-badges">{renderBadges(row.part.partNo)}</span></span>
           <span className="amount-chart-track"><span className="amount-chart-bar" style={{ width: `${max > 0 ? value / max * 100 : 0}%` }} /></span>
           <b>{formatAmount(value, digits)} {unit}</b>
         </div>)}
@@ -251,6 +251,6 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange, 
         </div>}
       </article>;
     })}</div>
-    {chartDialog && <AmountChartDialog {...chartDialog} display={chartDisplay} onDisplayChange={setChartDisplay} onClose={() => setChartDialog(null)} />}
+    {chartDialog && <AmountChartDialog {...chartDialog} display={chartDisplay} onDisplayChange={setChartDisplay} onClose={() => setChartDialog(null)} renderBadges={renderBadges} />}
   </section>;
 }
