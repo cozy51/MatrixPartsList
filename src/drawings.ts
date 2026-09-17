@@ -629,6 +629,17 @@ export function normalizeMassInput(value: string): string {
 export const formatAmount = (value: number, digits = 3): string =>
   value.toLocaleString('ja-JP', { maximumFractionDigits: digits });
 
+/**
+ * 単品質量の表示。図面の質量はグラムまでしか意味を持たないため、1g（小数3桁）で
+ * 四捨五入して出す（0.00828 → 0.008）。合計質量の列と同じ丸め方にそろえている。
+ * 保存している値は丸めないので、合計は入力どおりの精度で計算する。
+ * 数として読めない入力（`8.28kg` など）は、消さずにそのまま出す。
+ */
+export function displayMass(value: string): string {
+  const parsed = parseAmount(value);
+  return parsed === undefined ? value : formatAmount(parsed, 3);
+}
+
 /** 品番自身の図面と、CAD IDから流用する図面。流用分は viaCadId を持つ。 */
 export type ResolvedDrawing = { drawing: DrawingLink; viaCadId?: string };
 

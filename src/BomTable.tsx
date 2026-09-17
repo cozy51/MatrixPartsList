@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact } from './drawings';
+import { displayMass, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
 import { sumBomRows, type BomRow } from './bom';
@@ -43,10 +43,11 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
   const priceTotal = sumBomRows(rows, row => row.totalPrice);
 
   const saveFact = (partNo: string, field: 'mass' | 'price' | 'shaiUrl', value: string) => {
-    /* 単品質量は kg で持つため、`8.28g` のようにグラムで入れられたら kg へ直してから保存する。 */
-    const input = field === 'mass' ? normalizeMassInput(value) : value;
+    /* 単品質量は kg で持つため、`8.28g` のようにグラムで入れられたら kg へ直してから保存する。
+       比較と保存で値をそろえておく（前後の空白が残ると、毎回違う値として保存され続けるため）。 */
+    const input = (field === 'mass' ? normalizeMassInput(value) : value).trim();
     const base = partFactFor(facts, partNo) ?? emptyPartFact(partNo);
-    if (base[field] === input.trim()) return;
+    if (base[field] === input) return;
     const next: PartFact = { ...base, partNo, updatedAt: new Date().toISOString() };
     if (field === 'mass') next.mass = input;
     else if (field === 'price') next.price = input;
@@ -101,16 +102,21 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     const editing = draft?.partNo === partNo && draft.field === field;
     const stored = field === 'mass' ? row.massInput : row.priceInput;
     const placeholder = field === 'mass' ? row.csvMass : '';
+    /* 質量は表の見やすさを優先して 1g（小数3桁）に丸めて出す。編集を始めたら
+       丸める前の値に戻すので、0.00828 のような端数が消えることはない。 */
+    const shown = field === 'mass' ? displayMass(stored) : stored;
     return <input
       className={`solo-amount ${!stored && placeholder ? 'is-inherited' : ''}`}
       type="text" inputMode="decimal"
       aria-label={`${partNo} の${field === 'mass' ? '単品質量（kg）' : '単価（円）'}`}
-      title={field === 'mass' ? [placeholder && `CSV・Excelの単品質量は ${placeholder} kg です。空欄のままならこの値を使います。`, 'g を付けて入力すると kg に直して保存します（8.28g → 0.00828）。'].filter(Boolean).join('') : undefined}
-      placeholder={placeholder || '—'}
-      value={editing ? draft.value : stored}
+      title={field === 'mass' ? [placeholder && `CSV・Excelの単品質量は ${placeholder} kg です。空欄のままならこの値を使います。`, stored && displayMass(stored) !== stored && `入力された値は ${stored} kg です（表示は1gに四捨五入）。`, 'g を付けて入力すると kg に直して保存します（8.28g → 0.00828）。'].filter(Boolean).join('') : undefined}
+      placeholder={(field === 'mass' ? displayMass(placeholder) : placeholder) || '—'}
+      value={editing ? draft.value : shown}
+      /* 丸めた表示のまま書き換えると端数が落ちるため、編集に入るときは元の値を下書きにする。 */
+      onFocus={() => setDraft({ partNo, field, value: stored })}
       onChange={event => setDraft({ partNo, field, value: event.target.value })}
       onBlur={commitDraft}
-      onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') setDraft(null); }}
+      onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') setDraft({ partNo, field, value: stored }); }}
     />;
   };
 
