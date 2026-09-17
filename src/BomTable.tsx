@@ -83,9 +83,12 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     const match = level40.find(partNo, version);
     if (match) return <button type="button" className="level40-open" title={`${partNo} Ver.${version} の40レベル部品の中身（50/60レベル）を開きます`}
       aria-label={`${partNo} Ver.${version} の40レベル部品の中身を開く`} onClick={() => level40.open(match)}>{content}</button>;
-    const others = isLevel40No(partNo) ? level40.otherVersions(partNo) : '';
-    if (others) return <span className="level40-unlinked"
-      title={`${partNo} のVer.${version || '-'} は登録されていません（登録済み: ${others}）。40レベルはVer.ごとに中身が違うため、同じVer.の明細を読み込むと開けます。`}>{content}</span>;
+    const isLevel40 = isLevel40No(partNo);
+    const others = isLevel40 ? level40.otherVersions(partNo) : '';
+    if (isLevel40) return <span className="level40-unlinked"
+      title={others
+        ? `${partNo} のVer.${version || '-'} は登録されていません（登録済み: ${others}）。40レベルはVer.ごとに中身が違うため、同じVer.の明細を読み込むと開けます。`
+        : `${partNo} の40レベル部品リストが登録されていません。該当する明細を読み込むと中身を確認できます。`}>{content}</span>;
     return content;
   };
 
@@ -105,11 +108,17 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       const summary = row.childSummary;
       const counted = field === 'mass' ? summary?.massCounted ?? 0 : summary?.priceCounted ?? 0;
       const label = field === 'mass' ? '質量' : '単価';
+      /* リスト自体が未登録なら、入力不可の「—」だけを出す。中身が登録済みなのに
+         値が1件もない場合だけ、「中身の合計（未登録）」で入力漏れを知らせる。 */
+      if (!summary) return <td><span className="solo-blank" title="40レベル部品のリストが未登録のため、この欄には入力できません。">—</span></td>;
+      const unregistered = value === undefined;
       /* 40レベル部品は中身（50/60レベル）の合計で決まり、この欄には入力できない。
          合計が出せなくても入れ忘れではないため、未入力の色は付けない。 */
       return <td>
-        <span className="bom-derived" title={`40レベル部品のため、中身（${summary?.parts ?? 0} 部品）の合計です。${label}が入っているのは ${counted} 部品です。`}>
-          {value === undefined ? '—' : formatAmount(value, field === 'mass' ? 3 : 0)}<i>中身の合計</i>
+        <span className={`bom-derived ${unregistered ? 'is-unregistered' : ''}`} title={unregistered
+          ? `中身（${summary.parts} 部品）の${label}が登録されていないため、合計できません。`
+          : `40レベル部品のため、中身（${summary.parts} 部品）の合計です。${label}が入っているのは ${counted} 部品です。`}>
+          {value === undefined ? '—' : formatAmount(value, field === 'mass' ? 3 : 0)}<i>{unregistered ? '中身の合計（未登録）' : '中身の合計'}</i>
         </span>
       </td>;
     }

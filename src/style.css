@@ -956,8 +956,8 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .level40-open { display: inline; padding: 0; border: 0; background: none; color: #3346ba; font: inherit; font-weight: 700; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
 .level40-open:hover { color: #1a2a8f; text-decoration-style: solid; }
 /* 同じ番号でもVer.が違う40レベルは中身が別物のため、リンクにしない。
-   登録済みのVer.を吹き出しで知らせるだけにして、リンクと見分けられるよう灰色の点線にする。 */
-.level40-unlinked { text-decoration: underline dotted #c4cbd8; text-underline-offset: 3px; cursor: help; }
+   未登録に気づけるよう赤い点線にし、登録済みのVer.は吹き出しで知らせる。 */
+.level40-unlinked { color: #d92d3a; font-weight: 800; text-decoration: underline dotted #d92d3a; text-underline-offset: 3px; cursor: help; }
 
 /* 40レベル部品はマトリックスに並べないため、専用タブに一覧をまとめる。 */
 .level40-view .level40-note { margin: 12px 0 14px; padding: 10px 13px; border: 1px solid #dfe4ee; border-radius: 9px; background: #f8f9ff; color: #475467; font-size: 13px; line-height: 1.7; }
@@ -1094,6 +1094,8 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
    手で入れる列と取り違えないよう、値の下に「中身の合計」と添える。 */
 .bom-derived { display: block; text-align: right; font-weight: 700; color: #14755f; }
 .bom-derived i { display: block; margin-top: 1px; color: #8a93a4; font-size: 10px; font-style: normal; font-weight: 600; }
+/* 40レベルのリストはあるのに中身の値が未登録なら、合計不能であることを赤字で知らせる。 */
+.bom-derived.is-unregistered, .bom-derived.is-unregistered i { color: #d92d3a; }
 /* 40レベル部品の中身のポップアップでも、単体BOMと同じ表を使う。列が増えたぶん幅を広げる。 */
 .level40-modal { width: min(1280px, 96vw); }
 .level40-modal .bom-table { max-height: min(58vh, 460px); }
