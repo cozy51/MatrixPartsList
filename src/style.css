@@ -425,7 +425,11 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-details { display: grid; grid-template-columns: repeat(3,minmax(300px,1fr)); align-items: start; gap: 12px; padding: 0 15px 15px; border-top: 1px dashed #cbd3e2; background: #fffdf9; }
 .similarity-detail-section { min-width: 0; margin-top: 14px; border: 1px solid #dfe4ec; border-radius: 8px; overflow: hidden; background: #fff; }
 .similarity-detail-section h3 { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 9px 11px; font-size: 14px; background: #f4f6f9; }
-.similarity-detail-section h3 span { font-size: 12px; font-weight: 600; color: #667085; }
+.similarity-detail-section h3 > span { font-size: 12px; font-weight: 600; color: #667085; }
+.similarity-detail-section h3 > .similarity-detail-title { color: inherit; font-size: 14px; font-weight: 750; }
+.similarity-detail-heading-actions { display: flex; align-items: center; gap: 8px; }
+.similarity-detail-heading-actions button { padding: 4px 8px; border-color: currentColor; background: #fff; color: inherit; font-size: 11px; font-weight: 700; }
+.similarity-detail-heading-actions button:disabled { opacity: .45; cursor: default; }
 .similarity-detail-section.common h3 { background: #e9f7f1; color: #14755f; }
 .similarity-detail-section.base h3 { background: #eef2ff; color: #4054ae; }
 .similarity-detail-section.target h3 { background: #fff0e5; color: #a65322; }
@@ -443,6 +447,43 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 /* Similarity detail tables have their own column geometry; reset matrix sticky offsets. */
 .similarity-details-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-weight: 750; }
 .similarity-details-actions button { border-color: #5865e8; background: #5865e8; color: #fff; white-space: nowrap; }
+.similarity-details-tools { display: flex; align-items: center; gap: 10px; }
+.amount-display-switch { display: flex; align-items: center; gap: 4px; margin: 0; padding: 3px; border: 1px solid #d8dee9; border-radius: 8px; background: #f8f9fc; }
+.amount-display-switch legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.amount-display-switch label { display: flex; align-items: center; gap: 5px; padding: 6px 9px; border-radius: 6px; color: #667085; font-size: 13px; cursor: pointer; }
+.amount-display-switch label:has(input:checked) { background: #fff; color: #3346ba; box-shadow: 0 1px 4px #2635701f; }
+.amount-display-switch input { width: 15px; height: 15px; margin: 0; accent-color: #5865e8; }
+.amount-chart-modal { width: min(1050px, 94vw); }
+.amount-chart-heading { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 14px; }
+.amount-chart-heading h2 { margin: 0; font-size: 20px; }
+.amount-chart-heading p { margin: 4px 0 0; color: #7b8493; font-size: 12px; }
+.amount-chart-heading > button { padding: 5px 10px; font-size: 18px; }
+.amount-chart-controls { display: flex; align-items: center; gap: 8px; }
+.amount-chart-sort { display: flex; align-items: center; gap: 6px; color: #667085; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.amount-chart-sort select { padding: 8px 26px 8px 8px; border: 1px solid #d8dee9; border-radius: 8px; background: #fff; color: #344054; font: inherit; }
+.amount-chart { display: grid; gap: 7px; max-height: min(65vh, 680px); margin-top: 18px; padding: 12px; overflow: auto; border: 1px solid #e1e6ef; border-radius: 9px; background: #fbfcff; }
+.amount-chart-row { display: grid; grid-template-columns: minmax(180px, 260px) 185px minmax(180px, 1fr); align-items: center; gap: 6px; min-height: 25px; }
+.amount-chart-label { display: flex; align-items: center; min-width: 0; color: #344054; font-size: 12px; font-weight: 650; white-space: nowrap; }
+.amount-chart-label::after { content: ""; flex: 1 1 auto; min-width: 8px; margin: 0 3px 3px 7px; border-bottom: 1px dotted #c5ccd8; }
+.amount-chart-label-text { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.amount-chart-badges { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.amount-chart-badges:empty { display: none; }
+.amount-chart-badges .model-slot, .amount-chart-badges .drawing-link { margin-left: 4px; }
+.amount-chart-track { height: 17px; overflow: hidden; border-radius: 4px; background: #e9edf4; }
+.amount-chart-bar { display: block; min-width: 1px; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6674ec, #39a78e); }
+.amount-chart-value { display: grid; grid-template-columns: minmax(0, 1fr) auto 30px auto auto; align-items: baseline; color: #3346ba; font-size: 12px; font-variant-numeric: tabular-nums; }
+.amount-chart-integer { min-width: 0; text-align: right; }
+.amount-chart-decimal, .amount-chart-fraction { text-align: left; }
+.amount-chart-unit { margin-left: 4px; text-align: left; }
+.amount-chart-percent { margin-left: 7px; color: #667085; font-weight: 650; text-align: left; }
+.amount-chart-value.is-whole-number { grid-template-columns: minmax(0, 1fr) 0 0 auto auto; }
+.amount-chart-empty { margin: 28px 0; padding: 28px; border: 1px dashed #cbd3e2; border-radius: 9px; color: #7b8493; text-align: center; }
+.amount-chart-modal .modal-actions { margin-bottom: 0; }
+@media(max-width:700px) {
+  .amount-chart-heading { grid-template-columns: 1fr auto; }
+  .amount-chart-controls { grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; justify-self: start; }
+  .amount-chart-row { grid-template-columns: minmax(100px, 140px) 165px minmax(120px, 1fr); }
+}
 .similarity-detail-section { margin-top: 0; }
 .similarity-detail-table table { table-layout: fixed; }
 .similarity-detail-table th:nth-child(n),
@@ -452,9 +493,8 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-detail-table col.detail-version { width: 54px; }
 .similarity-detail-table col.detail-name { width: 180px; }
 .similarity-detail-table col.detail-quantity { width: 58px; }
-/* 質量・金額の2列を足したぶん、文字の列を少し詰めて横スクロールを増やしすぎない。 */
 .similarity-detail-table col.detail-material { width: 120px; }
-.similarity-detail-table col.detail-mass, .similarity-detail-table col.detail-price { width: 84px; }
+.similarity-detail-table col.detail-amount-column { width: 96px; }
 /* 質量・金額は数字。桁をそろえて読めるよう右寄せにする。 */
 .similarity-detail-table td.detail-amount { text-align: right !important; font-weight: 700; color: #3346ba; }
 
@@ -468,6 +508,9 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-amounts table { width: 100%; font-size: 12px; table-layout: auto; white-space: nowrap; }
 .similarity-amounts th, .similarity-amounts td { position: static; width: auto; min-width: 0; max-width: none; left: auto; padding: 6px 9px; background: transparent; text-align: right; }
 .similarity-amounts thead th { position: static; z-index: auto; background: transparent; color: #667085; font-size: 11px; font-weight: 700; }
+.similarity-amounts thead th.common { background: #e9f7f1; color: #14755f; }
+.similarity-amounts thead th.base { background: #eef2ff; color: #4054ae; }
+.similarity-amounts thead th.target { background: #fff0e5; color: #a65322; }
 .similarity-amounts thead th:first-child, .similarity-amounts tbody th { text-align: left; background: transparent; color: #475467; }
 .similarity-amounts td.is-total { font-weight: 800; color: #3346ba; }
 .similarity-amounts td.is-diff { font-weight: 800; color: #667085; border-left: 1px solid #e7ebf3; }
