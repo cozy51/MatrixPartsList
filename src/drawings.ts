@@ -601,6 +601,30 @@ export function parseAmount(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+/**
+ * 単品質量の入力を kg にそろえる。小さな部品はグラムで書かれた図面が多いため、
+ * `8.28g` のようにグラムで入力されたら kg へ直して保存する（8.28g → 0.00828）。
+ * 割り算だと `0.008280000000000001` のような誤差が出るため、小数点を3桁ずらして
+ * 文字列のまま変換する。グラム以外（単位なし・kg など）は入力をそのまま返す。
+ */
+export function normalizeMassInput(value: string): string {
+  const text = (value ?? '').normalize('NFKC').replace(/[,\s]/g, '');
+  /* `kg` は数字の直後が `k` になるためここには一致しない（kg表記はそのまま残す）。 */
+  const match = /^(-?)(\d*\.?\d+)g$/i.exec(text);
+  if (!match) return value;
+  const [, sign, digits] = match;
+  const dot = digits.indexOf('.');
+  const intPart = dot < 0 ? digits : digits.slice(0, dot);
+  const all = dot < 0 ? digits : intPart + digits.slice(dot + 1);
+  const point = intPart.length - 3;
+  let shifted = point <= 0 ? `0.${'0'.repeat(-point)}${all}` : `${all.slice(0, point)}.${all.slice(point)}`;
+  /* 見た目を整える。先頭の余分な0を落とし（0012.345 → 12.345）、
+     末尾の0も落とす（1000g → 1、500g → 0.5）。 */
+  shifted = shifted.replace(/^0+(?=\d)/, '');
+  if (shifted.includes('.')) shifted = shifted.replace(/0+$/, '').replace(/\.$/, '');
+  return `${sign}${shifted}`;
+}
+
 /** 質量・金額の表示。桁を区切り、端数は最大 digits 桁まで出す。 */
 export const formatAmount = (value: number, digits = 3): string =>
   value.toLocaleString('ja-JP', { maximumFractionDigits: digits });
