@@ -19,6 +19,8 @@ type Props = {
   level40Parts: Level40Parts;
 };
 
+type AmountDisplay = 'mass' | 'price';
+
 /** 質量・金額の表示。入っている部品が1つもないときは「—」にする。 */
 const massText = (totals: BomTotals) => totals.mass.counted ? `${formatAmount(totals.mass.total)} kg` : '—';
 const priceText = (totals: BomTotals) => totals.price.counted ? `${formatAmount(totals.price.total, 0)} 円` : '—';
@@ -27,35 +29,41 @@ const signedText = (value: number, digits: number, unit: string) =>
   `${value > 0 ? '+' : value < 0 ? '-' : '±'}${formatAmount(Math.abs(value), digits)} ${unit}`;
 const diffClass = (value: number) => value > 0 ? 'is-up' : value < 0 ? 'is-down' : '';
 
-type DetailSectionProps = { title: string; rows: BomRow[]; tone: 'common' | 'base' | 'target'; renderBadges: (partNo: string) => ReactNode };
+type DetailSectionProps = { title: string; rows: BomRow[]; tone: 'common' | 'base' | 'target'; amountDisplay: AmountDisplay; renderBadges: (partNo: string) => ReactNode };
 
-function DetailSection({ title, rows, tone, renderBadges }: DetailSectionProps) {
+function DetailSection({ title, rows, tone, amountDisplay, renderBadges }: DetailSectionProps) {
   const totals = totalsOf(rows);
+  const showingMass = amountDisplay === 'mass';
   return <section className={`similarity-detail-section ${tone}`}>
     <h3>{title}<span>{rows.length} 部品</span></h3>
-    {/* このまとまりだけの合計。下の表の「質量」「金額」を足したもの。 */}
+    {/* このまとまりだけの合計。切り替え中の項目だけを表示して混同を防ぐ。 */}
     <div className="similarity-detail-total">
-      <span>質量<b>{massText(totals)}</b><i>{totals.mass.counted}/{rows.length} 部品</i></span>
-      <span>金額<b>{priceText(totals)}</b><i>{totals.price.counted}/{rows.length} 部品</i></span>
+      {showingMass
+        ? <span>質量<b>{massText(totals)}</b><i>{totals.mass.counted}/{rows.length} 部品</i></span>
+        : <span>金額<b>{priceText(totals)}</b><i>{totals.price.counted}/{rows.length} 部品</i></span>}
     </div>
     {rows.length ? <div className="similarity-detail-table"><table>
-      <colgroup><col className="detail-balloon"/><col className="detail-part-no"/><col className="detail-version"/><col className="detail-name"/><col className="detail-quantity"/><col className="detail-material"/><col className="detail-mass"/><col className="detail-price"/></colgroup>
-      <thead><tr><th>風船</th><th>品番</th><th>Ver.</th><th>品名</th><th>数量</th><th>材質・メーカー</th><th>質量（kg）</th><th>金額（円）</th></tr></thead>
+      <colgroup><col className="detail-balloon"/><col className="detail-part-no"/><col className="detail-version"/><col className="detail-name"/><col className="detail-quantity"/><col className="detail-material"/><col className="detail-amount-column"/></colgroup>
+      <thead><tr><th>風船</th><th>品番</th><th>Ver.</th><th>品名</th><th>数量</th><th>材質・メーカー</th><th>{showingMass ? '質量（kg）' : '金額（円）'}</th></tr></thead>
       <tbody>{rows.map(({ part, unitMass, unitPrice, totalMass, totalPrice }) => <tr key={`${part.balloon}-${part.partNo}-${part.version}-${part.name}-${part.quantity}`}>
         <td>{part.balloon}</td><td>{part.partNo}{renderBadges(part.partNo)}</td><td>{part.version}</td><td>{part.name}</td><td>{part.quantity}</td><td>{part.material}</td>
         {/* 表に出すのは数量をかけたあと。単品の値はカーソルを合わせると出す。 */}
-        <td className="detail-amount" title={unitMass === undefined ? '単品質量が入っていません。単体BOMで入力できます。' : `単品質量 ${formatAmount(unitMass)} kg × ${part.quantity}`}>{totalMass === undefined ? '—' : formatAmount(totalMass)}</td>
-        <td className="detail-amount" title={unitPrice === undefined ? '単価が入っていません。単体BOMで入力できます。' : `単価 ${formatAmount(unitPrice, 0)} 円 × ${part.quantity}`}>{totalPrice === undefined ? '—' : formatAmount(totalPrice, 0)}</td>
+        {showingMass
+          ? <td className="detail-amount" title={unitMass === undefined ? '単品質量が入っていません。単体BOMで入力できます。' : `単品質量 ${formatAmount(unitMass)} kg × ${part.quantity}`}>{totalMass === undefined ? '—' : formatAmount(totalMass)}</td>
+          : <td className="detail-amount" title={unitPrice === undefined ? '単価が入っていません。単体BOMで入力できます。' : `単価 ${formatAmount(unitPrice, 0)} 円 × ${part.quantity}`}>{totalPrice === undefined ? '—' : formatAmount(totalPrice, 0)}</td>}
       </tr>)}</tbody>
     </table></div> : <p>該当する部品はありません。</p>}
   </section>;
 }
 
-type AmountSummaryProps = { amounts: ComparisonAmounts; baseName: string; targetName: string };
+type AmountSummaryProps = { amounts: ComparisonAmounts; baseName: string; targetName: string; amountDisplay: AmountDisplay };
 
 /** 質量・金額が2つのPLでどれだけ違うかを、内訳と合計の両方で見せる。 */
-function AmountSummary({ amounts, baseName, targetName }: AmountSummaryProps) {
+function AmountSummary({ amounts, baseName, targetName, amountDisplay }: AmountSummaryProps) {
   const { common, baseOnly, targetOnly, base, target, massDiff, priceDiff } = amounts;
+  const showingMass = amountDisplay === 'mass';
+  const valueText = showingMass ? massText : priceText;
+  const diff = showingMass ? massDiff : priceDiff;
   return <div className="similarity-amounts">
     <table>
       <thead><tr>
@@ -65,23 +73,16 @@ function AmountSummary({ amounts, baseName, targetName }: AmountSummaryProps) {
       </tr></thead>
       <tbody>
         <tr>
-          <th>質量</th>
-          <td>{massText(common)}</td><td>{massText(baseOnly)}</td><td>{massText(targetOnly)}</td>
-          <td className="is-total">{massText(base)}</td><td className="is-total">{massText(target)}</td>
-          <td className={`is-diff ${diffClass(massDiff)}`}>{signedText(massDiff, 3, 'kg')}</td>
-        </tr>
-        <tr>
-          <th>金額</th>
-          <td>{priceText(common)}</td><td>{priceText(baseOnly)}</td><td>{priceText(targetOnly)}</td>
-          <td className="is-total">{priceText(base)}</td><td className="is-total">{priceText(target)}</td>
-          <td className={`is-diff ${diffClass(priceDiff)}`}>{signedText(priceDiff, 0, '円')}</td>
+          <th>{showingMass ? '質量' : '金額'}</th>
+          <td>{valueText(common)}</td><td>{valueText(baseOnly)}</td><td>{valueText(targetOnly)}</td>
+          <td className="is-total">{valueText(base)}</td><td className="is-total">{valueText(target)}</td>
+          <td className={`is-diff ${diffClass(diff)}`}>{signedText(diff, showingMass ? 3 : 0, showingMass ? 'kg' : '円')}</td>
         </tr>
       </tbody>
     </table>
     {/* 未入力の部品を0として足すと合計を見誤るため、入っている件数を必ず添える。 */}
     <p>
-      入力がある部品だけを合計しています。質量は {baseName} {base.mass.counted}/{base.parts} 部品・{targetName} {target.mass.counted}/{target.parts} 部品、
-      金額は {baseName} {base.price.counted}/{base.parts} 部品・{targetName} {target.price.counted}/{target.parts} 部品に入っています。
+      入力がある部品だけを合計しています。{showingMass ? '質量' : '金額'}は {baseName} {showingMass ? base.mass.counted : base.price.counted}/{base.parts} 部品・{targetName} {showingMass ? target.mass.counted : target.price.counted}/{target.parts} 部品に入っています。
       差は「{targetName} 合計 − {baseName} 合計」で、共通部品は両方に同じだけ入るため打ち消し合います。
     </p>
   </div>;
@@ -125,6 +126,7 @@ function exportComparison(base: PartsList, target: PartsList, rows: ExportRows, 
 
 export default function SimilarityView({ lists, sequence, baseId, onBaseChange, renderBadges, facts, level40Parts }: Props) {
   const [expandedId, setExpandedId] = useState('');
+  const [amountDisplay, setAmountDisplay] = useState<AmountDisplay>('mass');
   const effectiveBaseId = lists.some(list => list.id === baseId) ? baseId : lists[0]?.id ?? '';
   const base = lists.find(list => list.id === effectiveBaseId);
   const results = useMemo(
@@ -167,11 +169,20 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange, 
           <span className="similarity-chevron" aria-hidden="true">⌄</span>
         </button>
         {rows && amounts && <div className="similarity-details">
-          <div className="similarity-details-actions"><span>{plLabel(base)} と {plLabel(result.list)} の比較結果</span><button className="excel" type="button" onClick={() => exportComparison(base, result.list, rows, amounts, result.score)}>Excel出力</button></div>
-          <AmountSummary amounts={amounts} baseName={plLabel(base)} targetName={plLabel(result.list)} />
-          <DetailSection title="共通部品" rows={rows.common} tone="common" renderBadges={renderBadges} />
-          <DetailSection title={`${plLabel(base)} のみ`} rows={rows.baseOnly} tone="base" renderBadges={renderBadges} />
-          <DetailSection title={`${plLabel(result.list)} のみ`} rows={rows.targetOnly} tone="target" renderBadges={renderBadges} />
+          <div className="similarity-details-actions">
+            <span>{plLabel(base)} と {plLabel(result.list)} の比較結果</span>
+            <div className="similarity-details-tools">
+              <fieldset className="amount-display-switch"><legend>表示項目</legend>
+                <label><input type="radio" name="similarity-amount-display" value="mass" checked={amountDisplay === 'mass'} onChange={() => setAmountDisplay('mass')} />質量</label>
+                <label><input type="radio" name="similarity-amount-display" value="price" checked={amountDisplay === 'price'} onChange={() => setAmountDisplay('price')} />金額</label>
+              </fieldset>
+              <button className="excel" type="button" onClick={() => exportComparison(base, result.list, rows, amounts, result.score)}>Excel出力</button>
+            </div>
+          </div>
+          <AmountSummary amounts={amounts} baseName={plLabel(base)} targetName={plLabel(result.list)} amountDisplay={amountDisplay} />
+          <DetailSection title="共通部品" rows={rows.common} tone="common" amountDisplay={amountDisplay} renderBadges={renderBadges} />
+          <DetailSection title={`${plLabel(base)} のみ`} rows={rows.baseOnly} tone="base" amountDisplay={amountDisplay} renderBadges={renderBadges} />
+          <DetailSection title={`${plLabel(result.list)} のみ`} rows={rows.targetOnly} tone="target" amountDisplay={amountDisplay} renderBadges={renderBadges} />
         </div>}
       </article>;
     })}</div>

@@ -443,6 +443,12 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 /* Similarity detail tables have their own column geometry; reset matrix sticky offsets. */
 .similarity-details-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-weight: 750; }
 .similarity-details-actions button { border-color: #5865e8; background: #5865e8; color: #fff; white-space: nowrap; }
+.similarity-details-tools { display: flex; align-items: center; gap: 10px; }
+.amount-display-switch { display: flex; align-items: center; gap: 4px; margin: 0; padding: 3px; border: 1px solid #d8dee9; border-radius: 8px; background: #f8f9fc; }
+.amount-display-switch legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.amount-display-switch label { display: flex; align-items: center; gap: 5px; padding: 6px 9px; border-radius: 6px; color: #667085; font-size: 13px; cursor: pointer; }
+.amount-display-switch label:has(input:checked) { background: #fff; color: #3346ba; box-shadow: 0 1px 4px #2635701f; }
+.amount-display-switch input { width: 15px; height: 15px; margin: 0; accent-color: #5865e8; }
 .similarity-detail-section { margin-top: 0; }
 .similarity-detail-table table { table-layout: fixed; }
 .similarity-detail-table th:nth-child(n),
@@ -452,9 +458,8 @@ th[data-column="balloon"], td[data-column="balloon"] { text-align: left; }
 .similarity-detail-table col.detail-version { width: 54px; }
 .similarity-detail-table col.detail-name { width: 180px; }
 .similarity-detail-table col.detail-quantity { width: 58px; }
-/* 質量・金額の2列を足したぶん、文字の列を少し詰めて横スクロールを増やしすぎない。 */
 .similarity-detail-table col.detail-material { width: 120px; }
-.similarity-detail-table col.detail-mass, .similarity-detail-table col.detail-price { width: 84px; }
+.similarity-detail-table col.detail-amount-column { width: 96px; }
 /* 質量・金額は数字。桁をそろえて読めるよう右寄せにする。 */
 .similarity-detail-table td.detail-amount { text-align: right !important; font-weight: 700; color: #3346ba; }
 
