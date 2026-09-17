@@ -20,6 +20,7 @@ type Props = {
 };
 
 type AmountDisplay = 'mass' | 'price';
+type ChartSort = 'value' | 'balloon';
 type ChartDialog = { title: string; rows: BomRow[] };
 
 /** 質量・金額の表示。入っている部品が1つもないときは「—」にする。 */
@@ -58,23 +59,30 @@ function DetailSection({ title, rows, tone, amountDisplay, onOpenChart, renderBa
 }
 
 const chartValue = (row: BomRow, display: AmountDisplay) => display === 'mass' ? row.totalMass : row.totalPrice;
-const sortedChartRows = (rows: BomRow[], display: AmountDisplay) => rows
+const chartRowLabel = (row: BomRow) => `${row.part.balloon} - ${row.part.partNo} (${row.part.quantity})`;
+const sortedChartRows = (rows: BomRow[], display: AmountDisplay, sort: ChartSort = 'value') => rows
   .flatMap(row => {
     const value = chartValue(row, display);
     return value === undefined ? [] : [{ row, value }];
   })
-  .sort((a, b) => b.value - a.value);
+  .sort((a, b) => {
+    if (sort === 'value') return b.value - a.value;
+    const aBalloon = a.row.part.balloon.trim(), bBalloon = b.row.part.balloon.trim();
+    if (!aBalloon || !bBalloon) return aBalloon ? -1 : bBalloon ? 1 : 0;
+    return aBalloon.localeCompare(bBalloon, 'ja', { numeric: true, sensitivity: 'base' })
+      || a.row.part.partNo.localeCompare(b.row.part.partNo, 'ja', { numeric: true, sensitivity: 'base' });
+  });
 
 /** グラフの表示順と同じデータを、質量・金額の両方についてExcelへ出す。 */
-function exportChart(title: string, rows: BomRow[]) {
+function exportChart(title: string, rows: BomRow[], sort: ChartSort) {
   const workbook = XLSX.utils.book_new();
   const appendSheet = (display: AmountDisplay, sheetName: string) => {
     const unit = display === 'mass' ? 'kg' : '円';
-    const data = sortedChartRows(rows, display);
+    const data = sortedChartRows(rows, display, sort);
     const aoa = [
       ['ラベル', '風船番号', '品番', '品名', '数量', display === 'mass' ? '合計質量（kg）' : '金額（円）'],
       ...data.map(({ row, value }) => [
-        `${row.part.balloon} - ${row.part.partNo}`, row.part.balloon, row.part.partNo,
+        chartRowLabel(row), row.part.balloon, row.part.partNo,
         row.part.name, row.part.quantity, trimFloatNoise(value),
       ]),
       [],
@@ -89,32 +97,47 @@ function exportChart(title: string, rows: BomRow[]) {
   XLSX.writeFile(workbook, `部品グラフ_${safeTitle}.xlsx`);
 }
 
-type AmountChartDialogProps = ChartDialog & { display: AmountDisplay; onDisplayChange: (display: AmountDisplay) => void; onClose: () => void; renderBadges: (partNo: string) => ReactNode };
+type AmountChartDialogProps = ChartDialog & { display: AmountDisplay; onDisplayChange: (display: AmountDisplay) => void; sort: ChartSort; onSortChange: (sort: ChartSort) => void; onClose: () => void; renderBadges: (partNo: string) => ReactNode };
 
-function AmountChartDialog({ title, rows, display, onDisplayChange, onClose, renderBadges }: AmountChartDialogProps) {
-  const data = sortedChartRows(rows, display);
-  const max = data[0]?.value ?? 0;
+/** 整数部と小数部を別の列に置き、小数点の位置を縦にそろえる。 */
+function ChartAmount({ value, digits, unit }: { value: number; digits: number | undefined; unit: string }) {
+  const text = formatAmount(value, digits);
+  const [integer, fraction] = text.split('.');
+  return <b className={`amount-chart-value ${digits === 0 ? 'is-whole-number' : ''}`} aria-label={`${text} ${unit}`}>
+    <span className="amount-chart-integer">{integer}</span>
+    <span className="amount-chart-decimal">{fraction === undefined ? '' : '.'}</span>
+    <span className="amount-chart-fraction">{fraction ?? ''}</span>
+    <span className="amount-chart-unit">{unit}</span>
+  </b>;
+}
+
+function AmountChartDialog({ title, rows, display, onDisplayChange, sort, onSortChange, onClose, renderBadges }: AmountChartDialogProps) {
+  const data = sortedChartRows(rows, display, sort);
+  const max = data.reduce((largest, item) => Math.max(largest, item.value), 0);
   const label = display === 'mass' ? '質量' : '金額';
   const unit = display === 'mass' ? 'kg' : '円';
   const digits = display === 'mass' ? undefined : 0;
   return <div className="modal-bg" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="modal amount-chart-modal" role="dialog" aria-modal="true" aria-labelledby="amount-chart-title">
       <div className="amount-chart-heading">
-        <div><h2 id="amount-chart-title">{title}</h2><p>{label}の大きい順・{data.length}/{rows.length} 部品に値があります</p></div>
-        <fieldset className="amount-display-switch"><legend>グラフの表示項目</legend>
-          <label><input type="radio" name="chart-amount-display" value="mass" checked={display === 'mass'} onChange={() => onDisplayChange('mass')} />質量</label>
-          <label><input type="radio" name="chart-amount-display" value="price" checked={display === 'price'} onChange={() => onDisplayChange('price')} />金額</label>
-        </fieldset>
+        <div><h2 id="amount-chart-title">{title}</h2><p>{sort === 'value' ? `${label}の大きい順` : '風船番号の昇順'}・{data.length}/{rows.length} 部品に値があります</p></div>
+        <div className="amount-chart-controls">
+          <fieldset className="amount-display-switch"><legend>グラフの表示項目</legend>
+            <label><input type="radio" name="chart-amount-display" value="mass" checked={display === 'mass'} onChange={() => onDisplayChange('mass')} />質量</label>
+            <label><input type="radio" name="chart-amount-display" value="price" checked={display === 'price'} onChange={() => onDisplayChange('price')} />金額</label>
+          </fieldset>
+          <label className="amount-chart-sort"><span>並び順</span><select value={sort} onChange={event => onSortChange(event.target.value as ChartSort)}><option value="value">値の大きい順</option><option value="balloon">風船番号昇順</option></select></label>
+        </div>
         <button type="button" aria-label="グラフを閉じる" onClick={onClose}>×</button>
       </div>
       {data.length ? <div className="amount-chart" role="img" aria-label={`${title}の${label}横棒グラフ`}>
         {data.map(({ row, value }, index) => <div className="amount-chart-row" key={`${row.part.balloon}-${row.part.partNo}-${row.part.version}-${index}`}>
-          <span className="amount-chart-label"><span className="amount-chart-label-text" title={row.part.name || '品名なし'}>{row.part.balloon} - {row.part.partNo}</span><span className="amount-chart-badges">{renderBadges(row.part.partNo)}</span></span>
-          <span className="amount-chart-track"><span className="amount-chart-bar" style={{ width: `${max > 0 ? value / max * 100 : 0}%` }} /></span>
-          <b>{formatAmount(value, digits)} {unit}</b>
+          <span className="amount-chart-label"><span className="amount-chart-label-text" title={row.part.name || '品名なし'}>{chartRowLabel(row)}</span><span className="amount-chart-badges">{renderBadges(row.part.partNo)}</span></span>
+          <span className="amount-chart-track" title={`${formatAmount(value, digits)} ${unit}`} aria-label={`${chartRowLabel(row)}: ${formatAmount(value, digits)} ${unit}`}><span className="amount-chart-bar" style={{ width: `${max > 0 ? value / max * 100 : 0}%` }} /></span>
+          <ChartAmount value={value} digits={digits} unit={unit} />
         </div>)}
       </div> : <p className="amount-chart-empty">{label}が入力されている部品はありません。</p>}
-      <div className="modal-actions"><button className="excel" type="button" onClick={() => exportChart(title, rows)}>Excel出力</button><button type="button" onClick={onClose}>閉じる</button></div>
+      <div className="modal-actions"><button className="excel" type="button" onClick={() => exportChart(title, rows, sort)}>Excel出力</button><button type="button" onClick={onClose}>閉じる</button></div>
     </div>
   </div>;
 }
@@ -192,6 +215,7 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange, 
   const [amountDisplay, setAmountDisplay] = useState<AmountDisplay>('mass');
   const [chartDialog, setChartDialog] = useState<ChartDialog | null>(null);
   const [chartDisplay, setChartDisplay] = useState<AmountDisplay>('mass');
+  const [chartSort, setChartSort] = useState<ChartSort>('value');
   const effectiveBaseId = lists.some(list => list.id === baseId) ? baseId : lists[0]?.id ?? '';
   const base = lists.find(list => list.id === effectiveBaseId);
   const results = useMemo(
@@ -245,12 +269,12 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange, 
             </div>
           </div>
           <AmountSummary amounts={amounts} baseName={plLabel(base)} targetName={plLabel(result.list)} amountDisplay={amountDisplay} />
-          <DetailSection title="共通部品" rows={rows.common} tone="common" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartDialog({ title: '共通部品', rows: rows.common }); }} renderBadges={renderBadges} />
-          <DetailSection title={`${plLabel(base)} のみ`} rows={rows.baseOnly} tone="base" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartDialog({ title: `${plLabel(base)} のみ`, rows: rows.baseOnly }); }} renderBadges={renderBadges} />
-          <DetailSection title={`${plLabel(result.list)} のみ`} rows={rows.targetOnly} tone="target" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartDialog({ title: `${plLabel(result.list)} のみ`, rows: rows.targetOnly }); }} renderBadges={renderBadges} />
+          <DetailSection title="共通部品" rows={rows.common} tone="common" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartSort('value'); setChartDialog({ title: '共通部品', rows: rows.common }); }} renderBadges={renderBadges} />
+          <DetailSection title={`${plLabel(base)} のみ`} rows={rows.baseOnly} tone="base" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartSort('value'); setChartDialog({ title: `${plLabel(base)} のみ`, rows: rows.baseOnly }); }} renderBadges={renderBadges} />
+          <DetailSection title={`${plLabel(result.list)} のみ`} rows={rows.targetOnly} tone="target" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartSort('value'); setChartDialog({ title: `${plLabel(result.list)} のみ`, rows: rows.targetOnly }); }} renderBadges={renderBadges} />
         </div>}
       </article>;
     })}</div>
-    {chartDialog && <AmountChartDialog {...chartDialog} display={chartDisplay} onDisplayChange={setChartDisplay} onClose={() => setChartDialog(null)} renderBadges={renderBadges} />}
+    {chartDialog && <AmountChartDialog {...chartDialog} display={chartDisplay} onDisplayChange={setChartDisplay} sort={chartSort} onSortChange={setChartSort} onClose={() => setChartDialog(null)} renderBadges={renderBadges} />}
   </section>;
 }
