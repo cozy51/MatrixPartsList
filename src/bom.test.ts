@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBomRows, sumBomRows, unitAmounts, type Level40Parts } from './bom';
+import { buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
 import { emptyPartFact, upsertPartFact, type PartFact } from './drawings';
 import type { Part } from './types';
 
@@ -69,5 +69,70 @@ describe('単体BOMの行', () => {
     const rows = buildBomRows([part('HH110A5060', '2', '0.4'), part('HH01002R61', '1'), part('+', '4')], [], () => undefined);
     expect(sumBomRows(rows, row => row.totalMass)).toEqual({ total: 0.8, counted: 1 });
     expect(sumBomRows(rows, row => row.totalPrice)).toEqual({ total: 0, counted: 0 });
+  });
+});
+
+describe('PL比較の質量・金額', () => {
+  const facts: PartFact[] = [fact('A10', '1.5', '100'), fact('B20', '0.5', '40'), fact('C30', '2', '300')];
+  const rows = (parts: Part[]) => buildBomRows(parts, facts, () => undefined);
+  /* 共通: A10×2（3kg・200円）／基準のみ: B20×1（0.5kg・40円）／比較のみ: C30×1（2kg・300円） */
+  const common = rows([part('A10', '2')]);
+  const baseOnly = rows([part('B20', '1')]);
+  const targetOnly = rows([part('C30', '1')]);
+
+  it('まとまりごとに合計する', () => {
+    expect(totalsOf(common)).toEqual({ parts: 1, mass: { total: 3, counted: 1 }, price: { total: 200, counted: 1 } });
+    expect(totalsOf(baseOnly)).toEqual({ parts: 1, mass: { total: 0.5, counted: 1 }, price: { total: 40, counted: 1 } });
+  });
+
+  it('各PLの合計は「共通 ＋ そのPLだけの部品」になる', () => {
+    const amounts = compareBomAmounts(common, baseOnly, targetOnly);
+    expect(amounts.base.mass.total).toBe(3.5);
+    expect(amounts.base.price.total).toBe(240);
+    expect(amounts.target.mass.total).toBe(5);
+    expect(amounts.target.price.total).toBe(500);
+    expect(amounts.base.parts).toBe(2);
+    expect(amounts.target.parts).toBe(2);
+  });
+
+  it('差は「比較PL − 基準PL」で、共通部品は打ち消し合う', () => {
+    const amounts = compareBomAmounts(common, baseOnly, targetOnly);
+    expect(amounts.massDiff).toBeCloseTo(1.5, 10);
+    expect(amounts.priceDiff).toBe(260);
+    // 共通部品が増えても差は変わらない。
+    const withMoreCommon = compareBomAmounts(rows([part('A10', '2'), part('C30', '5')]), baseOnly, targetOnly);
+    expect(withMoreCommon.massDiff).toBeCloseTo(1.5, 10);
+    expect(withMoreCommon.priceDiff).toBe(260);
+  });
+
+  it('値が入っていない部品は合計に入れず、入っている件数を残す', () => {
+    const withBlank = rows([part('A10', '2'), part('ZZ99', '1')]);
+    const amounts = compareBomAmounts(withBlank, [], []);
+    expect(amounts.base.parts).toBe(2);
+    expect(amounts.base.mass).toEqual({ total: 3, counted: 1 });
+    expect(amounts.base.price).toEqual({ total: 200, counted: 1 });
+  });
+
+  it('部品が1つもないまとまりは 0 件として扱う', () => {
+    expect(totalsOf([])).toEqual({ parts: 0, mass: { total: 0, counted: 0 }, price: { total: 0, counted: 0 } });
+  });
+});
+
+describe('Excelに入れる数値', () => {
+  it('掛け算・足し算で出る誤差を落とす', () => {
+    expect(0.8 * 3).not.toBe(2.4);              // 2.4000000000000004
+    expect(trimFloatNoise(0.8 * 3)).toBe(2.4);
+    expect(trimFloatNoise(5.9 - 5.5)).toBe(0.4);
+  });
+
+  it('入力した精度は失わない', () => {
+    expect(trimFloatNoise(0.00828)).toBe(0.00828);
+    expect(trimFloatNoise(1234567.89)).toBe(1234567.89);
+  });
+
+  it('未入力は空欄のままにする', () => {
+    expect(excelAmount(undefined)).toBe('');
+    expect(excelAmount(0)).toBe(0);
+    expect(excelAmount(0.8 * 3)).toBe(2.4);
   });
 });

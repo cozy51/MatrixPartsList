@@ -139,6 +139,13 @@ export function sumBomRows(rows: BomRow[], pick: (row: BomRow) => number | undef
 export const MASS_COLUMN = '単品質量（kg）';
 export const PRICE_COLUMN = '単価（円）';
 
+/**
+ * 掛け算・足し算で出る `2.4000000000000004` のような誤差を落とす。画面は桁を
+ * 丸めて出すので見えないが、Excelには数値がそのまま入るため、ここで整える。
+ * 10桁までは残すので、入力した精度（0.00828 など）は失わない。
+ */
+export const trimFloatNoise = (value: number): number => Math.round(value * 1e10) / 1e10;
+
 /** 単体BOM・40レベル部品の中身で共通の列。表とExcel出力で同じ並びにする。 */
 export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '材質・メーカー', MASS_COLUMN, '合計質量（kg）', PRICE_COLUMN, '金額（円）', 'Shaiファイル'];
 
@@ -148,6 +155,9 @@ export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '材
  * ファイル名の頭に使います（例: `40レベル部品_HJ02192040_v02.xlsx`）。
  * 数値はkgと円のまま入れ、画面のような丸めはしません。
  */
+/** 未入力は空欄のまま、値があるときだけ誤差を落として数値で入れる。 */
+export const excelAmount = (value: number | undefined) => value === undefined ? '' : trimFloatNoise(value);
+
 export function exportBomExcel(list: PartsList, rows: BomRow[], sheetName: string) {
   const massTotal = sumBomRows(rows, row => row.totalMass);
   const priceTotal = sumBomRows(rows, row => row.totalPrice);
@@ -155,13 +165,44 @@ export function exportBomExcel(list: PartsList, rows: BomRow[], sheetName: strin
     BOM_COLUMNS,
     ...rows.map(row => [
       row.part.balloon, row.part.partNo, row.part.version, row.part.name, row.part.quantity, row.part.material,
-      row.unitMass ?? '', row.totalMass ?? '', row.unitPrice ?? '', row.totalPrice ?? '', row.shaiUrl,
+      excelAmount(row.unitMass), excelAmount(row.totalMass), excelAmount(row.unitPrice), excelAmount(row.totalPrice), row.shaiUrl,
     ]),
-    ['', '', '', '', '', '合計', '', massTotal.total || '', '', priceTotal.total || '', ''],
+    ['', '', '', '', '', '合計', '', massTotal.total ? trimFloatNoise(massTotal.total) : '', '', priceTotal.total ? trimFloatNoise(priceTotal.total) : '', ''],
   ];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), sheetName);
   /* ファイル名に使えない文字はWindowsに合わせて置き換える。 */
   const name = `${list.plNo}_v${normalizePlVersion(list.plVersion) || '-'}`.replace(/[\\/:*?"<>|]/g, '_');
   XLSX.writeFile(workbook, `${sheetName}_${name}.xlsx`);
+}
+
+/** 明細の合計。値が入っていない部品は合計に入れないため、入っている件数も返す。 */
+export type BomTotals = { parts: number; mass: { total: number; counted: number }; price: { total: number; counted: number } };
+
+export const totalsOf = (rows: BomRow[]): BomTotals => ({
+  parts: rows.length,
+  mass: sumBomRows(rows, row => row.totalMass),
+  price: sumBomRows(rows, row => row.totalPrice),
+});
+
+/**
+ * PL比較の質量・金額。共通部品・それぞれのPLにだけある部品に分けて集計し、
+ * 各PLの合計と差（比較PL − 基準PL）も出します。共通部品は両方の合計に同じだけ
+ * 入るため、差は「比較PLのみ」と「基準PLのみ」の差と同じになります。
+ */
+export type ComparisonAmounts = {
+  common: BomTotals; baseOnly: BomTotals; targetOnly: BomTotals;
+  base: BomTotals; target: BomTotals;
+  massDiff: number; priceDiff: number;
+};
+
+export function compareBomAmounts(common: BomRow[], baseOnly: BomRow[], targetOnly: BomRow[]): ComparisonAmounts {
+  const base = totalsOf([...common, ...baseOnly]);
+  const target = totalsOf([...common, ...targetOnly]);
+  return {
+    common: totalsOf(common), baseOnly: totalsOf(baseOnly), targetOnly: totalsOf(targetOnly),
+    base, target,
+    massDiff: target.mass.total - base.mass.total,
+    priceDiff: target.price.total - base.price.total,
+  };
 }
