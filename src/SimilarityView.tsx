@@ -19,6 +19,10 @@ type Props = {
   level40Parts: Level40Parts;
 };
 
+type AmountDisplay = 'mass' | 'price';
+type ChartSort = 'value' | 'balloon';
+type ChartDialog = { title: string; rows: BomRow[] };
+
 /** 質量・金額の表示。入っている部品が1つもないときは「—」にする。 */
 const massText = (totals: BomTotals) => totals.mass.counted ? `${formatAmount(totals.mass.total)} kg` : '—';
 const priceText = (totals: BomTotals) => totals.price.counted ? `${formatAmount(totals.price.total, 0)} 円` : '—';
@@ -27,61 +31,144 @@ const signedText = (value: number, digits: number, unit: string) =>
   `${value > 0 ? '+' : value < 0 ? '-' : '±'}${formatAmount(Math.abs(value), digits)} ${unit}`;
 const diffClass = (value: number) => value > 0 ? 'is-up' : value < 0 ? 'is-down' : '';
 
-type DetailSectionProps = { title: string; rows: BomRow[]; tone: 'common' | 'base' | 'target'; renderBadges: (partNo: string) => ReactNode };
+type DetailSectionProps = { title: string; rows: BomRow[]; tone: 'common' | 'base' | 'target'; amountDisplay: AmountDisplay; onOpenChart: () => void; renderBadges: (partNo: string) => ReactNode };
 
-function DetailSection({ title, rows, tone, renderBadges }: DetailSectionProps) {
+function DetailSection({ title, rows, tone, amountDisplay, onOpenChart, renderBadges }: DetailSectionProps) {
   const totals = totalsOf(rows);
+  const showingMass = amountDisplay === 'mass';
   return <section className={`similarity-detail-section ${tone}`}>
-    <h3>{title}<span>{rows.length} 部品</span></h3>
-    {/* このまとまりだけの合計。下の表の「質量」「金額」を足したもの。 */}
+    <h3><span className="similarity-detail-title">{title}</span><span className="similarity-detail-heading-actions"><span>{rows.length} 部品</span><button type="button" onClick={onOpenChart} disabled={!rows.length}>グラフ表示</button></span></h3>
+    {/* このまとまりだけの合計。切り替え中の項目だけを表示して混同を防ぐ。 */}
     <div className="similarity-detail-total">
-      <span>質量<b>{massText(totals)}</b><i>{totals.mass.counted}/{rows.length} 部品</i></span>
-      <span>金額<b>{priceText(totals)}</b><i>{totals.price.counted}/{rows.length} 部品</i></span>
+      {showingMass
+        ? <span>質量<b>{massText(totals)}</b><i>{totals.mass.counted}/{rows.length} 部品</i></span>
+        : <span>金額<b>{priceText(totals)}</b><i>{totals.price.counted}/{rows.length} 部品</i></span>}
     </div>
     {rows.length ? <div className="similarity-detail-table"><table>
-      <colgroup><col className="detail-balloon"/><col className="detail-part-no"/><col className="detail-version"/><col className="detail-name"/><col className="detail-quantity"/><col className="detail-material"/><col className="detail-mass"/><col className="detail-price"/></colgroup>
-      <thead><tr><th>風船</th><th>品番</th><th>Ver.</th><th>品名</th><th>数量</th><th>材質・メーカー</th><th>質量（kg）</th><th>金額（円）</th></tr></thead>
+      <colgroup><col className="detail-balloon"/><col className="detail-part-no"/><col className="detail-version"/><col className="detail-name"/><col className="detail-quantity"/><col className="detail-material"/><col className="detail-amount-column"/></colgroup>
+      <thead><tr><th>風船</th><th>品番</th><th>Ver.</th><th>品名</th><th>数量</th><th>材質・メーカー</th><th>{showingMass ? '質量（kg）' : '金額（円）'}</th></tr></thead>
       <tbody>{rows.map(({ part, unitMass, unitPrice, totalMass, totalPrice }) => <tr key={`${part.balloon}-${part.partNo}-${part.version}-${part.name}-${part.quantity}`}>
         <td>{part.balloon}</td><td>{part.partNo}{renderBadges(part.partNo)}</td><td>{part.version}</td><td>{part.name}</td><td>{part.quantity}</td><td>{part.material}</td>
         {/* 表に出すのは数量をかけたあと。単品の値はカーソルを合わせると出す。 */}
-        <td className="detail-amount" title={unitMass === undefined ? '単品質量が入っていません。単体BOMで入力できます。' : `単品質量 ${formatAmount(unitMass)} kg × ${part.quantity}`}>{totalMass === undefined ? '—' : formatAmount(totalMass)}</td>
-        <td className="detail-amount" title={unitPrice === undefined ? '単価が入っていません。単体BOMで入力できます。' : `単価 ${formatAmount(unitPrice, 0)} 円 × ${part.quantity}`}>{totalPrice === undefined ? '—' : formatAmount(totalPrice, 0)}</td>
+        {showingMass
+          ? <td className="detail-amount" title={unitMass === undefined ? '単品質量が入っていません。単体BOMで入力できます。' : `単品質量 ${formatAmount(unitMass)} kg × ${part.quantity}`}>{totalMass === undefined ? '—' : formatAmount(totalMass)}</td>
+          : <td className="detail-amount" title={unitPrice === undefined ? '単価が入っていません。単体BOMで入力できます。' : `単価 ${formatAmount(unitPrice, 0)} 円 × ${part.quantity}`}>{totalPrice === undefined ? '—' : formatAmount(totalPrice, 0)}</td>}
       </tr>)}</tbody>
     </table></div> : <p>該当する部品はありません。</p>}
   </section>;
 }
 
-type AmountSummaryProps = { amounts: ComparisonAmounts; baseName: string; targetName: string };
+const chartValue = (row: BomRow, display: AmountDisplay) => display === 'mass' ? row.totalMass : row.totalPrice;
+const chartRowLabel = (row: BomRow) => `${row.part.balloon} - ${row.part.partNo} (${row.part.quantity})`;
+const sortedChartRows = (rows: BomRow[], display: AmountDisplay, sort: ChartSort = 'value') => rows
+  .flatMap(row => {
+    const value = chartValue(row, display);
+    return value === undefined ? [] : [{ row, value }];
+  })
+  .sort((a, b) => {
+    if (sort === 'value') return b.value - a.value;
+    const aBalloon = a.row.part.balloon.trim(), bBalloon = b.row.part.balloon.trim();
+    if (!aBalloon || !bBalloon) return aBalloon ? -1 : bBalloon ? 1 : 0;
+    return aBalloon.localeCompare(bBalloon, 'ja', { numeric: true, sensitivity: 'base' })
+      || a.row.part.partNo.localeCompare(b.row.part.partNo, 'ja', { numeric: true, sensitivity: 'base' });
+  });
+
+/** グラフの表示順と同じデータを、質量・金額の両方についてExcelへ出す。 */
+function exportChart(title: string, rows: BomRow[], sort: ChartSort) {
+  const workbook = XLSX.utils.book_new();
+  const appendSheet = (display: AmountDisplay, sheetName: string) => {
+    const unit = display === 'mass' ? 'kg' : '円';
+    const data = sortedChartRows(rows, display, sort);
+    const aoa = [
+      ['ラベル', '風船番号', '品番', '品名', '数量', display === 'mass' ? '合計質量（kg）' : '金額（円）'],
+      ...data.map(({ row, value }) => [
+        chartRowLabel(row), row.part.balloon, row.part.partNo,
+        row.part.name, row.part.quantity, trimFloatNoise(value),
+      ]),
+      [],
+      ['単位', unit],
+      ['値あり', `${data.length}/${rows.length} 部品`],
+    ];
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), sheetName);
+  };
+  appendSheet('mass', '質量');
+  appendSheet('price', '金額');
+  const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_');
+  XLSX.writeFile(workbook, `部品グラフ_${safeTitle}.xlsx`);
+}
+
+type AmountChartDialogProps = ChartDialog & { display: AmountDisplay; onDisplayChange: (display: AmountDisplay) => void; sort: ChartSort; onSortChange: (sort: ChartSort) => void; onClose: () => void; renderBadges: (partNo: string) => ReactNode };
+
+/** 整数部と小数部を別の列に置き、小数点の位置を縦にそろえる。 */
+function ChartAmount({ value, digits, unit }: { value: number; digits: number | undefined; unit: string }) {
+  const text = formatAmount(value, digits);
+  const [integer, fraction] = text.split('.');
+  return <b className={`amount-chart-value ${digits === 0 ? 'is-whole-number' : ''}`} aria-label={`${text} ${unit}`}>
+    <span className="amount-chart-integer">{integer}</span>
+    <span className="amount-chart-decimal">{fraction === undefined ? '' : '.'}</span>
+    <span className="amount-chart-fraction">{fraction ?? ''}</span>
+    <span className="amount-chart-unit">{unit}</span>
+  </b>;
+}
+
+function AmountChartDialog({ title, rows, display, onDisplayChange, sort, onSortChange, onClose, renderBadges }: AmountChartDialogProps) {
+  const data = sortedChartRows(rows, display, sort);
+  const max = data.reduce((largest, item) => Math.max(largest, item.value), 0);
+  const label = display === 'mass' ? '質量' : '金額';
+  const unit = display === 'mass' ? 'kg' : '円';
+  const digits = display === 'mass' ? undefined : 0;
+  return <div className="modal-bg" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="modal amount-chart-modal" role="dialog" aria-modal="true" aria-labelledby="amount-chart-title">
+      <div className="amount-chart-heading">
+        <div><h2 id="amount-chart-title">{title}</h2><p>{sort === 'value' ? `${label}の大きい順` : '風船番号の昇順'}・{data.length}/{rows.length} 部品に値があります</p></div>
+        <div className="amount-chart-controls">
+          <fieldset className="amount-display-switch"><legend>グラフの表示項目</legend>
+            <label><input type="radio" name="chart-amount-display" value="mass" checked={display === 'mass'} onChange={() => onDisplayChange('mass')} />質量</label>
+            <label><input type="radio" name="chart-amount-display" value="price" checked={display === 'price'} onChange={() => onDisplayChange('price')} />金額</label>
+          </fieldset>
+          <label className="amount-chart-sort"><span>並び順</span><select value={sort} onChange={event => onSortChange(event.target.value as ChartSort)}><option value="value">値の大きい順</option><option value="balloon">風船番号昇順</option></select></label>
+        </div>
+        <button type="button" aria-label="グラフを閉じる" onClick={onClose}>×</button>
+      </div>
+      {data.length ? <div className="amount-chart" role="img" aria-label={`${title}の${label}横棒グラフ`}>
+        {data.map(({ row, value }, index) => <div className="amount-chart-row" key={`${row.part.balloon}-${row.part.partNo}-${row.part.version}-${index}`}>
+          <span className="amount-chart-label"><span className="amount-chart-label-text" title={row.part.name || '品名なし'}>{chartRowLabel(row)}</span><span className="amount-chart-badges">{renderBadges(row.part.partNo)}</span></span>
+          <ChartAmount value={value} digits={digits} unit={unit} />
+          <span className="amount-chart-track" title={`${formatAmount(value, digits)} ${unit}`} aria-label={`${chartRowLabel(row)}: ${formatAmount(value, digits)} ${unit}`}><span className="amount-chart-bar" style={{ width: `${max > 0 ? value / max * 100 : 0}%` }} /></span>
+        </div>)}
+      </div> : <p className="amount-chart-empty">{label}が入力されている部品はありません。</p>}
+      <div className="modal-actions"><button className="excel" type="button" onClick={() => exportChart(title, rows, sort)}>Excel出力</button><button type="button" onClick={onClose}>閉じる</button></div>
+    </div>
+  </div>;
+}
+
+type AmountSummaryProps = { amounts: ComparisonAmounts; baseName: string; targetName: string; amountDisplay: AmountDisplay };
 
 /** 質量・金額が2つのPLでどれだけ違うかを、内訳と合計の両方で見せる。 */
-function AmountSummary({ amounts, baseName, targetName }: AmountSummaryProps) {
+function AmountSummary({ amounts, baseName, targetName, amountDisplay }: AmountSummaryProps) {
   const { common, baseOnly, targetOnly, base, target, massDiff, priceDiff } = amounts;
+  const showingMass = amountDisplay === 'mass';
+  const valueText = showingMass ? massText : priceText;
+  const diff = showingMass ? massDiff : priceDiff;
   return <div className="similarity-amounts">
     <table>
       <thead><tr>
         <th />
-        <th>共通部品</th><th>{baseName} のみ</th><th>{targetName} のみ</th>
+        <th className="common">共通部品</th><th className="base">{baseName} のみ</th><th className="target">{targetName} のみ</th>
         <th>{baseName} 合計</th><th>{targetName} 合計</th><th>差</th>
       </tr></thead>
       <tbody>
         <tr>
-          <th>質量</th>
-          <td>{massText(common)}</td><td>{massText(baseOnly)}</td><td>{massText(targetOnly)}</td>
-          <td className="is-total">{massText(base)}</td><td className="is-total">{massText(target)}</td>
-          <td className={`is-diff ${diffClass(massDiff)}`}>{signedText(massDiff, 3, 'kg')}</td>
-        </tr>
-        <tr>
-          <th>金額</th>
-          <td>{priceText(common)}</td><td>{priceText(baseOnly)}</td><td>{priceText(targetOnly)}</td>
-          <td className="is-total">{priceText(base)}</td><td className="is-total">{priceText(target)}</td>
-          <td className={`is-diff ${diffClass(priceDiff)}`}>{signedText(priceDiff, 0, '円')}</td>
+          <th>{showingMass ? '質量' : '金額'}</th>
+          <td>{valueText(common)}</td><td>{valueText(baseOnly)}</td><td>{valueText(targetOnly)}</td>
+          <td className="is-total">{valueText(base)}</td><td className="is-total">{valueText(target)}</td>
+          <td className={`is-diff ${diffClass(diff)}`}>{signedText(diff, showingMass ? 3 : 0, showingMass ? 'kg' : '円')}</td>
         </tr>
       </tbody>
     </table>
     {/* 未入力の部品を0として足すと合計を見誤るため、入っている件数を必ず添える。 */}
     <p>
-      入力がある部品だけを合計しています。質量は {baseName} {base.mass.counted}/{base.parts} 部品・{targetName} {target.mass.counted}/{target.parts} 部品、
-      金額は {baseName} {base.price.counted}/{base.parts} 部品・{targetName} {target.price.counted}/{target.parts} 部品に入っています。
+      入力がある部品だけを合計しています。{showingMass ? '質量' : '金額'}は {baseName} {showingMass ? base.mass.counted : base.price.counted}/{base.parts} 部品・{targetName} {showingMass ? target.mass.counted : target.price.counted}/{target.parts} 部品に入っています。
       差は「{targetName} 合計 − {baseName} 合計」で、共通部品は両方に同じだけ入るため打ち消し合います。
     </p>
   </div>;
@@ -125,6 +212,10 @@ function exportComparison(base: PartsList, target: PartsList, rows: ExportRows, 
 
 export default function SimilarityView({ lists, sequence, baseId, onBaseChange, renderBadges, facts, level40Parts }: Props) {
   const [expandedId, setExpandedId] = useState('');
+  const [amountDisplay, setAmountDisplay] = useState<AmountDisplay>('mass');
+  const [chartDialog, setChartDialog] = useState<ChartDialog | null>(null);
+  const [chartDisplay, setChartDisplay] = useState<AmountDisplay>('mass');
+  const [chartSort, setChartSort] = useState<ChartSort>('value');
   const effectiveBaseId = lists.some(list => list.id === baseId) ? baseId : lists[0]?.id ?? '';
   const base = lists.find(list => list.id === effectiveBaseId);
   const results = useMemo(
@@ -167,13 +258,23 @@ export default function SimilarityView({ lists, sequence, baseId, onBaseChange, 
           <span className="similarity-chevron" aria-hidden="true">⌄</span>
         </button>
         {rows && amounts && <div className="similarity-details">
-          <div className="similarity-details-actions"><span>{plLabel(base)} と {plLabel(result.list)} の比較結果</span><button className="excel" type="button" onClick={() => exportComparison(base, result.list, rows, amounts, result.score)}>Excel出力</button></div>
-          <AmountSummary amounts={amounts} baseName={plLabel(base)} targetName={plLabel(result.list)} />
-          <DetailSection title="共通部品" rows={rows.common} tone="common" renderBadges={renderBadges} />
-          <DetailSection title={`${plLabel(base)} のみ`} rows={rows.baseOnly} tone="base" renderBadges={renderBadges} />
-          <DetailSection title={`${plLabel(result.list)} のみ`} rows={rows.targetOnly} tone="target" renderBadges={renderBadges} />
+          <div className="similarity-details-actions">
+            <span>{plLabel(base)} と {plLabel(result.list)} の比較結果</span>
+            <div className="similarity-details-tools">
+              <fieldset className="amount-display-switch"><legend>表示項目</legend>
+                <label><input type="radio" name="similarity-amount-display" value="mass" checked={amountDisplay === 'mass'} onChange={() => setAmountDisplay('mass')} />質量</label>
+                <label><input type="radio" name="similarity-amount-display" value="price" checked={amountDisplay === 'price'} onChange={() => setAmountDisplay('price')} />金額</label>
+              </fieldset>
+              <button className="excel" type="button" onClick={() => exportComparison(base, result.list, rows, amounts, result.score)}>Excel出力</button>
+            </div>
+          </div>
+          <AmountSummary amounts={amounts} baseName={plLabel(base)} targetName={plLabel(result.list)} amountDisplay={amountDisplay} />
+          <DetailSection title="共通部品" rows={rows.common} tone="common" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartSort('value'); setChartDialog({ title: '共通部品', rows: rows.common }); }} renderBadges={renderBadges} />
+          <DetailSection title={`${plLabel(base)} のみ`} rows={rows.baseOnly} tone="base" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartSort('value'); setChartDialog({ title: `${plLabel(base)} のみ`, rows: rows.baseOnly }); }} renderBadges={renderBadges} />
+          <DetailSection title={`${plLabel(result.list)} のみ`} rows={rows.targetOnly} tone="target" amountDisplay={amountDisplay} onOpenChart={() => { setChartDisplay(amountDisplay); setChartSort('value'); setChartDialog({ title: `${plLabel(result.list)} のみ`, rows: rows.targetOnly }); }} renderBadges={renderBadges} />
         </div>}
       </article>;
     })}</div>
+    {chartDialog && <AmountChartDialog {...chartDialog} display={chartDisplay} onDisplayChange={setChartDisplay} sort={chartSort} onSortChange={setChartSort} onClose={() => setChartDialog(null)} renderBadges={renderBadges} />}
   </section>;
 }
