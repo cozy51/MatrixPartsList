@@ -67,7 +67,8 @@ export function unitAmounts(part: Part, facts: PartFact[], level40Parts: Level40
   if (isSupplementPart(part.partNo)) return NO_AMOUNTS;
 
   const key = level40Key(part);
-  const children = isLevel40No(part.partNo) && !seen.has(key) ? level40Parts(part.partNo, part.version) : undefined;
+  const level40 = isLevel40No(part.partNo);
+  const children = level40 && !seen.has(key) ? level40Parts(part.partNo, part.version) : undefined;
   if (children) {
     const nested = new Set(seen).add(key);
     const parts = excludeNoteParts(children);
@@ -88,6 +89,11 @@ export function unitAmounts(part: Part, facts: PartFact[], level40Parts: Level40
       childSummary: { parts: parts.length, massCounted, priceCounted },
     };
   }
+
+  /* 40レベル自身に登録した値を使うと、中身が未登録でも見かけ上は金額・質量が
+     揃ってしまう。登録がない場合も入力値やCSV値にはフォールバックせず、
+     「中身の合計（未登録）」として扱う。循環参照で再登場した場合も同様。 */
+  if (level40) return { ...NO_AMOUNTS, massSource: 'children', priceSource: 'children' };
 
   const fact = partFactFor(facts, part.partNo);
   const input = parseAmount(fact?.mass ?? ''), csv = parseAmount(part.unitMass ?? ''), price = parseAmount(fact?.price ?? '');

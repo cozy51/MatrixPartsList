@@ -33,11 +33,11 @@ describe('40レベル部品の質量・単価は中身の合計で決まる', ()
     expect(unitAmounts(part('HJ02193040', '1'), facts, level40Parts)).toMatchObject({ mass: 7.5, price: 1300 });
   });
 
-  it('中身が登録されていない40レベルは、手入力・CSVの値を使う', () => {
+  it('中身が登録されていない40レベルは、自身の手入力・CSVの値を使わない', () => {
     const own = [fact('HJ09999040', '4.5', '900')];
-    expect(unitAmounts(part('HJ09999040', '1'), own, level40Parts)).toMatchObject({ mass: 4.5, price: 900, massSource: 'input', priceSource: 'input' });
+    expect(unitAmounts(part('HJ09999040', '1', '8'), own, level40Parts)).toEqual({ mass: undefined, price: undefined, massSource: 'children', priceSource: 'children' });
     // Ver.が一致しない登録は結び付けない（40レベルはVer.ごとに中身が違うため）。
-    expect(unitAmounts(part('HJ02192040', '1', '', { version: '09' }), facts, level40Parts)).toMatchObject({ massSource: 'none' });
+    expect(unitAmounts(part('HJ02192040', '1', '8', { version: '09' }), facts, level40Parts)).toEqual({ mass: undefined, price: undefined, massSource: 'children', priceSource: 'children' });
   });
 
   it('中身に値が1件もないときは、0kg・0円ではなく値なしにする', () => {
@@ -51,7 +51,8 @@ describe('40レベル部品の質量・単価は中身の合計で決まる', ()
 
   it('同じ40レベルが入れ子で現れても数え続けない', () => {
     const loop: Level40Parts = partNo => (partNo === 'HJ02192040' ? [part('HJ02192040', '1', '2')] : undefined);
-    expect(unitAmounts(part('HJ02192040', '1'), [], loop)).toMatchObject({ mass: 2, massSource: 'children' });
+    /* 循環先に書かれた40レベル自身のCSV質量へフォールバックせず、値なしで止める。 */
+    expect(unitAmounts(part('HJ02192040', '1'), [], loop)).toMatchObject({ mass: undefined, massSource: 'children' });
   });
 });
 
