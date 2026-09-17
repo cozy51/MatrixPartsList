@@ -105,8 +105,9 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       const summary = row.childSummary;
       const counted = field === 'mass' ? summary?.massCounted ?? 0 : summary?.priceCounted ?? 0;
       const label = field === 'mass' ? '質量' : '単価';
-      /* 中身の合計が出せないのは、中身の側が未入力だから。ここも色を付けて知らせる。 */
-      return <td className={value === undefined ? 'is-missing' : undefined}>
+      /* 40レベル部品は中身（50/60レベル）の合計で決まり、この欄には入力できない。
+         合計が出せなくても入れ忘れではないため、未入力の色は付けない。 */
+      return <td>
         <span className="bom-derived" title={`40レベル部品のため、中身（${summary?.parts ?? 0} 部品）の合計です。${label}が入っているのは ${counted} 部品です。`}>
           {value === undefined ? '—' : formatAmount(value, field === 'mass' ? 3 : 0)}<i>中身の合計</i>
         </span>
