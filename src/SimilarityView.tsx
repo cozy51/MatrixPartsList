@@ -79,11 +79,12 @@ function exportChart(title: string, rows: BomRow[], sort: ChartSort) {
   const appendSheet = (display: AmountDisplay, sheetName: string) => {
     const unit = display === 'mass' ? 'kg' : '円';
     const data = sortedChartRows(rows, display, sort);
+    const total = data.reduce((sum, item) => sum + item.value, 0);
     const aoa = [
-      ['ラベル', '風船番号', '品番', '品名', '数量', display === 'mass' ? '合計質量（kg）' : '金額（円）'],
+      ['ラベル', '風船番号', '品番', '品名', '数量', display === 'mass' ? '合計質量（kg）' : '金額（円）', '全体に占める割合（%）'],
       ...data.map(({ row, value }) => [
         chartRowLabel(row), row.part.balloon, row.part.partNo,
-        row.part.name, row.part.quantity, trimFloatNoise(value),
+        row.part.name, row.part.quantity, trimFloatNoise(value), total ? Number((value / total * 100).toFixed(1)) : 0,
       ]),
       [],
       ['単位', unit],
@@ -100,20 +101,23 @@ function exportChart(title: string, rows: BomRow[], sort: ChartSort) {
 type AmountChartDialogProps = ChartDialog & { display: AmountDisplay; onDisplayChange: (display: AmountDisplay) => void; sort: ChartSort; onSortChange: (sort: ChartSort) => void; onClose: () => void; renderBadges: (partNo: string) => ReactNode };
 
 /** 整数部と小数部を別の列に置き、小数点の位置を縦にそろえる。 */
-function ChartAmount({ value, digits, unit }: { value: number; digits: number | undefined; unit: string }) {
+function ChartAmount({ value, digits, unit, percentage }: { value: number; digits: number | undefined; unit: string; percentage: number }) {
   const text = formatAmount(value, digits);
   const [integer, fraction] = text.split('.');
-  return <b className={`amount-chart-value ${digits === 0 ? 'is-whole-number' : ''}`} aria-label={`${text} ${unit}`}>
+  const percentageText = percentage.toFixed(1);
+  return <b className={`amount-chart-value ${digits === 0 ? 'is-whole-number' : ''}`} aria-label={`${text} ${unit}、全体の${percentageText}%`}>
     <span className="amount-chart-integer">{integer}</span>
     <span className="amount-chart-decimal">{fraction === undefined ? '' : '.'}</span>
     <span className="amount-chart-fraction">{fraction ?? ''}</span>
     <span className="amount-chart-unit">{unit}</span>
+    <span className="amount-chart-percent">({percentageText}%)</span>
   </b>;
 }
 
 function AmountChartDialog({ title, rows, display, onDisplayChange, sort, onSortChange, onClose, renderBadges }: AmountChartDialogProps) {
   const data = sortedChartRows(rows, display, sort);
   const max = data.reduce((largest, item) => Math.max(largest, item.value), 0);
+  const total = data.reduce((sum, item) => sum + item.value, 0);
   const label = display === 'mass' ? '質量' : '金額';
   const unit = display === 'mass' ? 'kg' : '円';
   const digits = display === 'mass' ? undefined : 0;
@@ -133,8 +137,8 @@ function AmountChartDialog({ title, rows, display, onDisplayChange, sort, onSort
       {data.length ? <div className="amount-chart" role="img" aria-label={`${title}の${label}横棒グラフ`}>
         {data.map(({ row, value }, index) => <div className="amount-chart-row" key={`${row.part.balloon}-${row.part.partNo}-${row.part.version}-${index}`}>
           <span className="amount-chart-label"><span className="amount-chart-label-text" title={row.part.name || '品名なし'}>{chartRowLabel(row)}</span><span className="amount-chart-badges">{renderBadges(row.part.partNo)}</span></span>
-          <ChartAmount value={value} digits={digits} unit={unit} />
-          <span className="amount-chart-track" title={`${formatAmount(value, digits)} ${unit}`} aria-label={`${chartRowLabel(row)}: ${formatAmount(value, digits)} ${unit}`}><span className="amount-chart-bar" style={{ width: `${max > 0 ? value / max * 100 : 0}%` }} /></span>
+          <ChartAmount value={value} digits={digits} unit={unit} percentage={total ? value / total * 100 : 0} />
+          <span className="amount-chart-track" title={`${formatAmount(value, digits)} ${unit} (${(total ? value / total * 100 : 0).toFixed(1)}%)`} aria-label={`${chartRowLabel(row)}: ${formatAmount(value, digits)} ${unit}`}><span className="amount-chart-bar" style={{ width: `${max > 0 ? value / max * 100 : 0}%` }} /></span>
         </div>)}
       </div> : <p className="amount-chart-empty">{label}が入力されている部品はありません。</p>}
       <div className="modal-actions"><button className="excel" type="button" onClick={() => exportChart(title, rows, sort)}>Excel出力</button><button type="button" onClick={onClose}>閉じる</button></div>
