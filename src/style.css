@@ -1006,6 +1006,15 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .bom-lock { margin-left: 5px; padding: 0 3px; border: 0; background: transparent; font-size: 12px; line-height: 1; opacity: .55; vertical-align: 1px; }
 .bom-lock:hover { opacity: 1; }
 .bom-lock.is-unlocked { opacity: 1; }
+/* 値が入っていない質量・単価のセルは、背景を薄い橙にして入れ忘れに気づけるようにする。
+   入力欄の中まで同じ色に見えるよう、欄側の白い背景は消しておく。
+   左端の線は、行にカーソルを乗せて行全体が色付いたときの目印（背景だけだと紛れるため）。
+   セレクタは縞模様（tr:nth-child(even) td）と同じ強さにして、あとから上書きする。 */
+.bom-table tbody tr td.is-missing { background: #fff6e0; box-shadow: inset 3px 0 #f0c069; }
+.bom-table td.is-missing .solo-amount { background: transparent; }
+/* 編集できる状態のときだけ枠も色を変える（閉じている欄は枠なしのまま）。 */
+.bom-table td.is-missing .solo-amount:not(.is-locked) { border-color: #edd3a2; }
+.bom-table td.is-missing .solo-amount::placeholder { color: #b5883c; }
 .solo-shai { display: flex; align-items: center; gap: 6px; }
 .shai-link { padding: 1px 6px; border: 1px solid #14755f; border-radius: 6px; background: #e9f7f1; color: #14755f; font-size: 11px; font-weight: 800; text-decoration: none; }
 .shai-link:hover { background: #14755f; color: #fff; }
