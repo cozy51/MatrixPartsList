@@ -5,7 +5,7 @@ import { buildBomRows, type Level40Parts } from './bom';
 import type { Part } from './types';
 
 const level40Part: Part = {
-  balloon: '1', partNo: 'HJ02192040', version: '01', quantity: '1', name: '40レベル部品',
+  balloon: '1', partNo: 'HJ02192040', version: '01', quantity: '1', unit: '', name: '40レベル部品',
   material: '', changeStatus: '', additionalInfo: '', unavailable: '', unitMass: '', specification: '',
 };
 const child: Part = { ...level40Part, partNo: 'HJ02192560', name: '中身', unitMass: '' };

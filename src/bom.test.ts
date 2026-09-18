@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
+import { BOM_COLUMNS, bomExcelRows, buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
 import { emptyPartFact, upsertPartFact, type PartFact } from './drawings';
 import type { Part } from './types';
 
 const part = (partNo: string, quantity: string, unitMass = '', extra: Partial<Part> = {}): Part => ({
-  balloon: '1', partNo, version: '-', quantity, name: partNo, material: '', changeStatus: '',
+  balloon: '1', partNo, version: '-', quantity, unit: '', name: partNo, material: '', changeStatus: '',
   additionalInfo: '', unavailable: '', unitMass, specification: '', ...extra,
 });
 const fact = (partNo: string, mass: string, price: string): PartFact =>
@@ -135,5 +135,25 @@ describe('Excelに入れる数値', () => {
     expect(excelAmount(undefined)).toBe('');
     expect(excelAmount(0)).toBe(0);
     expect(excelAmount(0.8 * 3)).toBe(2.4);
+  });
+});
+
+describe('Excelの表（単体BOM・40レベル部品の中身）', () => {
+  /* 数量は個数のことが多く単位は空欄。ケーブルなど長さで数える部品だけ mm などが入る。 */
+  const rows = buildBomRows([part('Z067872810', '60', '0.01', { unit: 'mm' }), part('Z076580700', '1')], [], () => undefined);
+
+  it('単位の列を数量の右隣に置き、見出しと明細・合計の列数をそろえる', () => {
+    const [header, cable, ...rest] = bomExcelRows(rows);
+    expect(header[BOM_COLUMNS.indexOf('数量') + 1]).toBe('単位');
+    expect(cable[BOM_COLUMNS.indexOf('単位')]).toBe('mm');
+    expect(cable[BOM_COLUMNS.indexOf('材質・メーカー')]).toBe('');
+    expect(rest.every(row => row.length === header.length)).toBe(true);
+  });
+
+  it('合計は材質・メーカーの列に置き、合計質量・金額の列に値を入れる', () => {
+    const total = bomExcelRows(rows).at(-1) ?? [];
+    expect(total[BOM_COLUMNS.indexOf('材質・メーカー')]).toBe('合計');
+    expect(total[BOM_COLUMNS.indexOf('合計質量（kg）')]).toBe(0.6);
+    expect(total[BOM_COLUMNS.indexOf('金額（円）')]).toBe('');
   });
 });

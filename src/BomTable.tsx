@@ -166,7 +166,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
   return <>
     <div className="bom-table"><table>
       <colgroup>
-        <col className="bom-balloon" /><col className="bom-part-no" /><col className="bom-version" /><col className="bom-name" /><col className="bom-quantity" /><col className="bom-material" />
+        <col className="bom-balloon" /><col className="bom-part-no" /><col className="bom-version" /><col className="bom-name" /><col className="bom-quantity" /><col className="bom-unit" /><col className="bom-material" />
         <col className="bom-mass" /><col className="bom-total-mass" /><col className="bom-price" /><col className="bom-total-price" /><col className="bom-shai" />
       </colgroup>
       <thead><tr>{BOM_COLUMNS.map(label => {
@@ -183,6 +183,8 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         <td>{row.part.version}</td>
         <td title={row.part.name}>{row.part.name}</td>
         <td>{row.part.quantity}</td>
+        {/* 数量は個数のことが多く単位は空欄。ケーブルなど長さで数える部品だけ mm などが入る。 */}
+        <td className="bom-unit-cell">{row.part.unit ?? ''}</td>
         <td title={row.part.material}>{row.part.material}</td>
         {amountCell(row, 'mass')}
         <td className="solo-calc">{row.totalMass === undefined ? '—' : formatAmount(row.totalMass)}</td>
@@ -191,7 +193,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         <td>{shaiCell(row)}</td>
       </tr>)}</tbody>
       <tfoot><tr>
-        <td colSpan={6}>{totalLabel}</td>
+        <td colSpan={7}>{totalLabel}</td>
         <td />
         <td className="solo-calc">{massTotal.counted ? formatAmount(massTotal.total) : '—'}</td>
         <td />

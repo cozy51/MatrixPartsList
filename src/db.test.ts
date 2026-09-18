@@ -16,7 +16,7 @@ describe('JSONバックアップのファイル名', () => {
 const list = {
   id: 'a1', fileName: 'HH1234567.xlsx', plNo: 'HH1234567', plName: '搬送ユニット', plVersion: '01',
   machineId: 'HU300', modeId: '01', visible: true, importedAt: '2026-09-17T08:20:00.000Z',
-  parts: [{ balloon: '67', partNo: 'HH1234567-5', version: 'A', quantity: '2', name: 'ブラケット', material: 'SPCC', changeStatus: '', additionalInfo: '', unavailable: '', unitMass: '', specification: '' }],
+  parts: [{ balloon: '67', partNo: 'HH1234567-5', version: 'A', quantity: '2', unit: '', name: 'ブラケット', material: 'SPCC', changeStatus: '', additionalInfo: '', unavailable: '', unitMass: '', specification: '' }],
 };
 const data = { revision: 5, updatedAt: '2026-09-17T08:20:00.000Z', lists: [list] };
 const drawings = {
