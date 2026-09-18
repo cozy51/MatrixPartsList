@@ -979,6 +979,9 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .level40-heading > button:last-child { border: 0; padding: 2px 8px; font-size: 18px; color: #8a93a4; }
 /* 「図面リンク取得」「Excel出力」は、単体BOMと同じ並びで見出しの右に置く。 */
 .level40-actions { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+/* 消すと登録が無くなる操作のため、赤で他のボタンと区別する。 */
+.level40-delete { border: 0; background: #d92d3a; color: #fff; font-weight: 750; box-shadow: 0 2px 10px #d92d3a40; }
+.level40-delete:hover { border: 0; background: #b4232d; }
 .level40-version { display: flex; align-items: center; gap: 6px; color: #667085; font-size: 13px; font-weight: 700; }
 .level40-version select { padding: 7px 10px; border: 1px solid #cfd6e3; border-radius: 8px; background: #fff; font: inherit; }
 
