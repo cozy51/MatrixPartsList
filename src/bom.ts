@@ -153,7 +153,7 @@ export const PRICE_COLUMN = '単価（円）';
 export const trimFloatNoise = (value: number): number => Math.round(value * 1e10) / 1e10;
 
 /** 単体BOM・40レベル部品の中身で共通の列。表とExcel出力で同じ並びにする。 */
-export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '材質・メーカー', MASS_COLUMN, '合計質量（kg）', PRICE_COLUMN, '金額（円）', 'Shaiファイル'];
+export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '単位', '材質・メーカー', MASS_COLUMN, '合計質量（kg）', PRICE_COLUMN, '金額（円）', 'Shaiファイル'];
 
 /**
  * 明細をExcelへ出します。単体BOMのタブと、40レベル部品の中身のポップアップで
@@ -164,17 +164,28 @@ export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '材
 /** 未入力は空欄のまま、値があるときだけ誤差を落として数値で入れる。 */
 export const excelAmount = (value: number | undefined) => value === undefined ? '' : trimFloatNoise(value);
 
-export function exportBomExcel(list: PartsList, rows: BomRow[], sheetName: string) {
+/** Excelに入れる表（見出し・明細・合計）。列の並びは画面の表（`BOM_COLUMNS`）と同じにする。 */
+export function bomExcelRows(rows: BomRow[]): (string | number)[][] {
   const massTotal = sumBomRows(rows, row => row.totalMass);
   const priceTotal = sumBomRows(rows, row => row.totalPrice);
-  const aoa = [
+  /* 合計は「材質・メーカー」の列に置く。左の列数が変わってもずれないよう、見出しから数える。 */
+  const totalLabelIndex = BOM_COLUMNS.indexOf('材質・メーカー');
+  return [
     BOM_COLUMNS,
     ...rows.map(row => [
-      row.part.balloon, row.part.partNo, row.part.version, row.part.name, row.part.quantity, row.part.material,
+      row.part.balloon, row.part.partNo, row.part.version, row.part.name, row.part.quantity, row.part.unit ?? '', row.part.material,
       excelAmount(row.unitMass), excelAmount(row.totalMass), excelAmount(row.unitPrice), excelAmount(row.totalPrice), row.shaiUrl,
     ]),
-    ['', '', '', '', '', '合計', '', massTotal.total ? trimFloatNoise(massTotal.total) : '', '', priceTotal.total ? trimFloatNoise(priceTotal.total) : '', ''],
+    BOM_COLUMNS.map((column, index) =>
+      index === totalLabelIndex ? '合計'
+        : column === '合計質量（kg）' ? (massTotal.total ? trimFloatNoise(massTotal.total) : '')
+        : column === '金額（円）' ? (priceTotal.total ? trimFloatNoise(priceTotal.total) : '')
+        : ''),
   ];
+}
+
+export function exportBomExcel(list: PartsList, rows: BomRow[], sheetName: string) {
+  const aoa = bomExcelRows(rows);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), sheetName);
   /* ファイル名に使えない文字はWindowsに合わせて置き換える。 */

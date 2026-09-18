@@ -45,10 +45,10 @@ function DetailSection({ title, rows, tone, amountDisplay, onOpenChart, renderBa
         : <span>金額<b>{priceText(totals)}</b><i>{totals.price.counted}/{rows.length} 部品</i></span>}
     </div>
     {rows.length ? <div className="similarity-detail-table"><table>
-      <colgroup><col className="detail-balloon"/><col className="detail-part-no"/><col className="detail-version"/><col className="detail-name"/><col className="detail-quantity"/><col className="detail-material"/><col className="detail-amount-column"/></colgroup>
-      <thead><tr><th>風船</th><th>品番</th><th>Ver.</th><th>品名</th><th>数量</th><th>材質・メーカー</th><th>{showingMass ? '質量（kg）' : '金額（円）'}</th></tr></thead>
+      <colgroup><col className="detail-balloon"/><col className="detail-part-no"/><col className="detail-version"/><col className="detail-name"/><col className="detail-quantity"/><col className="detail-unit"/><col className="detail-material"/><col className="detail-amount-column"/></colgroup>
+      <thead><tr><th>風船</th><th>品番</th><th>Ver.</th><th>品名</th><th>数量</th><th>単位</th><th>材質・メーカー</th><th>{showingMass ? '質量（kg）' : '金額（円）'}</th></tr></thead>
       <tbody>{rows.map(({ part, unitMass, unitPrice, totalMass, totalPrice }) => <tr key={`${part.balloon}-${part.partNo}-${part.version}-${part.name}-${part.quantity}`}>
-        <td>{part.balloon}</td><td>{part.partNo}{renderBadges(part.partNo)}</td><td>{part.version}</td><td>{part.name}</td><td>{part.quantity}</td><td>{part.material}</td>
+        <td>{part.balloon}</td><td>{part.partNo}{renderBadges(part.partNo)}</td><td>{part.version}</td><td>{part.name}</td><td>{part.quantity}</td><td>{part.unit ?? ''}</td><td>{part.material}</td>
         {/* 表に出すのは数量をかけたあと。単品の値はカーソルを合わせると出す。 */}
         {showingMass
           ? <td className="detail-amount" title={unitMass === undefined ? '単品質量が入っていません。単体BOMで入力できます。' : `単品質量 ${formatAmount(unitMass)} kg × ${part.quantity}`}>{totalMass === undefined ? '—' : formatAmount(totalMass)}</td>
@@ -59,7 +59,8 @@ function DetailSection({ title, rows, tone, amountDisplay, onOpenChart, renderBa
 }
 
 const chartValue = (row: BomRow, display: AmountDisplay) => display === 'mass' ? row.totalMass : row.totalPrice;
-const chartRowLabel = (row: BomRow) => `${row.part.balloon} - ${row.part.partNo} (${row.part.quantity})`;
+/* 数量は個数のことが多く単位は空欄。ケーブルなど長さで数える部品だけ mm などを添える。 */
+const chartRowLabel = (row: BomRow) => `${row.part.balloon} - ${row.part.partNo} (${row.part.quantity}${row.part.unit ? ` ${row.part.unit}` : ''})`;
 const sortedChartRows = (rows: BomRow[], display: AmountDisplay, sort: ChartSort = 'value') => rows
   .flatMap(row => {
     const value = chartValue(row, display);
@@ -81,13 +82,13 @@ function exportChart(title: string, rows: BomRow[], sort: ChartSort) {
     const data = sortedChartRows(rows, display, sort);
     const total = data.reduce((sum, item) => sum + item.value, 0);
     const aoa = [
-      ['ラベル', '風船番号', '品番', '品名', '数量', display === 'mass' ? '合計質量（kg）' : '金額（円）', '全体に占める割合（%）'],
+      ['ラベル', '風船番号', '品番', '品名', '数量', '単位', display === 'mass' ? '合計質量（kg）' : '金額（円）', '全体に占める割合（%）'],
       ...data.map(({ row, value }) => [
         chartRowLabel(row), row.part.balloon, row.part.partNo,
-        row.part.name, row.part.quantity, trimFloatNoise(value), total ? Number((value / total * 100).toFixed(1)) : 0,
+        row.part.name, row.part.quantity, row.part.unit ?? '', trimFloatNoise(value), total ? Number((value / total * 100).toFixed(1)) : 0,
       ]),
       [],
-      ['単位', unit],
+      ['値の単位', unit],
       ['値あり', `${data.length}/${rows.length} 部品`],
     ];
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), sheetName);
@@ -179,9 +180,9 @@ function AmountSummary({ amounts, baseName, targetName, amountDisplay }: AmountS
 }
 
 const partRows = (rows: BomRow[]) => [
-  ['風船', '品番', 'Ver.', '品名', '数量', '材質・メーカー', '単品質量（kg）', '合計質量（kg）', '単価（円）', '金額（円）'],
+  ['風船', '品番', 'Ver.', '品名', '数量', '単位', '材質・メーカー', '単品質量（kg）', '合計質量（kg）', '単価（円）', '金額（円）'],
   ...rows.map(({ part, unitMass, unitPrice, totalMass, totalPrice }) =>
-    [part.balloon, part.partNo, part.version, part.name, part.quantity, part.material, excelAmount(unitMass), excelAmount(totalMass), excelAmount(unitPrice), excelAmount(totalPrice)]),
+    [part.balloon, part.partNo, part.version, part.name, part.quantity, part.unit ?? '', part.material, excelAmount(unitMass), excelAmount(totalMass), excelAmount(unitPrice), excelAmount(totalPrice)]),
 ];
 
 type ExportRows = { common: BomRow[]; baseOnly: BomRow[]; targetOnly: BomRow[] };
