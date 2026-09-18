@@ -974,6 +974,8 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .level40-heading { display: flex; align-items: flex-start; gap: 12px; }
 .level40-heading > div:first-child { flex: 1; min-width: 0; }
 .level40-heading h2 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 19px; }
+/* 40レベルはVer.ごとに中身が違うため、開いているVer.を番号の右隣に出す。 */
+.level40-title-version { padding: 2px 8px; border-radius: 9px; background: #eef0ff; color: #4651bc; font-size: 13px; font-weight: 750; }
 .level40-heading p { margin: 4px 0 0; color: #344054; font-size: 14px; }
 .level40-heading small { display: block; margin-top: 3px; color: #8a93a4; font-size: 12px; }
 .level40-heading > button:last-child { border: 0; padding: 2px 8px; font-size: 18px; color: #8a93a4; }
