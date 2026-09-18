@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type MouseEvent, type ReactNode } from 'react';
 import { displayMass, displayPrice, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
 import { BOM_COLUMNS, MASS_COLUMN, PRICE_COLUMN, sumBomRows, type BomRow } from './bom';
+import { partKey } from './csv';
 import type { PartsList } from './types';
 
 /** 40レベル部品の中身を開くための入口。マトリックスBOM・単体BOMで同じものを使う。 */
@@ -40,6 +41,16 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
   /* 質量と単価は見た目が似ていて取り違えやすいため、初めは編集できない状態にし、
      見出しの鍵ボタンで列ごとに切り替える。同じ画面でも別々に開け閉めできる。 */
   const [unlocked, setUnlocked] = useState<{ mass: boolean; price: boolean }>({ mass: false, price: false });
+  /* 明細は100行を超えることもあり、上から順に見ていくと「どこまで見たか」を見失いやすい。
+     クリックした行に目印を残し、図面を開いて戻ってきても続きから始められるようにする。
+     カーソルの色と違って動かないため、行の位置を覚えておく用途にはこちらを使う。 */
+  const [pickedKey, setPickedKey] = useState('');
+  const pickRow = (key: string) => (event: MouseEvent<HTMLTableRowElement>) => {
+    /* 入力欄・ボタン・リンクを押したときは目印を動かさない（値を入れている最中に
+       目印が移ったり消えたりすると、見ていた場所が分からなくなるため）。 */
+    if ((event.target as HTMLElement).closest('input, button, a, select, textarea')) return;
+    setPickedKey(current => current === key ? '' : key);
+  };
   const toggleLock = (field: 'mass' | 'price') => {
     /* 編集中の列を閉じるときは、書きかけの下書きを捨てる（保存はしない）。 */
     if (unlocked[field] && draft?.field === field) setDraft(null);
@@ -177,7 +188,11 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
           title={unlocked[field] ? `${label}の編集を止めます。書き換えないときは閉じておくと安全です。` : `${label}を編集できるようにします。`}
           onClick={() => toggleLock(field)}>{unlocked[field] ? '🔓' : '🔒'}</button>}</th>;
       })}</tr></thead>
-      <tbody>{rows.map((row, index) => <tr key={`${row.part.balloon}-${row.part.partNo}-${row.part.version}-${index}`}>
+      <tbody>{rows.map((row, index) => {
+        /* 目印は検索で絞り込んでも同じ行に残るよう、並び順ではなく明細の中身で見分ける。 */
+        const key = partKey(row.part), picked = pickedKey === key;
+        return <tr key={`${key}-${index}`} className={picked ? 'is-picked' : undefined} aria-current={picked ? 'true' : undefined}
+          title={picked ? 'この行に目印を付けています。もう一度押すと外します。' : undefined} onClick={pickRow(key)}>
         <td>{row.part.balloon}</td>
         <td className={isPurchasedPart(row.part.partNo) ? 'purchased-part' : undefined}>{partNoCell(row)}{renderBadges(row.part.partNo)}</td>
         <td>{row.part.version}</td>
@@ -191,7 +206,8 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         {amountCell(row, 'price')}
         <td className="solo-calc">{row.totalPrice === undefined ? '—' : formatAmount(row.totalPrice, 0)}</td>
         <td>{shaiCell(row)}</td>
-      </tr>)}</tbody>
+      </tr>;
+      })}</tbody>
       <tfoot><tr>
         <td colSpan={7}>{totalLabel}</td>
         <td />

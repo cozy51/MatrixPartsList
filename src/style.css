@@ -1091,6 +1091,18 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 /* 編集できる状態のときだけ枠も色を変える（閉じている欄は枠なしのまま）。 */
 .bom-table td.is-missing .solo-amount:not(.is-locked) { border-color: #edd3a2; }
 .bom-table td.is-missing .solo-amount::placeholder { color: #b5883c; }
+/* カーソルを乗せた行の黄色は、縞模様（tr:nth-child(even) td）と未入力の橙より
+   あとに置いて必ず上書きする。濃い方の縞で色が変わらないと、どの行を見ているのか
+   分からなくなるため。未入力のセルは、行が色付いても見分けが付く濃さにする。 */
+.bom-table tbody tr:hover td { background: #fff0d6; }
+.bom-table tbody tr:hover td.is-missing { background: #ffe6b5; }
+/* クリックした行は目印として残す。長い明細を上から順に見ていくとき、図面を開いて
+   戻ってきても続きから始められるよう、カーソルを外しても消えない色にする。 */
+.bom-table tbody tr.is-picked td { background: #ffeeaa; }
+.bom-table tbody tr.is-picked td.is-missing { background: #ffe492; }
+.bom-table tbody tr.is-picked td:first-child { box-shadow: inset 4px 0 #d99a12; }
+.bom-table tbody tr.is-picked:hover td { background: #ffe795; }
+.bom-table tbody tr.is-picked:hover td.is-missing { background: #ffdd80; }
 .solo-shai { display: flex; align-items: center; gap: 6px; }
 .shai-link { padding: 1px 6px; border: 1px solid #14755f; border-radius: 6px; background: #e9f7f1; color: #14755f; font-size: 11px; font-weight: 800; text-decoration: none; }
 .shai-link:hover { background: #14755f; color: #fff; }
