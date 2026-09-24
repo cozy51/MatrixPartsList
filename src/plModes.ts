@@ -15,6 +15,7 @@ const SRC350_MODES: PlMode[] = [
 
 const HU300_MODES: PlMode[] = [
   ['01', 'HOIST UNIT'], ['02', 'HAND UNIT'], ['03', 'CARRY FIXTURE(JIG)'],
+  ['04', 'FIXTURE'],
 ].map(([id, name]) => ({ id, label: `${id} ${name}` }));
 
 export const MACHINES: Machine[] = [
