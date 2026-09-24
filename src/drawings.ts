@@ -51,8 +51,17 @@ export type PartFact = {
   price: string;
   /** chemSHERPA（`.shai`）ファイルのリンク。置き場所（Google Drive・SharePointなど）は問わない。 */
   shaiUrl: string;
+  /** `.shai` 以外に品番へ紐づけるファイル（試験成績書・カタログなど）。説明付きで何件でも持てる。 */
+  files?: PartFile[];
   updatedAt: string;
 };
+
+/** 品番に紐づける「その他ファイル」1件。何のファイルか分かるよう、説明を添えて持つ。 */
+export type PartFile = { id: string; label: string; url: string };
+
+/** その他ファイルを整える。前後の空白を落とし、リンクの無い行は保存しない。 */
+export const normalizePartFiles = (files: PartFile[] | undefined): PartFile[] =>
+  (files ?? []).map(file => ({ ...file, label: file.label.trim(), url: file.url.trim() })).filter(file => file.url);
 
 export type DrawingData = { revision: number; updatedAt: string; drawings: DrawingLink[]; cadIds?: CadIdLink[]; models?: PartModelLink[]; partFacts?: PartFact[] };
 
@@ -570,7 +579,7 @@ export const partFactFor = (facts: PartFact[], partNo: string): PartFact | undef
   facts.find(item => drawingKey(item.partNo) === drawingKey(partNo));
 
 /**
- * 同じ品番の質量・価格・`.shai` は1件だけ持つ。入れ直すと上書きし、3つとも空に
+ * 同じ品番の質量・価格・`.shai`・その他ファイルは1件だけ持つ。入れ直すと上書きし、すべて空に
  * なった品番は記録ごと消す（同期するデータに空の記録を残さないため）。
  */
 export function upsertPartFact(facts: PartFact[], entry: PartFact): PartFact[] {
@@ -583,7 +592,10 @@ export function upsertPartFact(facts: PartFact[], entry: PartFact): PartFact[] {
     price: entry.price.trim(),
     shaiUrl: entry.shaiUrl.trim(),
   };
-  return next.mass || next.price || next.shaiUrl ? [...others, next] : others;
+  const files = normalizePartFiles(entry.files);
+  if (files.length) next.files = files;
+  else delete next.files;
+  return next.mass || next.price || next.shaiUrl || files.length ? [...others, next] : others;
 }
 
 export const removePartFact = (facts: PartFact[], partNo: string): PartFact[] =>

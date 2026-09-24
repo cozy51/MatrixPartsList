@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { normalizePlVersion, versionMatchKey } from './csv';
-import { parseAmount, partFactFor, type PartFact } from './drawings';
+import { parseAmount, partFactFor, type PartFact, type PartFile } from './drawings';
 import { isLevel40No, levelNoKey } from './levels';
 import { excludeNoteParts, isSupplementPart } from './matrix';
 import type { Part, PartsList } from './types';
@@ -37,6 +37,8 @@ export type BomRow = {
   massInput: string;
   priceInput: string;
   shaiUrl: string;
+  /** その他ファイル（説明付き・複数）。 */
+  files: PartFile[];
   /** CSV・Excelから読み込んだ単品質量。手入力していないことが分かるよう、目安として出す。 */
   csvMass: string;
   unitMass: number | undefined;
@@ -117,6 +119,7 @@ export function buildBomRows(parts: Part[], facts: PartFact[], level40Parts: Lev
       massInput: fact?.mass ?? '',
       priceInput: fact?.price ?? '',
       shaiUrl: fact?.shaiUrl ?? '',
+      files: fact?.files ?? [],
       csvMass: supplement ? '' : (part.unitMass ?? '').trim(),
       unitMass: amounts.mass,
       unitPrice: amounts.price,
@@ -152,8 +155,15 @@ export const PRICE_COLUMN = '単価（円）';
  */
 export const trimFloatNoise = (value: number): number => Math.round(value * 1e10) / 1e10;
 
+/** その他ファイルの列名。マトリックスBOMのExcel出力でも同じ名前を使う。 */
+export const OTHER_FILES_COLUMN = 'その他ファイル';
+
+/** Excelに入れるときは、1件1行で「説明: リンク」にする（説明が無ければリンクだけ）。 */
+export const partFilesText = (files: PartFile[] | undefined): string =>
+  (files ?? []).map(file => file.label ? `${file.label}: ${file.url}` : file.url).join('\n');
+
 /** 単体BOM・40レベル部品の中身で共通の列。表とExcel出力で同じ並びにする。 */
-export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '単位', '材質・メーカー', MASS_COLUMN, '合計質量（kg）', PRICE_COLUMN, '金額（円）', 'Shaiファイル'];
+export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '単位', '材質・メーカー', MASS_COLUMN, '合計質量（kg）', PRICE_COLUMN, '金額（円）', 'Shaiファイル', OTHER_FILES_COLUMN];
 
 /**
  * 明細をExcelへ出します。単体BOMのタブと、40レベル部品の中身のポップアップで
@@ -174,7 +184,7 @@ export function bomExcelRows(rows: BomRow[]): (string | number)[][] {
     BOM_COLUMNS,
     ...rows.map(row => [
       row.part.balloon, row.part.partNo, row.part.version, row.part.name, row.part.quantity, row.part.unit ?? '', row.part.material,
-      excelAmount(row.unitMass), excelAmount(row.totalMass), excelAmount(row.unitPrice), excelAmount(row.totalPrice), row.shaiUrl,
+      excelAmount(row.unitMass), excelAmount(row.totalMass), excelAmount(row.unitPrice), excelAmount(row.totalPrice), row.shaiUrl, partFilesText(row.files),
     ]),
     BOM_COLUMNS.map((column, index) =>
       index === totalLabelIndex ? '合計'

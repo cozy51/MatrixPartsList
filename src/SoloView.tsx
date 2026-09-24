@@ -80,7 +80,8 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
       </div>
 
       <p className="solo-note">
-        質量・価格・chemSHERPA（<code>.shai</code>）は<b>品番ごと</b>に保存します。どのPLから入れても、同じ品番なら同じ値を表示します。
+        質量・価格・chemSHERPA（<code>.shai</code>）・その他ファイルは<b>品番ごと</b>に保存します。どのPLから入れても、同じ品番なら同じ値を表示します。
+        <b>その他ファイル</b>には、試験成績書・カタログなど <code>.shai</code> 以外のファイルを、<b>説明を付けて何件でも</b>登録できます。
         単品質量は、CSV・Excelから読み込んだ値を薄い文字で出しています。<b>空欄のままならその値</b>を使い、入力すると入力した値で上書きします。
         単位は<b>kg</b>ですが、<code>8.28g</code> のように<b>gを付けて入力するとkgに直して</b>保存します（<code>0.00828</code>）。
         取り違えを防ぐため、<b>単品質量と単価は初めは編集できません</b>。見出しの <b>🔒</b> を押すと、その列だけ編集できるようになります（🔓）。
