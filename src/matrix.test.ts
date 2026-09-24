@@ -73,6 +73,7 @@ describe('reference workbook ordering', () => {
     expect(isStandardPl('hh110A0010')).toBe(true);
     expect(isStandardPl('HJ02100010')).toBe(true);
     expect(isStandardPl(' hj09301010 ')).toBe(true);
+    expect(isStandardPl('CY0LA00310')).toBe(true);
     expect(isStandardPl('HH3101K810')).toBe(false);
     expect(isStandardPl('HJ12100010')).toBe(false);
   });
@@ -81,6 +82,7 @@ describe('reference workbook ordering', () => {
     expect(isCustomerSpecialPl('hh3300dg10')).toBe(true);
     expect(isCustomerSpecialPl('HJ33101010')).toBe(true);
     expect(isCustomerSpecialPl(' hj3101k810 ')).toBe(true);
+    expect(isCustomerSpecialPl('HJ42C01110')).toBe(true);
     expect(isCustomerSpecialPl('HH13182010')).toBe(false);
     expect(isCustomerSpecialPl('HJ02100010')).toBe(false);
   });
@@ -88,8 +90,10 @@ describe('reference workbook ordering', () => {
     expect(plKindLabel('HH09201310')).toBe('STD');
     expect(plKindLabel('HH13182010')).toBe('STD');
     expect(plKindLabel('HJ09301010')).toBe('STD');
+    expect(plKindLabel('CY0LA00310')).toBe('STD');
     expect(plKindLabel('HH3310CB10')).toBe('CST');
     expect(plKindLabel('HJ33101010')).toBe('CST');
+    expect(plKindLabel('HJ42C01110')).toBe('CST');
     expect(plKindLabel('HD1DG01010')).toBe('');
     expect(plKindLabel('')).toBe('');
   });

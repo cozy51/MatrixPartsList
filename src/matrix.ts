@@ -22,11 +22,11 @@ export function sortPartsLists(lists: PartsList[]): PartsList[] {
   });
 }
 
-/** 機種コードが `HH0`・`HH1`・`HJ0` のPLは標準PL。一覧とヘッダーに `STD` を表示する。 */
-export const isStandardPl = (plNo: string): boolean => /^(HH0|HH1|HJ0)/i.test(plNo.trim());
+/** 機種コードが `HH0`・`HH1`・`HJ0`・`CY0` のPLは標準PL。一覧とヘッダーに `STD` を表示する。 */
+export const isStandardPl = (plNo: string): boolean => /^(HH0|HH1|HJ0|CY0)/i.test(plNo.trim());
 
-/** 機種コードが `HH3`・`HJ3` のPLは客先特殊PL。一覧とヘッダーに `CST` を表示する。 */
-export const isCustomerSpecialPl = (plNo: string): boolean => /^(HH3|HJ3)/i.test(plNo.trim());
+/** 機種コードが `HH3`・`HJ3`・`HJ4` のPLは客先特殊PL。一覧とヘッダーに `CST` を表示する。 */
+export const isCustomerSpecialPl = (plNo: string): boolean => /^(HH3|HJ3|HJ4)/i.test(plNo.trim());
 
 /**
  * PL番号から、一覧・ヘッダー・ツールチップに出す略称を返す。標準でも客先特殊でも
