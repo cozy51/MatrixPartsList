@@ -8,7 +8,7 @@ describe('PL display modes', () => {
     expect(plModeLabel('SRC350', '27')).toBe('27 LOGO STICKER');
     expect(MACHINES.map(machine => machine.id)).toEqual(['SRC350', 'HU300']);
     expect(plModesForMachine('HU300').map(mode => mode.label)).toEqual([
-      '01 HOIST UNIT', '02 HAND UNIT', '03 CARRY FIXTURE(JIG)',
+      '01 HOIST UNIT', '02 HAND UNIT', '03 CARRY FIXTURE(JIG)', '04 FIXTURE',
     ]);
   });
 
@@ -16,6 +16,10 @@ describe('PL display modes', () => {
     expect(inferPlMode('SRC350', '01_DRIVE_GEAR_BOX_2.csv')).toBe('01');
     expect(inferPlMode('SRC350', 'HH110A0010_2.csv', 'DRIVE GEAR BOX (350M3)')).toBe('01');
     expect(inferPlMode('HU300', '03 CARRY FIXTURE(JIG).xlsx')).toBe('03');
+    // FIXTURE は CARRY FIXTURE(JIG) の一部なので、長い名称が優先されること。
+    expect(inferPlMode('HU300', 'HH0003.csv', 'CARRY FIXTURE(JIG)')).toBe('03');
+    expect(inferPlMode('HU300', 'HH0004.csv', 'FIXTURE')).toBe('04');
+    expect(inferMachine('HH0004.csv', 'FIXTURE')).toBe('HU300');
     expect(inferPlMode('SRC350', 'unknown.csv', 'unknown')).toBe('');
     expect(inferMachine('HU300_01_HOIST_UNIT.csv')).toBe('HU300');
     expect(inferMachine('DRIVE GEAR BOX (350M3)')).toBe('SRC350');
