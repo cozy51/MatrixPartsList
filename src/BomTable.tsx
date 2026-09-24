@@ -1,5 +1,5 @@
 import { useState, type MouseEvent, type ReactNode } from 'react';
-import { displayMass, displayPrice, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact } from './drawings';
+import { displayMass, displayPrice, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact, type PartFile } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
 import { BOM_COLUMNS, MASS_COLUMN, PRICE_COLUMN, sumBomRows, type BomRow } from './bom';
@@ -38,6 +38,8 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
      リビジョンが上がり続けるため、確定（フォーカスを外す・Enter）で書き込む。 */
   const [draft, setDraft] = useState<{ partNo: string; field: 'mass' | 'price'; value: string } | null>(null);
   const [shaiDraft, setShaiDraft] = useState<{ partNo: string; value: string; error: string } | null>(null);
+  /* その他ファイルは複数件をまとめて編集し、「保存」でまとめて書き込む。 */
+  const [filesDraft, setFilesDraft] = useState<{ partNo: string; files: PartFile[]; error: string } | null>(null);
   /* 質量と単価は見た目が似ていて取り違えやすいため、初めは編集できない状態にし、
      見出しの鍵ボタンで列ごとに切り替える。同じ画面でも別々に開け閉めできる。 */
   const [unlocked, setUnlocked] = useState<{ mass: boolean; price: boolean }>({ mass: false, price: false });
@@ -85,6 +87,25 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     }
     saveFact(shaiDraft.partNo, 'shaiUrl', value);
     setShaiDraft(null);
+  };
+
+  const newFile = (): PartFile => ({ id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, label: '', url: '' });
+  const openFilesDraft = (partNo: string, files: PartFile[]) =>
+    setFilesDraft({ partNo, files: files.length ? files.map(file => ({ ...file })) : [newFile()], error: '' });
+  const changeDraftFile = (id: string, change: Partial<PartFile>) => {
+    if (filesDraft) setFilesDraft({ ...filesDraft, error: '', files: filesDraft.files.map(file => file.id === id ? { ...file, ...change } : file) });
+  };
+  const saveFilesDraft = () => {
+    if (!filesDraft) return;
+    /* リンクも説明も空の行は、書きかけの空行として捨てる。 */
+    const files = filesDraft.files.filter(file => file.url.trim() || file.label.trim());
+    if (files.some(file => !/^https?:\/\//i.test(file.url.trim()))) {
+      setFilesDraft({ ...filesDraft, error: 'リンクは http:// または https:// で始まるものを入力してください。' });
+      return;
+    }
+    const base = partFactFor(facts, filesDraft.partNo) ?? emptyPartFact(filesDraft.partNo);
+    onFactsChange(upsertPartFact(facts, { ...base, partNo: filesDraft.partNo, files, updatedAt: new Date().toISOString() }));
+    setFilesDraft(null);
   };
 
   /** 40レベルは中身を開けるようにする。Ver.が合わないときは、開けない理由を注記で知らせる。 */
@@ -174,11 +195,22 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     </span>;
   };
 
+  const filesCell = (row: BomRow) => {
+    const partNo = row.part.partNo;
+    if (isSupplementPart(partNo)) return <span className="solo-blank">—</span>;
+    return <span className="part-files">
+      {row.files.map(file => <a key={file.id} className="part-file-link" href={file.url} target="_blank" rel="noreferrer"
+        title={`${partNo} の${file.label || 'ファイル'}を開く`}>{file.label || 'ファイル'}</a>)}
+      <button type="button" className={`shai-edit ${row.files.length ? '' : 'is-empty'}`} title={`${partNo} のその他ファイルを${row.files.length ? '追加・変更' : '登録'}`}
+        onClick={() => openFilesDraft(partNo, row.files)}>{row.files.length ? '編集' : '＋ 登録'}</button>
+    </span>;
+  };
+
   return <>
     <div className="bom-table"><table>
       <colgroup>
         <col className="bom-balloon" /><col className="bom-part-no" /><col className="bom-version" /><col className="bom-name" /><col className="bom-quantity" /><col className="bom-unit" /><col className="bom-material" />
-        <col className="bom-mass" /><col className="bom-total-mass" /><col className="bom-price" /><col className="bom-total-price" /><col className="bom-shai" />
+        <col className="bom-mass" /><col className="bom-total-mass" /><col className="bom-price" /><col className="bom-total-price" /><col className="bom-shai" /><col className="bom-files" />
       </colgroup>
       <thead><tr>{BOM_COLUMNS.map(label => {
         /* 手入力する2列だけ、見出しに編集可・不可の切り替えを出す。 */
@@ -206,6 +238,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         {amountCell(row, 'price')}
         <td className="solo-calc">{row.totalPrice === undefined ? '—' : formatAmount(row.totalPrice, 0)}</td>
         <td>{shaiCell(row)}</td>
+        <td>{filesCell(row)}</td>
       </tr>;
       })}</tbody>
       <tfoot><tr>
@@ -214,6 +247,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         <td className="solo-calc">{massTotal.counted ? formatAmount(massTotal.total) : '—'}</td>
         <td />
         <td className="solo-calc">{priceTotal.counted ? formatAmount(priceTotal.total, 0) : '—'}</td>
+        <td />
         <td />
       </tr></tfoot>
     </table></div>
@@ -232,6 +266,31 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
           {partFactFor(facts, shaiDraft.partNo)?.shaiUrl && <button type="button" className="model-clear" onClick={() => { saveFact(shaiDraft.partNo, 'shaiUrl', ''); setShaiDraft(null); }}>登録を解除</button>}
           <button type="button" onClick={() => setShaiDraft(null)}>キャンセル</button>
           <button type="button" className="primary" onClick={saveShaiDraft}>保存</button>
+        </div>
+      </div>
+    </div>}
+
+    {filesDraft && <div className="modal-bg" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setFilesDraft(null); }}>
+      <div className="modal files-modal" role="dialog" aria-modal="true" aria-labelledby="files-modal-title">
+        <h2 id="files-modal-title">その他ファイルのリンク</h2>
+        <p><b>{filesDraft.partNo}</b> に紐づけるファイルを、説明と共有リンクで登録します。何件でも登録できます。</p>
+        <div className="part-files-editor">
+          <div className="part-files-head"><span>説明</span><span>ファイルのリンク</span><span /></div>
+          {filesDraft.files.map((file, index) => <div className="part-files-row" key={file.id}>
+            <input autoFocus={index === 0} value={file.label} placeholder="例: 試験成績書" aria-label={`${index + 1}件目の説明`}
+              onChange={event => changeDraftFile(file.id, { label: event.target.value })} />
+            <input value={file.url} placeholder="https://..." aria-label={`${index + 1}件目のリンク`}
+              onChange={event => changeDraftFile(file.id, { url: event.target.value })} />
+            <button type="button" className="part-files-remove" title="この行を削除" aria-label={`${index + 1}件目を削除`}
+              onClick={() => setFilesDraft({ ...filesDraft, error: '', files: filesDraft.files.filter(item => item.id !== file.id) })}>×</button>
+          </div>)}
+          <button type="button" className="part-files-add" onClick={() => setFilesDraft({ ...filesDraft, files: [...filesDraft.files, newFile()] })}>＋ 行を追加</button>
+        </div>
+        {filesDraft.error && <div className="model-message">{filesDraft.error}</div>}
+        <small className="model-note">Google Drive・SharePointなど、ブラウザーで開ける共有リンクを貼り付けてください。chemSHERPA（.shai）は「Shaiファイル」の列で登録します。</small>
+        <div className="modal-actions">
+          <button type="button" onClick={() => setFilesDraft(null)}>キャンセル</button>
+          <button type="button" className="primary" onClick={saveFilesDraft}>保存</button>
         </div>
       </div>
     </div>}

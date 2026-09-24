@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOM_COLUMNS, bomExcelRows, buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
+import { BOM_COLUMNS, bomExcelRows, partFilesText, buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
 import { emptyPartFact, upsertPartFact, type PartFact } from './drawings';
 import type { Part } from './types';
 
@@ -155,5 +155,10 @@ describe('Excelの表（単体BOM・40レベル部品の中身）', () => {
     expect(total[BOM_COLUMNS.indexOf('材質・メーカー')]).toBe('合計');
     expect(total[BOM_COLUMNS.indexOf('合計質量（kg）')]).toBe(0.6);
     expect(total[BOM_COLUMNS.indexOf('金額（円）')]).toBe('');
+  });
+  it('その他ファイルはExcelで1件1行の「説明: リンク」にする', () => {
+    expect(partFilesText([{ id: 'a', label: '試験成績書', url: 'https://example.com/a' }, { id: 'b', label: '', url: 'https://example.com/b' }]))
+      .toBe('試験成績書: https://example.com/a\nhttps://example.com/b');
+    expect(partFilesText(undefined)).toBe('');
   });
 });

@@ -795,6 +795,21 @@ describe('品番ごとの質量・価格・chemSHERPA（.shai）', () => {
     expect(removePartFact(facts, 'Z080670500')).toHaveLength(1);
   });
 
+  it('その他ファイルは説明付きで複数持て、リンクの無い行は保存しない', () => {
+    const at = '2026-01-01T00:00:00.000Z';
+    const files = [
+      { id: 'a', label: ' 試験成績書 ', url: ' https://example.com/test.pdf ' },
+      { id: 'b', label: 'カタログ', url: 'https://example.com/catalog.pdf' },
+      { id: 'c', label: '書きかけ', url: '  ' },
+    ];
+    const facts = upsertPartFact([], { ...emptyPartFact('HH110A5060'), files, updatedAt: at });
+    expect(partFactFor(facts, 'HH110A5060')?.files).toEqual([
+      { id: 'a', label: '試験成績書', url: 'https://example.com/test.pdf' },
+      { id: 'b', label: 'カタログ', url: 'https://example.com/catalog.pdf' },
+    ]);
+    expect(upsertPartFact(facts, { ...partFactFor(facts, 'HH110A5060')!, files: [], updatedAt: at })).toEqual([]);
+  });
+
   it('桁区切り・単位・全角を含む入力から数値を読み取る', () => {
     expect(parseAmount('1,200')).toBe(1200);
     expect(parseAmount(' 1.5 kg ')).toBe(1.5);
