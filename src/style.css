@@ -1122,3 +1122,8 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 /* 40レベル部品の中身のポップアップでも、単体BOMと同じ表を使う。列が増えたぶん幅を広げる。 */
 .level40-modal { width: min(1280px, 96vw); }
 .level40-modal .bom-table { max-height: min(58vh, 460px); }
+
+/* マトリックスBOMの .shai 列（「.shaiを表示」で出す）。PL列の右端に置く。 */
+th.shai-head, td.shai-cell { min-width: 72px; text-align: center; border-left: 2px solid #c8d1e2; }
+td.shai-cell .shai-link { display: inline-block; }
+td.shai-cell .shai-missing { color: #a0a7b4; font-size: 11px; }
