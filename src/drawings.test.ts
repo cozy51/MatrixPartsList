@@ -9,6 +9,7 @@ import {
   driveFileUrl,
   driveThumbnailUrl,
   modelFileIdFor,
+  modelImageFileName,
   parseDriveFileId,
   removePartModel,
   upsertPartModel,
@@ -757,6 +758,11 @@ describe('品番ごとの3Dモデル（Google Drive）', () => {
     expect(driveFileUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view');
     expect(driveThumbnailUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w320');
     expect(driveThumbnailUrl('1AbCdEfGhIjKlMnOp', 640)).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w640');
+  });
+
+  it('クリップボード画像は品番.pngで保存し、ファイル名に使えない文字は _ にする', () => {
+    expect(modelImageFileName(' HJ02101060 ')).toBe('HJ02101060.png');
+    expect(modelImageFileName('AB/12:3')).toBe('AB_12_3.png');
   });
 
   it('品番ごとに1件だけ持ち、登録し直すと上書きし、解除できる', () => {
