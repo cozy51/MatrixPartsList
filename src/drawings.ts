@@ -547,8 +547,8 @@ export const driveFileUrl = (fileId: string): string =>
  * 画像が出るのは、そのファイルを開ける状態のとき（リンクを知っている全員に共有、
  * またはブラウザーでDriveにログイン済み）に限る。出せないときは画像側で失敗する。
  */
-export const driveThumbnailUrl = (fileId: string, width = 320): string =>
-  `https://drive.google.com/thumbnail?id=${fileId.trim()}&sz=w${width}`;
+export const driveThumbnailUrl = (fileId: string, width = 320, version = ''): string =>
+  `https://drive.google.com/thumbnail?id=${fileId.trim()}&sz=w${width}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
 
 /**
  * 3Dモデル画像の置き場所（Google Drive の WebAppsData/MatrixPartsList/Image）。
@@ -563,8 +563,11 @@ export const modelImageFileName = (partNo: string): string =>
 export const driveFolderUrl = (folderId: string): string =>
   `https://drive.google.com/drive/folders/${folderId.trim()}`;
 
+export const modelLinkFor = (models: PartModelLink[], partNo: string): PartModelLink | undefined =>
+  models.find(item => drawingKey(item.partNo) === drawingKey(partNo));
+
 export const modelFileIdFor = (models: PartModelLink[], partNo: string): string =>
-  models.find(item => drawingKey(item.partNo) === drawingKey(partNo))?.fileId ?? '';
+  modelLinkFor(models, partNo)?.fileId ?? '';
 
 /** 同じ品番の3Dモデルは1件だけ持つ。登録し直すと上書きする。 */
 export function upsertPartModel(models: PartModelLink[], entry: PartModelLink): PartModelLink[] {
