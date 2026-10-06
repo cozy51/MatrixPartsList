@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import * as XLSX from 'xlsx';
 import { plLabel } from './csv';
-import { buildPlVersionGroups, calculatePlSimilarities, comparePlParts, isCustomerSpecialPl, plKindLabel, plVersionLabel, type PlPartComparison } from './matrix';
+import { buildPlVersionGroups, calculatePlSimilarities, comparePlParts, isCustomerSpecialPl, isPurchasedPart, plKindLabel, plVersionLabel, type PlPartComparison } from './matrix';
 import { buildBomRows, compareBomAmounts, excelAmount, totalsOf, trimFloatNoise, type BomRow, type BomTotals, type ComparisonAmounts, type Level40Parts } from './bom';
 import { formatAmount, type PartFact } from './drawings';
 import type { Part, PartsList } from './types';
@@ -48,7 +48,7 @@ function DetailSection({ title, rows, tone, amountDisplay, onOpenChart, renderBa
       <colgroup><col className="detail-balloon"/><col className="detail-part-no"/><col className="detail-version"/><col className="detail-name"/><col className="detail-quantity"/><col className="detail-unit"/><col className="detail-material"/><col className="detail-amount-column"/></colgroup>
       <thead><tr><th>風船</th><th>品番</th><th>Ver.</th><th>品名</th><th>数量</th><th>単位</th><th>材質・メーカー</th><th>{showingMass ? '質量（kg）' : '金額（円）'}</th></tr></thead>
       <tbody>{rows.map(({ part, unitMass, unitPrice, totalMass, totalPrice }) => <tr key={`${part.balloon}-${part.partNo}-${part.version}-${part.name}-${part.quantity}`}>
-        <td>{part.balloon}</td><td>{part.partNo}{renderBadges(part.partNo)}</td><td>{part.version}</td><td>{part.name}</td><td>{part.quantity}</td><td>{part.unit ?? ''}</td><td>{part.material}</td>
+        <td>{part.balloon}</td><td className={isPurchasedPart(part.partNo) ? 'purchased-part' : undefined}><span>{part.partNo}</span>{renderBadges(part.partNo)}</td><td>{part.version}</td><td>{part.name}</td><td>{part.quantity}</td><td>{part.unit ?? ''}</td><td>{part.material}</td>
         {/* 表に出すのは数量をかけたあと。単品の値はカーソルを合わせると出す。 */}
         {showingMass
           ? <td className="detail-amount" title={unitMass === undefined ? '単品質量が入っていません。単体BOMで入力できます。' : `単品質量 ${formatAmount(unitMass)} kg × ${part.quantity}`}>{totalMass === undefined ? '—' : formatAmount(totalMass)}</td>
