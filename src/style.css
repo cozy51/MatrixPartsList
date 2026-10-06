@@ -947,6 +947,8 @@ tbody tr:hover .model-link.is-empty, .pl:hover .model-link.is-empty, th.plhead:h
 .model-upload:hover:not(:disabled) { border-color: #5865e8; background: #f2f3fe; }
 .model-upload:disabled, .model-modal .primary:disabled { opacity: .6; cursor: wait; }
 .model-message { margin-top: 10px; padding: 9px 12px; border-radius: 8px; background: #fff3f4; color: #b4232d; font-size: 13px; font-weight: 650; }
+.model-grant { display: block; margin-top: 8px; border-color: #f0b4ba; color: #b4232d; font-weight: 750; }
+.model-grant:hover:not(:disabled) { border-color: #d92d3a; background: #fff; }
 .model-message.is-ok { background: #eef7f0; color: #1f7a45; }
 .model-note { display: block; margin: 10px 0 34px; color: #8a93a4; font-size: 12px; line-height: 1.5; }
 .model-folder { display: inline-block; margin-top: 8px; color: #5865e8; font-weight: 750; }
