@@ -945,7 +945,8 @@ tbody tr:hover .model-link.is-empty, .pl:hover .model-link.is-empty, th.plhead:h
 .model-input input:focus { outline: 2px solid #5865e8; outline-offset: 1px; }
 .model-upload { margin-top: 10px; border-color: #c7cdf7; color: #4651c9; font-weight: 750; }
 .model-upload:hover:not(:disabled) { border-color: #5865e8; background: #f2f3fe; }
-.model-upload:disabled, .model-modal .primary:disabled { opacity: .6; cursor: wait; }
+.model-upload:disabled { opacity: .6; cursor: wait; }
+.model-modal .primary:disabled { border-color: #ccd2e6; background: #ccd2e6; color: #fff; cursor: not-allowed; }
 .model-message { margin-top: 10px; padding: 9px 12px; border-radius: 8px; background: #fff3f4; color: #b4232d; font-size: 13px; font-weight: 650; }
 .model-grant { display: block; margin-top: 8px; border-color: #f0b4ba; color: #b4232d; font-weight: 750; }
 .model-grant:hover:not(:disabled) { border-color: #d92d3a; background: #fff; }
