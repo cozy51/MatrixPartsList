@@ -1,7 +1,9 @@
 import type { AppData } from './types';
 import type { DrawingData } from './drawings';
-const scope='https://www.googleapis.com/auth/drive.file'; type TokenClient={requestAccessToken:(o?:{prompt?:string})=>void};
-type TokenClientConfig={client_id:string;scope:string;callback:(r:{access_token?:string;error?:string})=>void;error_callback?:(e:{type?:string;message?:string})=>void};
+const scope='https://www.googleapis.com/auth/drive.file';
+/** アプリ外で作られたファイル（手動アップロードした画像など）を上書きするときだけ、追加で求める権限。 */
+export const DRIVE_FULL_SCOPE='https://www.googleapis.com/auth/drive'; type TokenClient={requestAccessToken:(o?:{prompt?:string})=>void};
+type TokenClientConfig={client_id:string;scope:string;include_granted_scopes?:boolean;callback:(r:{access_token?:string;error?:string})=>void;error_callback?:(e:{type?:string;message?:string})=>void};
 declare global{interface Window{google?:{accounts:{oauth2:{initTokenClient:(o:TokenClientConfig)=>TokenClient}}}}}
 let token='';const api=(url:string,init:RequestInit={})=>fetch(url,{...init,headers:{Authorization:`Bearer ${token}`,...init.headers}});
 export const DRIVE_ROOT_FOLDER='WebAppsData';
@@ -17,12 +19,13 @@ function waitForGoogle(timeoutMs=8000):Promise<NonNullable<Window['google']>>{re
  * Driveへログインする。`silent` のときは同意画面もアカウント選択も出さず、
  * すでに許可済みの場合だけ黙ってトークンを取り直す（起動時の自動ログイン）。
  * 許可がなければ失敗するので、呼ぶ側は何も知らせずに手動ログインを待つ。
+ * `scope` を渡すと、その権限を追加で求める（許可済みの権限はそのまま引き継ぐ）。
  */
-export async function signIn(options:{silent?:boolean}={}):Promise<void>{const id=import.meta.env.VITE_GOOGLE_CLIENT_ID;if(!id)throw new Error('Google Client IDが未設定です。');const google=await waitForGoogle();return new Promise((resolve,reject)=>{
+export async function signIn(options:{silent?:boolean;scope?:string}={}):Promise<void>{const id=import.meta.env.VITE_GOOGLE_CLIENT_ID;if(!id)throw new Error('Google Client IDが未設定です。');const google=await waitForGoogle();return new Promise((resolve,reject)=>{
   /* 黙ってのログインは、応答がないまま終わることがある。待ち続けないよう時間で打ち切る。 */
   const timer=options.silent?window.setTimeout(()=>reject(new Error('自動ログインできませんでした。')),10000):0;
   const done=(run:()=>void)=>{if(timer)window.clearTimeout(timer);run()};
-  google.accounts.oauth2.initTokenClient({client_id:id,scope,
+  google.accounts.oauth2.initTokenClient({client_id:id,scope:options.scope||scope,include_granted_scopes:true,
     callback:r=>done(()=>{if(r.access_token){token=r.access_token;resolve()}else reject(new Error(r.error||'ログインに失敗しました。'))}),
     error_callback:e=>done(()=>reject(new Error(e?.type||'ログインできませんでした。'))),
   }).requestAccessToken({prompt:options.silent?'none':''});});}
@@ -46,5 +49,5 @@ async function driveError(r:Response,message:string):Promise<Error>{let detail='
  * 権限が `drive.file` のため、見つけられるのはこのアプリで保存したファイルだけ。
  */
 export async function uploadImageFile(folderId:string,fileName:string,image:Blob):Promise<{id:string;replaced:boolean}>{const q=[`name='${fileName.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`,`'${folderId}' in parents`,'trashed=false'].join(' and ');const found=await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`);if(!found.ok)throw await driveError(found,'Driveの検索に失敗しました。');const id=((await found.json()).files?.[0] as {id:string}|undefined)?.id,type=image.type||'image/png';
-  if(id){const r=await api(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id`,{method:'PATCH',headers:{'Content-Type':type},body:image});if(!r.ok)throw await driveError(r,'Driveの画像の上書きに失敗しました。');return{id,replaced:true}}
+  if(id){const r=await api(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id`,{method:'PATCH',headers:{'Content-Type':type},body:image});/* 403はアプリ外で作られたファイルへの書き込み権限がないとき。呼ぶ側で権限を追加してやり直せるよう印を付ける。 */if(r.status===403)throw Object.assign(Error(`${fileName} はDriveで直接アップロードされたファイルのため、上書きにはDriveへの書き込みの許可が必要です。`),{status:403,needsWriteAccess:true});if(!r.ok)throw await driveError(r,'Driveの画像の上書きに失敗しました。');return{id,replaced:true}}
   const bd='matrixImageBoundary',head=`--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({name:fileName,mimeType:type,parents:[folderId]})}\r\n--${bd}\r\nContent-Type: ${type}\r\n\r\n`,body=new Blob([head,image,`\r\n--${bd}--`]);const r=await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Content-Type':`multipart/related; boundary=${bd}`},body});if(!r.ok)throw await driveError(r,'Driveへの画像の保存に失敗しました。フォルダーへの書き込み権限を確認してください。');const saved=await r.json() as {id?:string};if(!saved.id)throw Error('Driveへの画像の保存に失敗しました。');return{id:saved.id,replaced:false};}
