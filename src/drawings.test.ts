@@ -758,6 +758,8 @@ describe('品番ごとの3Dモデル（Google Drive）', () => {
     expect(driveFileUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view');
     expect(driveThumbnailUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w320');
     expect(driveThumbnailUrl('1AbCdEfGhIjKlMnOp', 640)).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w640');
+    /* 同じIDで上書きしたときは更新日時を付け、ブラウザーに残った古いサムネイルを使わせない。 */
+    expect(driveThumbnailUrl('1AbCdEfGhIjKlMnOp', 320, '2026-10-06T05:00:00.000Z')).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w320&v=2026-10-06T05%3A00%3A00.000Z');
   });
 
   it('クリップボード画像は品番.pngで保存し、ファイル名に使えない文字は _ にする', () => {
