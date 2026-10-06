@@ -552,9 +552,13 @@ export const driveThumbnailUrl = (fileId: string, width = 320): string =>
 
 /**
  * 3Dモデル画像の置き場所（Google Drive の WebAppsData/MatrixPartsList/Image）。
- * Drive APIは使わないため、登録画面からフォルダを開くリンクを出すためだけに持つ。
+ * 登録画面からフォルダを開くリンクと、クリップボード画像の保存先に使う。
  */
 export const MODEL_FOLDER_ID = '118t77JHqWQVTv_Vi74kExovh7RM5vdEN';
+
+/** クリップボード画像を保存するときのファイル名（品番.png）。ファイル名に使えない文字は _ にする。 */
+export const modelImageFileName = (partNo: string): string =>
+  `${partNo.trim().replace(/[\\/:*?"<>|]/g, '_')}.png`;
 
 export const driveFolderUrl = (folderId: string): string =>
   `https://drive.google.com/drive/folders/${folderId.trim()}`;

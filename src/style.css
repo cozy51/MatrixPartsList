@@ -943,6 +943,9 @@ tbody tr:hover .model-link.is-empty, .pl:hover .model-link.is-empty, th.plhead:h
 .model-input span { font-size: 13px; font-weight: 750; color: #344054; }
 .model-input input { width: 100%; padding: 10px 12px; border: 1px solid #d8dee9; border-radius: 8px; font: inherit; }
 .model-input input:focus { outline: 2px solid #5865e8; outline-offset: 1px; }
+.model-upload { margin-top: 10px; border-color: #c7cdf7; color: #4651c9; font-weight: 750; }
+.model-upload:hover:not(:disabled) { border-color: #5865e8; background: #f2f3fe; }
+.model-upload:disabled, .model-modal .primary:disabled { opacity: .6; cursor: wait; }
 .model-message { margin-top: 10px; padding: 9px 12px; border-radius: 8px; background: #fff3f4; color: #b4232d; font-size: 13px; font-weight: 650; }
 .model-message.is-ok { background: #eef7f0; color: #1f7a45; }
 .model-note { display: block; margin: 10px 0 34px; color: #8a93a4; font-size: 12px; line-height: 1.5; }
