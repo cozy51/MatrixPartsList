@@ -10,6 +10,8 @@ type Props = {
   onNoteChange: (listId: string, note: string) => void;
   /** PLの3Dモデルのサムネイル。未登録のときはnullを返す。 */
   renderThumbnail?: (plNo: string) => ReactNode;
+  /** PLの種類（STD・CST）や図面（PDF・EASMなど）の印。PL一覧と同じものを出す。 */
+  renderBadges?: (plNo: string) => ReactNode;
 };
 
 export function buildMachinePartsListRows(machine: (typeof MACHINES)[number], lists: PartsList[]) {
@@ -63,7 +65,7 @@ function exportMachinePartsLists(machine: (typeof MACHINES)[number], lists: Part
   XLSX.writeFile(workbook, `${machine.label}_登録PL一覧.xlsx`);
 }
 
-export default function DashboardView({ lists, onOpenUnit, onNoteChange, renderThumbnail }: Props) {
+export default function DashboardView({ lists, onOpenUnit, onNoteChange, renderThumbnail, renderBadges }: Props) {
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const toggleUnit = (key: string) => setExpandedUnits(current => {
     const next = new Set(current);
@@ -118,9 +120,10 @@ export default function DashboardView({ lists, onOpenUnit, onNoteChange, renderT
               <button className="dashboard-link" type="button" onClick={() => onOpenUnit(machine.id, mode.id)} aria-label={`${machine.label} ${mode.label}の部品表を開く`}>部品表へ →</button>
             </div>
             {expanded && <div className="dashboard-unit-lists" id={`dashboard-unit-${unitKey}`}>
-              <div className="dashboard-pl-header"><span>PL</span><span>3Dモデル</span><span>PL名称</span><span>備考</span></div>
+              <div className="dashboard-pl-header"><span>PL</span><span>図面など</span><span>3Dモデル</span><span>PL名称</span><span>備考</span></div>
               {unitLists.length ? unitLists.map(list => <div className="dashboard-pl-row" key={list.id}>
                 <b>{list.plNo}{list.plVersion ? <small> v{list.plVersion}</small> : null}</b>
+                <span className="dashboard-pl-badges pl-badges">{renderBadges?.(list.plNo)}</span>
                 <span className="dashboard-pl-thumb">{renderThumbnail?.(list.plNo)}</span>
                 <span>{list.plName || '—'}</span>
                 <input value={list.note ?? ''} onChange={event => onNoteChange(list.id, event.target.value)} aria-label={`${list.plNo}の備考`} placeholder="備考を入力" />
