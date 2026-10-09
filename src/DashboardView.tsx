@@ -25,6 +25,35 @@ export function buildMachinePartsListRows(machine: (typeof MACHINES)[number], li
     }));
 }
 
+const MACHINE_ORDER_KEY = 'matrix-parts-list.dashboard-machine-order';
+type Machine = (typeof MACHINES)[number];
+
+/** 保存した並び順で機種を並べる。保存にない機種（後から増えた機種）は元の順で後ろに付ける。 */
+export function orderMachines(machines: readonly Machine[], order: string[]): Machine[] {
+  const rank = new Map(order.map((id, index) => [id, index]));
+  return machines.map((machine, index) => ({ machine, index }))
+    .sort((a, b) => (rank.get(a.machine.id) ?? order.length + a.index) - (rank.get(b.machine.id) ?? order.length + b.index))
+    .map(item => item.machine);
+}
+
+/** `from` の機種を `to` の機種の位置へ移した並び順を返す。 */
+export function moveMachineId(ids: string[], from: string, to: string): string[] {
+  const start = ids.indexOf(from), end = ids.indexOf(to);
+  if (start < 0 || end < 0 || start === end) return ids;
+  const next = [...ids];
+  next.splice(start, 1);
+  next.splice(end, 0, from);
+  return next;
+}
+
+/* 並び順は見る人ごとの好みのため、この端末のブラウザーにだけ保存する。 */
+function readMachineOrder(): string[] {
+  try { const saved = JSON.parse(localStorage.getItem(MACHINE_ORDER_KEY) ?? '[]'); return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []; } catch { return []; }
+}
+function saveMachineOrder(order: string[]) {
+  try { localStorage.setItem(MACHINE_ORDER_KEY, JSON.stringify(order)); } catch { /* 保存できなくても並べ替えはできる */ }
+}
+
 function exportMachinePartsLists(machine: (typeof MACHINES)[number], lists: PartsList[]) {
   const rows = buildMachinePartsListRows(machine, lists);
   const sheet = XLSX.utils.json_to_sheet(rows, { header: ['ユニット名', 'PL', 'PL名称', 'PL Ver.', '備考'] });
@@ -43,6 +72,19 @@ export default function DashboardView({ lists, onOpenUnit, onNoteChange, renderT
   });
   /* 機種ごとにも折りたためるようにする。最初はすべて開いておく。 */
   const [collapsedMachines, setCollapsedMachines] = useState<Set<string>>(new Set());
+  /* 機種の塊は、左端のつまみをドラッグして並べ替えられる。 */
+  const [machineOrder, setMachineOrder] = useState<string[]>(readMachineOrder);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const orderedMachines = orderMachines(MACHINES, machineOrder);
+  const dropMachine = (target: string) => {
+    if (dragging && dragging !== target) {
+      const next = moveMachineId(orderedMachines.map(machine => machine.id), dragging, target);
+      setMachineOrder(next);
+      saveMachineOrder(next);
+    }
+    setDragging(null); setDragOver(null);
+  };
   const toggleMachine = (id: string) => setCollapsedMachines(current => {
     const next = new Set(current);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -54,11 +96,15 @@ export default function DashboardView({ lists, onOpenUnit, onNoteChange, renderT
       <div><h2 id="dashboard-title">登録状況ダッシュボード</h2><p>ユニットをクリックすると、登録済みのPLとPL名称を確認できます。</p></div>
       <strong>{lists.length}<span> 登録PL</span></strong>
     </div>
-    <div className="machine-tree">{MACHINES.map(machine => {
+    <div className="machine-tree">{orderedMachines.map(machine => {
       const machineLists = lists.filter(list => list.machineId === machine.id);
       const machineExpanded = !collapsedMachines.has(machine.id);
-      return <section className={`machine-branch ${machineExpanded ? '' : 'is-collapsed'}`} key={machine.id}>
-        <div className="machine-node"><button className="machine-toggle" type="button" aria-expanded={machineExpanded} aria-controls={`dashboard-machine-${machine.id}`} onClick={() => toggleMachine(machine.id)}><span className="tree-icon" aria-hidden="true">▾</span><div><b>{machine.label}</b><small>{machine.modes.length} ユニット</small></div></button><div className="machine-node-actions"><strong>{machineLists.length}件</strong><button className="excel" type="button" onClick={() => exportMachinePartsLists(machine, lists)}>Excel DL</button></div></div>
+      return <section className={`machine-branch ${machineExpanded ? '' : 'is-collapsed'} ${dragging === machine.id ? 'is-dragging' : ''} ${dragOver === machine.id && dragging !== machine.id ? 'is-drag-over' : ''}`} key={machine.id}
+        onDragOver={event => { if (!dragging) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (dragOver !== machine.id) setDragOver(machine.id); }}
+        onDrop={event => { event.preventDefault(); dropMachine(machine.id); }}
+        onDragEnd={() => { setDragging(null); setDragOver(null); }}>
+        <div className="machine-node"><span className="machine-grip" aria-hidden="true" title="ドラッグして機種の順序を変更" draggable
+          onDragStart={event => { const block = event.currentTarget.closest('.machine-branch'); if (block) event.dataTransfer.setDragImage(block, 20, 20); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', machine.id); setDragging(machine.id); }}>⋮⋮</span><button className="machine-toggle" type="button" aria-expanded={machineExpanded} aria-controls={`dashboard-machine-${machine.id}`} onClick={() => toggleMachine(machine.id)}><span className="tree-icon" aria-hidden="true">▾</span><div><b>{machine.label}</b><small>{machine.modes.length} ユニット</small></div></button><div className="machine-node-actions"><strong>{machineLists.length}件</strong><button className="excel" type="button" onClick={() => exportMachinePartsLists(machine, lists)}>Excel DL</button></div></div>
         {machineExpanded && <ul id={`dashboard-machine-${machine.id}`}>{machine.modes.map(mode => {
           const unitLists = sortPartsLists(machineLists.filter(list => list.modeId === mode.id));
           const unitKey = `${machine.id}-${mode.id}`;
