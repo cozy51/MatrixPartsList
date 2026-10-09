@@ -19,13 +19,15 @@ function waitForGoogle(timeoutMs=8000):Promise<NonNullable<Window['google']>>{re
  * Driveへログインする。`silent` のときは同意画面もアカウント選択も出さず、
  * すでに許可済みの場合だけ黙ってトークンを取り直す（起動時の自動ログイン）。
  * 許可がなければ失敗するので、呼ぶ側は何も知らせずに手動ログインを待つ。
- * `scope` を渡すと、その権限を追加で求める（許可済みの権限はそのまま引き継ぐ）。
+ * `scope` を渡すと、その権限で求め直す（`drive` は `drive.file` を含むので、そのまま使える）。
+ * 同じClient IDを使う別アプリで許可したYouTubeなどの権限は、Driveの権限と一緒に求められず
+ * 「アクセスをブロック: 認証エラーです（400 invalid_request）」になるため、許可済みの権限は引き継がない。
  */
 export async function signIn(options:{silent?:boolean;scope?:string}={}):Promise<void>{const id=import.meta.env.VITE_GOOGLE_CLIENT_ID;if(!id)throw new Error('Google Client IDが未設定です。');const google=await waitForGoogle();return new Promise((resolve,reject)=>{
   /* 黙ってのログインは、応答がないまま終わることがある。待ち続けないよう時間で打ち切る。 */
   const timer=options.silent?window.setTimeout(()=>reject(new Error('自動ログインできませんでした。')),10000):0;
   const done=(run:()=>void)=>{if(timer)window.clearTimeout(timer);run()};
-  google.accounts.oauth2.initTokenClient({client_id:id,scope:options.scope||scope,include_granted_scopes:true,
+  google.accounts.oauth2.initTokenClient({client_id:id,scope:options.scope||scope,include_granted_scopes:false,
     callback:r=>done(()=>{if(r.access_token){token=r.access_token;resolve()}else reject(new Error(r.error||'ログインに失敗しました。'))}),
     error_callback:e=>done(()=>reject(new Error(e?.type||'ログインできませんでした。'))),
   }).requestAccessToken({prompt:options.silent?'none':''});});}
