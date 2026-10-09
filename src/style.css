@@ -252,7 +252,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   font-weight: 700;
 }
 
-.sidebar-pl-label { position: relative; display: inline-block; cursor: help; outline-offset: 3px; }
+.sidebar-pl-label { position: relative; display: inline-block; cursor: inherit; outline-offset: 3px; }
 .sidebar-pl-tooltip {
   top: calc(100% + 10px);
   left: -28px;
