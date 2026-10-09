@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import * as XLSX from 'xlsx';
 import { MACHINES } from './plModes';
 import { sortPartsLists } from './matrix';
@@ -8,6 +8,8 @@ type Props = {
   lists: PartsList[];
   onOpenUnit: (machineId: string, modeId: string) => void;
   onNoteChange: (listId: string, note: string) => void;
+  /** PLの3Dモデルのサムネイル。未登録のときはnullを返す。 */
+  renderThumbnail?: (plNo: string) => ReactNode;
 };
 
 export function buildMachinePartsListRows(machine: (typeof MACHINES)[number], lists: PartsList[]) {
@@ -32,11 +34,18 @@ function exportMachinePartsLists(machine: (typeof MACHINES)[number], lists: Part
   XLSX.writeFile(workbook, `${machine.label}_登録PL一覧.xlsx`);
 }
 
-export default function DashboardView({ lists, onOpenUnit, onNoteChange }: Props) {
+export default function DashboardView({ lists, onOpenUnit, onNoteChange, renderThumbnail }: Props) {
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const toggleUnit = (key: string) => setExpandedUnits(current => {
     const next = new Set(current);
     if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  /* 機種ごとにも折りたためるようにする。最初はすべて開いておく。 */
+  const [collapsedMachines, setCollapsedMachines] = useState<Set<string>>(new Set());
+  const toggleMachine = (id: string) => setCollapsedMachines(current => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
 
@@ -47,9 +56,10 @@ export default function DashboardView({ lists, onOpenUnit, onNoteChange }: Props
     </div>
     <div className="machine-tree">{MACHINES.map(machine => {
       const machineLists = lists.filter(list => list.machineId === machine.id);
-      return <section className="machine-branch" key={machine.id}>
-        <div className="machine-node"><span className="tree-icon" aria-hidden="true">▾</span><div><b>{machine.label}</b><small>{machine.modes.length} ユニット</small></div><div className="machine-node-actions"><strong>{machineLists.length}件</strong><button className="excel" type="button" onClick={() => exportMachinePartsLists(machine, lists)}>Excel DL</button></div></div>
-        <ul>{machine.modes.map(mode => {
+      const machineExpanded = !collapsedMachines.has(machine.id);
+      return <section className={`machine-branch ${machineExpanded ? '' : 'is-collapsed'}`} key={machine.id}>
+        <div className="machine-node"><button className="machine-toggle" type="button" aria-expanded={machineExpanded} aria-controls={`dashboard-machine-${machine.id}`} onClick={() => toggleMachine(machine.id)}><span className="tree-icon" aria-hidden="true">▾</span><div><b>{machine.label}</b><small>{machine.modes.length} ユニット</small></div></button><div className="machine-node-actions"><strong>{machineLists.length}件</strong><button className="excel" type="button" onClick={() => exportMachinePartsLists(machine, lists)}>Excel DL</button></div></div>
+        {machineExpanded && <ul id={`dashboard-machine-${machine.id}`}>{machine.modes.map(mode => {
           const unitLists = sortPartsLists(machineLists.filter(list => list.modeId === mode.id));
           const unitKey = `${machine.id}-${mode.id}`;
           const expanded = expandedUnits.has(unitKey);
@@ -62,15 +72,16 @@ export default function DashboardView({ lists, onOpenUnit, onNoteChange }: Props
               <button className="dashboard-link" type="button" onClick={() => onOpenUnit(machine.id, mode.id)} aria-label={`${machine.label} ${mode.label}の部品表を開く`}>部品表へ →</button>
             </div>
             {expanded && <div className="dashboard-unit-lists" id={`dashboard-unit-${unitKey}`}>
-              <div className="dashboard-pl-header"><span>PL</span><span>PL名称</span><span>備考</span></div>
+              <div className="dashboard-pl-header"><span>PL</span><span>3Dモデル</span><span>PL名称</span><span>備考</span></div>
               {unitLists.length ? unitLists.map(list => <div className="dashboard-pl-row" key={list.id}>
                 <b>{list.plNo}{list.plVersion ? <small> v{list.plVersion}</small> : null}</b>
+                <span className="dashboard-pl-thumb">{renderThumbnail?.(list.plNo)}</span>
                 <span>{list.plName || '—'}</span>
                 <input value={list.note ?? ''} onChange={event => onNoteChange(list.id, event.target.value)} aria-label={`${list.plNo}の備考`} placeholder="備考を入力" />
               </div>) : <p className="dashboard-unit-empty">登録済みPLはありません。</p>}
             </div>}
           </li>;
-        })}</ul>
+        })}</ul>}
       </section>;
     })}</div>
   </section>;
