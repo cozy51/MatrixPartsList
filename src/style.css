@@ -1164,7 +1164,7 @@ td.files-cell .shai-missing { display: block; text-align: center; color: #a0a7b4
 
 /* ダッシュボード: 機種の見出しを押して折りたたむ。閉じているときは矢印を横向きにする。 */
 .machine-toggle { display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 9px; padding: 0; border: 0; background: none; color: inherit; text-align: left; }
-.machine-node { grid-template-columns: 1fr auto; }
+.machine-node { grid-template-columns: auto 1fr auto; }
 .machine-branch.is-collapsed .machine-node .tree-icon { display: inline-block; transform: rotate(-90deg); }
 /* ダッシュボードのPLごとの3Dモデルのサムネイル。 */
 .dashboard-pl-thumb { display: flex; align-items: center; }
@@ -1172,3 +1172,8 @@ td.files-cell .shai-missing { display: block; text-align: center; color: #a0a7b4
 .pl-thumb-link { display: inline-flex; border-radius: 6px; }
 .pl-thumb-link:hover .pl-thumb, .pl-thumb-link:focus-visible .pl-thumb { border-color: #5865e8; box-shadow: 0 0 0 2px #5865e824; }
 .pl .pl-thumb-link { flex: none; }
+/* ダッシュボード: 機種の塊を左端のつまみでドラッグして並べ替える。 */
+.machine-grip { align-self: stretch; display: flex; align-items: center; margin: -15px 0 -15px -17px; padding: 0 6px 0 10px; color: #8e99cf; font-size: 14px; letter-spacing: -3px; cursor: grab; user-select: none; }
+.machine-grip:hover { color: #3547ad; background: #dde3ff; }
+.machine-branch.is-dragging { opacity: .5; }
+.machine-branch.is-drag-over { outline: 2px dashed #5865e8; outline-offset: 2px; }

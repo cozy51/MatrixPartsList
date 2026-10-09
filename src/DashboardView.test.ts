@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMachinePartsListRows } from './DashboardView';
+import { buildMachinePartsListRows, moveMachineId, orderMachines } from './DashboardView';
 import { MACHINES } from './plModes';
 import type { PartsList } from './types';
 
@@ -25,5 +25,17 @@ describe('dashboard Excel rows', () => {
       { ユニット名: '01 DRIVE GEAR BOX', PL: 'PL2', PL名称: 'DRIVE 2', 'PL Ver.': '02', 備考: '要確認' },
       { ユニット名: '02 STEERING UNIT(R)', PL: 'PL10', PL名称: 'STEERING 10', 'PL Ver.': '02', 備考: '' },
     ]);
+  });
+});
+
+describe('dashboard machine order', () => {
+  it('orders machines by the saved order and appends unknown machines in their original order', () => {
+    const ids = orderMachines(MACHINES, [MACHINES[MACHINES.length - 1].id, 'UNKNOWN']).map(machine => machine.id);
+    expect(ids).toEqual([MACHINES[MACHINES.length - 1].id, ...MACHINES.slice(0, -1).map(machine => machine.id)]);
+  });
+  it('moves a machine to the position of the drop target', () => {
+    expect(moveMachineId(['A', 'B', 'C'], 'A', 'C')).toEqual(['B', 'C', 'A']);
+    expect(moveMachineId(['A', 'B', 'C'], 'C', 'A')).toEqual(['C', 'A', 'B']);
+    expect(moveMachineId(['A', 'B', 'C'], 'B', 'B')).toEqual(['A', 'B', 'C']);
   });
 });
