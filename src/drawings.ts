@@ -399,6 +399,19 @@ export const parseDrawingClipboardAll = (text: string, knownPartNos: Iterable<st
 export const isOpenableUrl = (url: string): boolean => /^https?:\/\//i.test(url.trim());
 
 /**
+ * 図面をブラウザーで開くときのURL。社内システムの `file.proxy` はPDFを
+ * ダウンロード扱い（Content-Disposition: attachment）で返すため、Chromeで
+ * 「PDFをChromeで開く」を設定していても保存されてしまう。PDFは中継を通さず
+ * 実ファイルのURLを直接開き、ブラウザーのPDFビューアーで表示させる。
+ * PDF以外（DXF・eDrawingsなど）はアプリで開くため、元のリンクのままにする。
+ */
+export function openUrlFor(url: string): string {
+  const fileUrl = resolveFileUrl(url.trim());
+  if (fileUrl === url.trim()) return url;
+  return /\.pdf$/i.test(fileNameOf(fileUrl)) ? fileUrl : url;
+}
+
+/**
  * 品番から図面を引くための索引。1品番が複数図面を持つ場合は登録順に並ぶ。
  * 対象品番に加えて、11桁の図番から導いた品番でも引けるようにするため、
  * 図番＝品番で登録した組立図も部品表からたどれる。
