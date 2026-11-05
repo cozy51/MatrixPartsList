@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  openUrlFor,
   buildDrawingLink,
   buildPartDrawingIndex,
   detectDrawingCategory,
@@ -919,5 +920,17 @@ describe('品番ごとの質量・価格・chemSHERPA（.shai）', () => {
     expect(formatAmount(1234.5)).toBe('1,234.5');
     expect(formatAmount(1234.5678)).toBe('1,234.568');
     expect(formatAmount(1234.5, 0)).toBe('1,235');
+  });
+});
+
+describe('openUrlFor', () => {
+  it('PDFは社内システムの中継を通さず実ファイルを直接開く', () => {
+    expect(openUrlFor(PROXY_URL)).toBe('https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HH1/4397264_HH110A5060.pdf');
+    expect(openUrlFor(SHARED_SHEET)).toBe('https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/MVS/2473906_MVS570%23%2360_4.pdf');
+  });
+  it('PDF以外や中継でないリンクはそのまま開く', () => {
+    const easm = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/eDrawings/HH1/5031809_HH11105B120.easm';
+    expect(openUrlFor(easm)).toBe(easm);
+    expect(openUrlFor('https://example.com/a.pdf')).toBe('https://example.com/a.pdf');
   });
 });

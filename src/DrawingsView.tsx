@@ -24,6 +24,7 @@ import {
   upsertDrawing,
   type DrawingLink,
   type ParsedDrawing,
+  openUrlFor,
 } from './drawings';
 
 type Props = {
@@ -350,7 +351,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
         <td>{drawing.note || '—'}</td>
         <td className="drawing-actions">
           {isOpenableUrl(drawing.url)
-            ? <a className="drawing-open" href={drawing.url} target="_blank" rel="noreferrer">開く</a>
+            ? <a className="drawing-open" href={openUrlFor(drawing.url)} target="_blank" rel="noreferrer">開く</a>
             : <span className="drawing-open is-disabled" title="http/https以外のリンクはブラウザーから開けません">開く</span>}
           <button type="button" onClick={() => void copyUrl(drawing.url)}>リンクコピー</button>
           <button type="button" onClick={() => edit(drawing)}>編集</button>
