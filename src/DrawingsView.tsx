@@ -356,7 +356,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
           {isOpenableUrl(drawing.url)
             ? <a className="drawing-open" href={openUrlFor(drawing.url)} target="_blank" rel="noreferrer">開く</a>
             : <span className="drawing-open is-disabled" title="http/https以外のリンクはブラウザーから開けません">開く</span>}
-          <button type="button" onClick={() => void copyUrl(drawing.url)}>リンクコピー</button>
+          <button type="button" onClick={() => void copyUrl(openUrlFor(drawing.url))}>リンクコピー</button>
           <button type="button" onClick={() => edit(drawing)}>編集</button>
           <button type="button" onClick={() => { if (confirm(`${drawing.drawingNo} の図面リンクを削除しますか？`)) onChange(removeDrawing(drawings, drawing.id)); }}>削除</button>
         </td>
