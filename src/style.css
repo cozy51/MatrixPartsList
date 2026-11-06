@@ -1002,6 +1002,9 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .drawing-choice a b { color: #3346ba; }
 .drawing-choice a small { grid-column: 2; color: #8a93a4; font-size: 12px; word-break: break-all; }
 .drawing-choice-blocked { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: #fff4e6; border: 1px solid #f5c27a; color: #9a3412; font-size: 13px; }
+.drawing-choice-blocked p { margin: 6px 0 0; }
+.drawing-choice-blocked ol { margin: 6px 0 0; padding-left: 20px; }
+.drawing-choice-blocked code { background: #fff; border: 1px solid #f5c27a; border-radius: 4px; padding: 0 4px; word-break: break-all; }
 
 /* CAD IDから流用した図面は、青の実線と CAD の印で区別する。破線では気づきにくいため、
    枠線に同じ色の影を重ねて2pxぶんの太さに見せる（高さは変えない）。 */
