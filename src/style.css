@@ -1001,6 +1001,7 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .drawing-choice a:hover { border-color: #5865e8; background: #f2f4ff; }
 .drawing-choice a b { color: #3346ba; }
 .drawing-choice a small { grid-column: 2; color: #8a93a4; font-size: 12px; word-break: break-all; }
+.drawing-choice-blocked { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: #fff4e6; border: 1px solid #f5c27a; color: #9a3412; font-size: 13px; }
 
 /* CAD IDから流用した図面は、青の実線と CAD の印で区別する。破線では気づきにくいため、
    枠線に同じ色の影を重ねて2pxぶんの太さに見せる（高さは変えない）。 */
