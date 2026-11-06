@@ -35,6 +35,8 @@ type Props = {
   /** 他の画面から引き継いだ取り込み文字列。確認が必要なリンクを受け取る。 */
   intakeText?: string;
   onIntakeHandled?: () => void;
+  /** 画面上部の全体検索から開いたときの検索語。id が変わるたびに検索欄へ入れる。 */
+  searchRequest?: { query: string; id: number };
 };
 
 type Draft = Omit<DrawingLink, 'updatedAt'> & { isNew: boolean };
@@ -70,7 +72,7 @@ function exportDrawings(drawings: DrawingLink[]) {
   XLSX.writeFile(workbook, '図面リンク一覧.xlsx');
 }
 
-export default function DrawingsView({ drawings, onChange, knownPartNos, intakeText, onIntakeHandled }: Props) {
+export default function DrawingsView({ drawings, onChange, knownPartNos, intakeText, onIntakeHandled, searchRequest }: Props) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [partNoInput, setPartNoInput] = useState('');
   const [pasted, setPasted] = useState('');
@@ -87,6 +89,7 @@ export default function DrawingsView({ drawings, onChange, knownPartNos, intakeT
   const pageCount = Math.max(1, Math.ceil(listed.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const paged = useMemo(() => listed.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [listed, currentPage]);
+  useEffect(() => { if (searchRequest) setSearch(searchRequest.query); }, [searchRequest]);
   // 検索や削除で件数が変わったときは、存在しないページに留まらないよう先頭へ戻す。
   useEffect(() => { setPage(1); }, [search]);
   useEffect(() => { setPage(value => Math.min(value, pageCount)); }, [pageCount]);
