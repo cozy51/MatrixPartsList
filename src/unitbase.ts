@@ -157,14 +157,26 @@ export async function saveUnitBase(data: UnitBaseData | undefined): Promise<void
   });
 }
 
-/** 取り込み済みのUnitBaseを読み込み、置き換える入口をまとめたもの。 */
+/** 新しい方を採用するための比較。取り込んだ日時が新しいものを新しいとみなす。 */
+export const isNewerUnitBase = (candidate: UnitBaseData | undefined, current: UnitBaseData | undefined) =>
+  !!candidate && (!current || candidate.importedAt > current.importedAt);
+
+/**
+ * 取り込み済みのUnitBaseを持つ。正本はGoogle Drive（`MatrixPartsList-unitbase.json`）で、
+ * 部品表・図面リンクと同じ同期で読み書きする。IndexedDBは、起動直後やオフラインでも
+ * 表示できるようにするための写しとして使う。
+ */
 export function useUnitBase() {
   const [data, setData] = useState<UnitBaseData | undefined>();
-  useEffect(() => { loadUnitBase().then(setData).catch(() => undefined); }, []);
+  /* 端末の写しを読み終えるまでは、Driveとの同期で新旧を比べられないため待ってもらう。 */
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    loadUnitBase().then(saved => setData(current => current ?? saved)).catch(() => undefined).finally(() => setLoaded(true));
+  }, []);
   const replace = useCallback(async (next: UnitBaseData | undefined) => {
     setData(next);
     await saveUnitBase(next);
   }, []);
   const lookup = useMemo<UnitBaseLookup>(() => partNo => unitBaseValue(data, partNo), [data]);
-  return { data, replace, lookup };
+  return { data, loaded, replace, lookup };
 }
