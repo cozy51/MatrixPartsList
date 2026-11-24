@@ -1215,3 +1215,29 @@ td.files-cell .shai-missing { display: block; text-align: center; color: #a0a7b4
 .sync.未ログイン { color: #c2410c; background: #fff; border: 1px solid #f59f00; border-radius: 999px; padding: 3px 10px; }
 .login-needed { background: #f08c00; border-color: #f08c00; color: #fff; font-weight: 700; box-shadow: 0 0 0 3px #f08c0033; }
 .login-needed:hover { background: #e67700; border-color: #e67700; }
+
+/* 単体BOMもマトリックスBOMと同じく、表の中だけをスクロールすると見える範囲が狭いため、
+   スクロールは main 側にまとめ、表は内容の高さまで伸ばす。項目名の行だけを上端に固定し、
+   表以外（PLの選択・UnitBase・合計・説明）は横スクロールしても左端に留める。 */
+main.view-solo {
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 0 20px;
+}
+/* 白い枠の箱をやめ、中身を main の行として直接並べる（表だけを全幅に広げるため）。 */
+main.view-solo > .solo-view { display: contents; }
+main.view-solo > *:not(.solo-view),
+main.view-solo > .solo-view > *:not(.bom-table):not(.modal-bg) { flex: none; position: sticky; left: 0; margin-left: 20px; margin-right: 20px; }
+main.view-solo > .view-tabs { margin-top: 20px; }
+main.view-solo > .solo-view > .solo-head { margin-top: 4px; }
+main.view-solo > .solo-view > .bom-table {
+  flex: 1 0 auto;
+  min-height: auto;
+  overflow: visible;
+  margin: 12px 0 0;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+}
+/* 項目名の行は main の上端に固定する。合計行は main の下端に固定したまま。 */
+main.view-solo > .solo-view > .bom-table thead th { top: 0; z-index: 3; }

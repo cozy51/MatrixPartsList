@@ -1,5 +1,6 @@
 import type { AppData } from './types';
 import type { DrawingData } from './drawings';
+import type { UnitBaseData } from './unitbase';
 const scope='https://www.googleapis.com/auth/drive.file';
 /** アプリ外で作られたファイル（手動アップロードした画像など）を上書きするときだけ、追加で求める権限。 */
 export const DRIVE_FULL_SCOPE='https://www.googleapis.com/auth/drive'; type TokenClient={requestAccessToken:(o?:{prompt?:string})=>void};
@@ -12,6 +13,8 @@ const LEGACY_DRIVE_ROOT_FOLDER='WebAppData';
 /** 部品表と図面リンクは同じフォルダー内の別ファイルとして保存する。 */
 export const DATA_FILE='MatrixPartsList-latest.json';
 export const DRAWINGS_FILE='MatrixPartsList-drawings.json';
+/** UnitBaseから取り込んだchemSHERPA調査状況・備考。約2MBあり、頻繁に書き換わる図面リンクとは別ファイルにする。 */
+export const UNITBASE_FILE='MatrixPartsList-unitbase.json';
 /** Google Identity Servicesはasyncで読み込むため、起動直後は未読込のことがある。 */
 function waitForGoogle(timeoutMs=8000):Promise<NonNullable<Window['google']>>{return new Promise((resolve,reject)=>{const limit=Date.now()+timeoutMs;const check=()=>{if(window.google)return resolve(window.google);if(Date.now()>limit)return reject(new Error('Google Identity Servicesを読み込めません。'));window.setTimeout(check,100)};check()})}
 
@@ -41,6 +44,8 @@ export async function readCloudDrawings():Promise<{id?:string,data?:DrawingData}
 async function writeCloudFile(fileName:string,data:unknown,id?:string):Promise<string>{const b=await folder('MatrixPartsList',DRIVE_ROOT_FOLDER_ID);const meta={name:fileName,mimeType:'application/json',parents:id?undefined:[b]},bd='matrixBoundary',body=`--${bd}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(meta)}\r\n--${bd}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(data)}\r\n--${bd}--`;const r=await api(id?`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=multipart`:'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:id?'PATCH':'POST',headers:{'Content-Type':`multipart/related; boundary=${bd}`},body});if(!r.ok)throw Error('Driveへの保存に失敗しました。');const saved=await r.json() as {id?:string};return saved.id||id||'';}
 export const writeCloud=(data:AppData,id?:string)=>writeCloudFile(DATA_FILE,data,id);
 export const writeCloudDrawings=(data:DrawingData,id?:string)=>writeCloudFile(DRAWINGS_FILE,data,id);
+export const readCloudUnitBase=()=>readCloudIn<UnitBaseData>(DRIVE_ROOT_FOLDER_ID,UNITBASE_FILE);
+export const writeCloudUnitBase=(data:UnitBaseData,id?:string)=>writeCloudFile(UNITBASE_FILE,data,id);
 /** ログイン済み（トークン取得済み）かどうか。未ログインなら呼ぶ側でログインしてから使う。 */
 export const isSignedIn=()=>!!token;
 /** Driveの応答から失敗理由を取り出し、原因を追えるようにメッセージへ添える。 */
