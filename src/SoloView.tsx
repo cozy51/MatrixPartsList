@@ -5,6 +5,8 @@ import { formatAmount, type PartFact } from './drawings';
 import { buildBomRows, exportBomExcel, sumBomRows, type Level40Parts } from './bom';
 import BomTable, { type Level40Access } from './BomTable';
 import type { PartsList } from './types';
+import UnitBaseBar from './UnitBaseBar';
+import type { UnitBaseData, UnitBaseLookup } from './unitbase';
 
 type Props = {
   /** 単体BOMに出すPL。左の一覧で枠を付けて選んだ1つ。 */
@@ -24,6 +26,10 @@ type Props = {
   level40Parts: Level40Parts;
   /** クリップボードから図面リンクを取り込む。マトリックスBOMの同名ボタンと同じ処理。 */
   onCaptureDrawings: () => void;
+  /** UnitBaseから取り込んだchemSHERPA調査状況・備考。 */
+  unitBase: UnitBaseData | undefined;
+  unitBaseLookup: UnitBaseLookup;
+  onUnitBaseReplace: (data: UnitBaseData) => Promise<void>;
 };
 
 /**
@@ -32,12 +38,12 @@ type Props = {
  * （`.shai`）の列に充てています。質量・価格・`.shai` は**品番ごと**に持つため、
  * どのPLから入力しても同じ品番なら同じ値を表示します。
  */
-export default function SoloView({ list, lists, sequence, onSelect, facts, onFactsChange, renderBadges, level40, level40Parts, onCaptureDrawings }: Props) {
+export default function SoloView({ list, lists, sequence, onSelect, facts, onFactsChange, renderBadges, level40, level40Parts, onCaptureDrawings, unitBase, unitBaseLookup, onUnitBaseReplace }: Props) {
   const [search, setSearch] = useState('');
 
   /* 明細の並びはマトリックスBOMと同じ。注記行（風船C）は除く。 */
   const parts = useMemo(() => sortPartsByBalloon(excludeNoteParts(list?.parts ?? [])), [list]);
-  const rows = useMemo(() => buildBomRows(parts, facts, level40Parts), [parts, facts, level40Parts]);
+  const rows = useMemo(() => buildBomRows(parts, facts, level40Parts, unitBaseLookup), [parts, facts, level40Parts, unitBaseLookup]);
   const listed = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return rows;
@@ -66,6 +72,8 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
       <button type="button" className="excel" onClick={exportExcel} disabled={!list}>Excel出力</button>
     </div>
 
+    <UnitBaseBar data={unitBase} onReplace={onUnitBaseReplace} />
+
     {list ? <>
       <div className="solo-summary">
         <div>
@@ -87,6 +95,7 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
         取り違えを防ぐため、<b>単品質量と単価は初めは編集できません</b>。見出しの <b>🔒</b> を押すと、その列だけ編集できるようになります（🔓）。
         <b>入力できるセルで値が入っていないものは、背景を薄い橙</b>にしています。入れ忘れを探すときの目印にしてください。
         <b>行をクリックすると、その行に黄色い目印</b>が残ります。カーソルを外しても消えないため、長い明細を上から順に見ていくときの「どこまで見たか」に使えます（もう一度押すと外れます）。
+        <b>chemSHERPA(import)・備考(import)</b>は、UnitBaseから出力したCSVの「chemSHERPA調査状況」「備考」を<b>品番（子品番単位）が一致</b>した部品に出しています（編集不可）。UnitBaseを更新したら、出力したCSVをスプレッドシートへ貼り付け（ファイル → インポート →「現在のシートを置換」）、<b>「スプレッドシートから更新」</b>を押すと置き換わります。40レベル部品の中身のポップアップにも同じ2列を出します。
         <b>40レベル部品</b>（品番が下線付き）は分解できる部品のため、質量・単価は<b>中身（50/60レベル）の合計</b>で決まります。品番を押すと中身を開いて、そこでも同じ入力ができます。
       </p>
 

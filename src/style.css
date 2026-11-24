@@ -1075,6 +1075,22 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .bom-table col.bom-total-mass, .bom-table col.bom-total-price { width: 92px; }
 .bom-table col.bom-shai { width: 116px; }
 .bom-table col.bom-files { width: 130px; }
+/* UnitBaseから取り込んだ2列。工程が複数ある品番は1行ずつ並べるため、改行をそのまま出す。 */
+.bom-table col.bom-chem-status { width: 160px; }
+.bom-table col.bom-chem-note { width: 220px; }
+.bom-table td.bom-chem-cell { white-space: pre-line; font-size: 11.5px; color: #4a5568; }
+.chem-status { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #eef0f5; color: #4a5568; font-weight: 700; white-space: pre-line; }
+.chem-status.is-done { background: #e3f5ea; color: #1d7a45; }
+.chem-status.is-progress { background: #fff3e0; color: #a85b00; }
+.chem-status.is-unavailable { background: #fde8e8; color: #b42318; }
+.unitbase-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; padding: 8px 12px; border: 1px solid #e2e6ed; border-radius: 9px; background: #fafbff; font-size: 12.5px; color: #4a5568; }
+.unitbase-bar b { color: #2d3748; }
+.unitbase-bar .unitbase-message { color: #1d7a45; }
+.unitbase-bar .unitbase-message.is-error { color: #b42318; }
+.unitbase-bar button, .unitbase-bar a { white-space: nowrap; }
+.unitbase-bar a { color: #4651bc; font-weight: 700; }
+.unitbase-bar .unitbase-update { border-color: #b9c1f0; background: #eef0ff; color: #3346ba; font-weight: 750; }
+.unitbase-bar .unitbase-link { padding: 4px 10px; font-size: 12px; color: #4a5568; }
 /* 単体BOMは列幅が決まっているため、ファイルと編集ボタンを縦に積んで収める。 */
 .bom-table .part-files { flex-direction: column; align-items: flex-start; }
 .bom-table .part-file-link { max-width: 100%; }

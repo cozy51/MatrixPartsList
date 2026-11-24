@@ -206,11 +206,28 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     </span>;
   };
 
+  /**
+   * UnitBaseから取り込んだ2列。読み取り専用で、UnitBaseのCSVを取り込み直すと置き換わる。
+   * 調査状況は種類ごとに色を分け、`-`（chemSHERPA入手不可）と完了を見分けやすくする。
+   */
+  const chemCells = (row: BomRow) => {
+    if (isSupplementPart(row.part.partNo)) return <><td><span className="solo-blank">—</span></td><td><span className="solo-blank">—</span></td></>;
+    const status = row.chemStatus;
+    const tone = !status ? '' : /^(-|－)$/.test(status) ? 'is-unavailable' : status.includes('完了') && !/依頼|やり取り|判定|未依頼|備考参照|対応不可/.test(status) ? 'is-done' : 'is-progress';
+    const statusTitle = status === '-' || status === '－' ? 'chemSHERPA入手不可（UnitBase）' : 'UnitBaseのchemSHERPA調査状況（技管からサプライヤへの調査ステータス）';
+    return <>
+      <td className="bom-chem-cell">{status
+        ? <span className={`chem-status ${tone}`} title={statusTitle}>{status}</span>
+        : <span className="solo-blank" title="UnitBaseに一致する品番がない、または調査状況が空欄です。">—</span>}</td>
+      <td className="bom-chem-cell bom-chem-note" title={row.chemNote || undefined}>{row.chemNote || <span className="solo-blank">—</span>}</td>
+    </>;
+  };
+
   return <>
     <div className="bom-table"><table>
       <colgroup>
         <col className="bom-balloon" /><col className="bom-part-no" /><col className="bom-version" /><col className="bom-name" /><col className="bom-quantity" /><col className="bom-unit" /><col className="bom-material" />
-        <col className="bom-mass" /><col className="bom-total-mass" /><col className="bom-price" /><col className="bom-total-price" /><col className="bom-shai" /><col className="bom-files" />
+        <col className="bom-mass" /><col className="bom-total-mass" /><col className="bom-price" /><col className="bom-total-price" /><col className="bom-shai" /><col className="bom-files" /><col className="bom-chem-status" /><col className="bom-chem-note" />
       </colgroup>
       <thead><tr>{BOM_COLUMNS.map(label => {
         /* 手入力する2列だけ、見出しに編集可・不可の切り替えを出す。 */
@@ -239,6 +256,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         <td className="solo-calc">{row.totalPrice === undefined ? '—' : formatAmount(row.totalPrice, 0)}</td>
         <td>{shaiCell(row)}</td>
         <td>{filesCell(row)}</td>
+        {chemCells(row)}
       </tr>;
       })}</tbody>
       <tfoot><tr>
@@ -247,6 +265,8 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         <td className="solo-calc">{massTotal.counted ? formatAmount(massTotal.total) : '—'}</td>
         <td />
         <td className="solo-calc">{priceTotal.counted ? formatAmount(priceTotal.total, 0) : '—'}</td>
+        <td />
+        <td />
         <td />
         <td />
       </tr></tfoot>

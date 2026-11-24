@@ -4,6 +4,7 @@ import { parseAmount, partFactFor, type PartFact, type PartFile } from './drawin
 import { isLevel40No, levelNoKey } from './levels';
 import { excludeNoteParts, isSupplementPart } from './matrix';
 import type { Part, PartsList } from './types';
+import { UNITBASE_NOTE_COLUMN, UNITBASE_STATUS_COLUMN, type UnitBaseLookup } from './unitbase';
 
 /**
  * 明細のVer.と一致する40レベル部品の中身（50/60レベル）を返します。
@@ -39,6 +40,9 @@ export type BomRow = {
   shaiUrl: string;
   /** その他ファイル（説明付き・複数）。 */
   files: PartFile[];
+  /** UnitBaseから取り込んだchemSHERPA調査状況・備考。品番（子品番単位）が一致したものだけ入る。 */
+  chemStatus: string;
+  chemNote: string;
   /** CSV・Excelから読み込んだ単品質量。手入力していないことが分かるよう、目安として出す。 */
   csvMass: string;
   unitMass: number | undefined;
@@ -108,18 +112,21 @@ export function unitAmounts(part: Part, facts: PartFact[], level40Parts: Level40
 }
 
 /** 単体BOM・40レベルの中身に並べる1行ぶんの値をまとめて作る。 */
-export function buildBomRows(parts: Part[], facts: PartFact[], level40Parts: Level40Parts): BomRow[] {
+export function buildBomRows(parts: Part[], facts: PartFact[], level40Parts: Level40Parts, unitBase?: UnitBaseLookup): BomRow[] {
   return parts.map(part => {
     const supplement = isSupplementPart(part.partNo);
     const fact = supplement ? undefined : partFactFor(facts, part.partNo);
     const amounts = unitAmounts(part, facts, level40Parts);
     const quantity = parseAmount(part.quantity);
+    const chem = supplement ? undefined : unitBase?.(part.partNo);
     return {
       part,
       massInput: fact?.mass ?? '',
       priceInput: fact?.price ?? '',
       shaiUrl: fact?.shaiUrl ?? '',
       files: fact?.files ?? [],
+      chemStatus: chem?.status ?? '',
+      chemNote: chem?.note ?? '',
       csvMass: supplement ? '' : (part.unitMass ?? '').trim(),
       unitMass: amounts.mass,
       unitPrice: amounts.price,
@@ -163,7 +170,7 @@ export const partFilesText = (files: PartFile[] | undefined): string =>
   (files ?? []).map(file => file.label ? `${file.label}: ${file.url}` : file.url).join('\n');
 
 /** 単体BOM・40レベル部品の中身で共通の列。表とExcel出力で同じ並びにする。 */
-export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '単位', '材質・メーカー', MASS_COLUMN, '合計質量（kg）', PRICE_COLUMN, '金額（円）', 'Shaiファイル', OTHER_FILES_COLUMN];
+export const BOM_COLUMNS = ['風船', '品番', 'Ver.', '品名', '数量', '単位', '材質・メーカー', MASS_COLUMN, '合計質量（kg）', PRICE_COLUMN, '金額（円）', 'Shaiファイル', OTHER_FILES_COLUMN, UNITBASE_STATUS_COLUMN, UNITBASE_NOTE_COLUMN];
 
 /**
  * 明細をExcelへ出します。単体BOMのタブと、40レベル部品の中身のポップアップで
@@ -184,7 +191,7 @@ export function bomExcelRows(rows: BomRow[]): (string | number)[][] {
     BOM_COLUMNS,
     ...rows.map(row => [
       row.part.balloon, row.part.partNo, row.part.version, row.part.name, row.part.quantity, row.part.unit ?? '', row.part.material,
-      excelAmount(row.unitMass), excelAmount(row.totalMass), excelAmount(row.unitPrice), excelAmount(row.totalPrice), row.shaiUrl, partFilesText(row.files),
+      excelAmount(row.unitMass), excelAmount(row.totalMass), excelAmount(row.unitPrice), excelAmount(row.totalPrice), row.shaiUrl, partFilesText(row.files), row.chemStatus, row.chemNote,
     ]),
     BOM_COLUMNS.map((column, index) =>
       index === totalLabelIndex ? '合計'
