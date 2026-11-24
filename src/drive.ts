@@ -53,3 +53,18 @@ async function driveError(r:Response,message:string):Promise<Error>{let detail='
 export async function uploadImageFile(folderId:string,fileName:string,image:Blob):Promise<{id:string;replaced:boolean}>{const q=[`name='${fileName.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`,`'${folderId}' in parents`,'trashed=false'].join(' and ');const found=await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`);if(!found.ok)throw await driveError(found,'Driveの検索に失敗しました。');const id=((await found.json()).files?.[0] as {id:string}|undefined)?.id,type=image.type||'image/png';
   if(id){const r=await api(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id`,{method:'PATCH',headers:{'Content-Type':type},body:image});/* 403はアプリ外で作られたファイルへの書き込み権限がないとき。呼ぶ側で権限を追加してやり直せるよう印を付ける。 */if(r.status===403)throw Object.assign(Error(`${fileName} はDriveで直接アップロードされたファイルのため、上書きにはDriveへの書き込みの許可が必要です。`),{status:403,needsWriteAccess:true});if(!r.ok)throw await driveError(r,'Driveの画像の上書きに失敗しました。');return{id,replaced:true}}
   const bd='matrixImageBoundary',head=`--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({name:fileName,mimeType:type,parents:[folderId]})}\r\n--${bd}\r\nContent-Type: ${type}\r\n\r\n`,body=new Blob([head,image,`\r\n--${bd}--`]);const r=await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{'Content-Type':`multipart/related; boundary=${bd}`},body});if(!r.ok)throw await driveError(r,'Driveへの画像の保存に失敗しました。フォルダーへの書き込み権限を確認してください。');const saved=await r.json() as {id?:string};if(!saved.id)throw Error('Driveへの画像の保存に失敗しました。');return{id:saved.id,replaced:false};}
+
+/**
+ * UnitBaseのデータを貼り付けたGoogleスプレッドシートを、先頭のシートだけCSVとして読み込む。
+ * アプリ外で作られたファイルのため、読み取りには `drive` の権限が要る（呼ぶ側で
+ * `signIn({scope:DRIVE_FULL_SCOPE})` してから呼ぶ）。更新日時は、取り込み済みの内容が最新かの判定に使う。
+ */
+export async function downloadSpreadsheetCsv(fileId:string):Promise<{name:string;modifiedTime:string;text:string}>{
+  const meta=await api(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=name,modifiedTime,mimeType&supportsAllDrives=true`);
+  if(!meta.ok)throw await driveError(meta,meta.status===404?'スプレッドシートが見つかりません。リンクと共有設定を確認してください。':'スプレッドシートを確認できませんでした。');
+  const info=await meta.json() as {name:string;modifiedTime:string;mimeType:string};
+  if(info.mimeType!=='application/vnd.google-apps.spreadsheet')throw Error(`${info.name} はGoogleスプレッドシートではありません。`);
+  const r=await api(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=text/csv`);
+  if(!r.ok)throw await driveError(r,'スプレッドシートを読み込めませんでした。');
+  return{name:info.name,modifiedTime:info.modifiedTime,text:await r.text()};
+}
