@@ -1239,5 +1239,6 @@ main.view-solo > .solo-view > .bom-table {
   border-right: 0;
   border-radius: 0;
 }
-/* 項目名の行は main の上端に固定する。合計行は main の下端に固定したまま。 */
+/* 項目名の行だけを main の上端に固定する。合計行は明細を隠すため固定せず、表の最後に置く。 */
 main.view-solo > .solo-view > .bom-table thead th { top: 0; z-index: 3; }
+main.view-solo > .solo-view > .bom-table tfoot td { position: static; }
