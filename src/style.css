@@ -1242,3 +1242,12 @@ main.view-solo > .solo-view > .bom-table {
 /* 項目名の行だけを main の上端に固定する。合計行は明細を隠すため固定せず、表の最後に置く。 */
 main.view-solo > .solo-view > .bom-table thead th { top: 0; z-index: 3; }
 main.view-solo > .solo-view > .bom-table tfoot td { position: static; }
+
+/* 単体BOMの列ごとの絞り込み欄。見出しは高さが変わる（2行になる列がある）ため、行ごとではなく
+   見出し全体をまとめて上に固定し、スクロールしても絞り込み欄が見出しのすぐ下に残るようにする。 */
+.bom-table:has(.bom-filter-row) thead { position: sticky; top: 0; z-index: 2; }
+.bom-table:has(.bom-filter-row) thead th { position: static; }
+.bom-table thead tr.bom-filter-row th { padding: 4px 6px; background: #f6f7ff; border-bottom: 1px solid #dfe3f5; }
+.bom-table .bom-filter { width: 100%; box-sizing: border-box; padding: 3px 6px; font-size: 11.5px; border: 1px solid #d3d8ea; border-radius: 5px; background: #fff; color: #2d3748; }
+.bom-table .bom-filter.is-active { border-color: #5b67e0; background: #f0f2ff; box-shadow: 0 0 0 1px #5b67e0 inset; }
+.bom-table .bom-filter-clear { padding: 2px 6px; font-size: 11px; border: 1px solid #d3d8ea; border-radius: 5px; background: #fff; color: #4651bc; cursor: pointer; }

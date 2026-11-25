@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { normalizePlVersion, plLabel } from './csv';
 import { countParts, excludeNoteParts, plKindLabel, sortPartsByBalloon } from './matrix';
 import { formatAmount, type PartFact } from './drawings';
-import { buildBomRows, exportBomExcel, sumBomRows, type Level40Parts } from './bom';
+import { EMPTY_BOM_FILTER, buildBomRows, chemStatusLabel, chemStatusOptions, exportBomExcel, filterBomRows, isBomFilterActive, sumBomRows, type BomFilter, type Level40Parts } from './bom';
 import BomTable, { type Level40Access } from './BomTable';
 import type { PartsList } from './types';
 import UnitBaseBar from './UnitBaseBar';
@@ -40,15 +40,25 @@ type Props = {
  */
 export default function SoloView({ list, lists, sequence, onSelect, facts, onFactsChange, renderBadges, level40, level40Parts, onCaptureDrawings, unitBase, unitBaseLookup, onUnitBaseReplace }: Props) {
   const [search, setSearch] = useState('');
+  /* 列ごとの絞り込み（見出しの下の入力欄）。上の検索と同時に使え、両方を満たす行だけ出す。 */
+  const [columnFilter, setColumnFilter] = useState<BomFilter>(EMPTY_BOM_FILTER);
 
   /* 明細の並びはマトリックスBOMと同じ。注記行（風船C）は除く。 */
   const parts = useMemo(() => sortPartsByBalloon(excludeNoteParts(list?.parts ?? [])), [list]);
   const rows = useMemo(() => buildBomRows(parts, facts, level40Parts, unitBaseLookup), [parts, facts, level40Parts, unitBaseLookup]);
   const listed = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter(row => `${row.part.partNo} ${row.part.name} ${row.part.material} ${row.part.balloon}`.toLowerCase().includes(needle));
-  }, [rows, search]);
+    const searched = needle ? rows.filter(row => `${row.part.partNo} ${row.part.name} ${row.part.material} ${row.part.balloon}`.toLowerCase().includes(needle)) : rows;
+    return filterBomRows(searched, columnFilter);
+  }, [rows, search, columnFilter]);
+  /* 選んでいた調査状況がPLを切り替えて無くなっても、「すべて」に見えて絞り込みに気付けなくならないよう、0件として残す。 */
+  const chemOptions = useMemo(() => {
+    const options = chemStatusOptions(rows);
+    const selected = columnFilter.chemStatus;
+    return !selected || options.some(option => option.value === selected) ? options
+      : [...options, { value: selected, label: chemStatusLabel(selected), count: 0 }];
+  }, [rows, columnFilter.chemStatus]);
+  const filtering = search.trim() !== '' || isBomFilterActive(columnFilter);
 
   const massTotal = useMemo(() => sumBomRows(listed, row => row.totalMass), [listed]);
   const priceTotal = useMemo(() => sumBomRows(listed, row => row.totalPrice), [listed]);
@@ -79,7 +89,7 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
         <div>
           <h3>{list.plNo}{renderBadges(list.plNo)}</h3>
           <p>{list.plName || list.fileName}</p>
-          <small>{plKindLabel(list.plNo) ? `${plKindLabel(list.plNo)} ・ ` : ''}Ver.{normalizePlVersion(list.plVersion) || '-'} ・ {countParts(list.parts)} 部品{search.trim() && ` ・ 検索一致 ${listed.length} 部品`}</small>
+          <small>{plKindLabel(list.plNo) ? `${plKindLabel(list.plNo)} ・ ` : ''}Ver.{normalizePlVersion(list.plVersion) || '-'} ・ {countParts(list.parts)} 部品{filtering && ` ・ 絞り込み ${listed.length} 部品`}</small>
         </div>
         <dl className="solo-totals">
           <div><dt>合計質量</dt><dd>{massTotal.counted ? `${formatAmount(massTotal.total)} kg` : '—'}<small>{massTotal.counted} / {listed.length} 部品</small></dd></div>
@@ -96,12 +106,16 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
         <b>入力できるセルで値が入っていないものは、背景を薄い橙</b>にしています。入れ忘れを探すときの目印にしてください。
         <b>行をクリックすると、その行に黄色い目印</b>が残ります。カーソルを外しても消えないため、長い明細を上から順に見ていくときの「どこまで見たか」に使えます（もう一度押すと外れます）。
         <b>chemSHERPA(import)・備考(import)</b>は、UnitBaseから出力したCSVの「chemSHERPA調査状況」「備考」を<b>品番（子品番単位）が一致</b>した部品に出しています（編集不可）。UnitBaseを更新したら、出力したCSVをスプレッドシートへ貼り付け（ファイル → インポート →「現在のシートを置換」）、<b>「スプレッドシートから更新」</b>を押すと置き換わります（取り込んだ内容はGoogle Driveへ同期します）。40レベル部品の中身のポップアップにも同じ2列を出します。
+        見出しのすぐ下の<b>絞り込み欄</b>で、品番・品名・材質・備考(import)は含まれる文字で、chemSHERPA(import)は一覧から選んだ調査状況で行を絞り込めます（右上の検索と同時に使え、合計・Excel出力も絞り込んだ行が対象です。「解除」ですべて戻ります）。
         <b>40レベル部品</b>（品番が下線付き）は分解できる部品のため、質量・単価は<b>中身（50/60レベル）の合計</b>で決まります。品番を押すと中身を開いて、そこでも同じ入力ができます。
       </p>
 
-      {listed.length
-        ? <BomTable rows={listed} facts={facts} onFactsChange={onFactsChange} renderBadges={renderBadges} level40={level40} totalLabel={`合計（表示中 ${listed.length} 部品）`} />
-        : <p className="drawings-empty">{rows.length ? '検索条件に一致する部品はありません。' : 'このPLに部品がありません。'}</p>}
+      {/* 列の絞り込みで0件になっても入力欄を消さないよう、PLに部品があれば表は出し続ける。 */}
+      {rows.length
+        ? <BomTable rows={listed} facts={facts} onFactsChange={onFactsChange} renderBadges={renderBadges} level40={level40} totalLabel={`合計（表示中 ${listed.length} 部品）`}
+            filter={{ value: columnFilter, onChange: setColumnFilter, chemOptions }} />
+        : <p className="drawings-empty">このPLに部品がありません。</p>}
+      {rows.length > 0 && !listed.length && <p className="drawings-empty">検索・絞り込みの条件に一致する部品はありません。</p>}
     </> : <p className="drawings-empty">
       単体BOMに出すPLがありません。左の一覧でPLをクリックすると、そのPLを枠で囲んでここに表示します（表示チェックとは別に選べます）。
     </p>}
