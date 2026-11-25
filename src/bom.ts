@@ -240,3 +240,60 @@ export function compareBomAmounts(common: BomRow[], baseOnly: BomRow[], targetOn
     priceDiff: target.price.total - base.price.total,
   };
 }
+
+/**
+ * 単体BOMの列ごとの絞り込み条件。文字の列は部分一致（大文字・小文字、全角・半角を区別しない）、
+ * chemSHERPA調査状況は一覧から選んだ値と完全一致で絞ります。空の条件は絞り込みに使いません。
+ */
+export type BomFilter = { partNo: string; name: string; material: string; chemStatus: string; chemNote: string };
+
+export const EMPTY_BOM_FILTER: BomFilter = { partNo: '', name: '', material: '', chemStatus: '', chemNote: '' };
+
+/** chemSHERPA調査状況の「空欄（UnitBaseに一致なし・未記入）」を選ぶときの値。 */
+export const CHEM_STATUS_BLANK = '\u0000blank';
+
+/** 選択肢に出す名前。空欄を選ぶ値だけ「（空欄）」と出す。 */
+export const chemStatusLabel = (value: string) => value === CHEM_STATUS_BLANK ? '（空欄）' : value;
+
+const foldText = (value: string) => value.normalize('NFKC').toLowerCase();
+
+/** 補材は品番で見分けられず、画面でもchemSHERPAの列を「—」にしているため空欄として扱う。 */
+const chemStatusOf = (row: BomRow) => isSupplementPart(row.part.partNo) ? '' : row.chemStatus.trim();
+const chemNoteOf = (row: BomRow) => isSupplementPart(row.part.partNo) ? '' : row.chemNote;
+
+export function isBomFilterActive(filter: BomFilter): boolean {
+  return Object.values(filter).some(value => value.trim() !== '');
+}
+
+export function filterBomRows(rows: BomRow[], filter: BomFilter): BomRow[] {
+  if (!isBomFilterActive(filter)) return rows;
+  const texts: [string, (row: BomRow) => string][] = [
+    [filter.partNo, row => row.part.partNo],
+    [filter.name, row => row.part.name],
+    [filter.material, row => row.part.material],
+    [filter.chemNote, chemNoteOf],
+  ];
+  const needles = texts.map(([value, get]) => [foldText(value.trim()), get] as const).filter(([needle]) => needle);
+  return rows.filter(row => {
+    if (filter.chemStatus) {
+      const status = chemStatusOf(row);
+      if (filter.chemStatus === CHEM_STATUS_BLANK ? status !== '' : status !== filter.chemStatus) return false;
+    }
+    return needles.every(([needle, get]) => foldText(get(row)).includes(needle));
+  });
+}
+
+/** 絞り込みの選択肢に出すchemSHERPA調査状況と件数。多い順、同数は名前順。空欄は最後に1つだけ出す。 */
+export function chemStatusOptions(rows: BomRow[]): { value: string; label: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const status = chemStatusOf(row);
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+  const blank = counts.get('') ?? 0;
+  counts.delete('');
+  const options = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
+    .map(([value, count]) => ({ value, label: value, count }));
+  if (blank) options.push({ value: CHEM_STATUS_BLANK, label: chemStatusLabel(CHEM_STATUS_BLANK), count: blank });
+  return options;
+}

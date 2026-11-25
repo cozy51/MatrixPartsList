@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOM_COLUMNS, bomExcelRows, partFilesText, buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
+import { BOM_COLUMNS, CHEM_STATUS_BLANK, EMPTY_BOM_FILTER, chemStatusOptions, filterBomRows, bomExcelRows, partFilesText, buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
 import { emptyPartFact, upsertPartFact, type PartFact } from './drawings';
 import type { Part } from './types';
 
@@ -160,5 +160,37 @@ describe('Excelの表（単体BOM・40レベル部品の中身）', () => {
     expect(partFilesText([{ id: 'a', label: '試験成績書', url: 'https://example.com/a' }, { id: 'b', label: '', url: 'https://example.com/b' }]))
       .toBe('試験成績書: https://example.com/a\nhttps://example.com/b');
     expect(partFilesText(undefined)).toBe('');
+  });
+});
+
+describe('単体BOMの列フィルタ', () => {
+  const chem: Record<string, { status: string; note: string }> = {
+    Z080670500: { status: '依頼済', note: 'デクロランプラス資材調査なし' },
+    HJ02101060: { status: '完了', note: '' },
+    HJ02101070: { status: '依頼済', note: '' },
+  };
+  const lookup = (partNo: string) => chem[partNo];
+  const rows = buildBomRows([
+    part('HJ02101060', '1', '', { name: 'BRACKET/SLIP RING', material: 'SUS304-CP' }),
+    part('+', '2', '', { name: 'HCZr M3X6' }),
+    part('Z080670500', '1', '', { name: 'CAP(CNCL) C30NG79-1EPUL', material: 'ﾀｷｹﾞﾝｾｲｿﾞｳ' }),
+    part('HJ02101070', '1', '', { name: 'COVER' }),
+    part('HJ02101080', '1', '', { name: 'BRACKET' }),
+  ], [], () => undefined, lookup);
+  const nos = (filter: Partial<typeof EMPTY_BOM_FILTER>) => filterBomRows(rows, { ...EMPTY_BOM_FILTER, ...filter }).map(row => row.part.partNo);
+
+  it('条件が空なら全行を返す', () => expect(nos({})).toHaveLength(5));
+  it('品番・品名は部分一致で大文字小文字を区別しない', () => {
+    expect(nos({ partNo: 'hj021010' })).toEqual(['HJ02101060', 'HJ02101070', 'HJ02101080']);
+    expect(nos({ name: 'bracket' })).toEqual(['HJ02101060', 'HJ02101080']);
+  });
+  it('材質は全角・半角を区別しない', () => expect(nos({ material: 'タキゲン' })).toEqual(['Z080670500']));
+  it('chemSHERPAは選んだ値と一致、空欄は補材を含む', () => {
+    expect(nos({ chemStatus: '依頼済' })).toEqual(['Z080670500', 'HJ02101070']);
+    expect(nos({ chemStatus: CHEM_STATUS_BLANK })).toEqual(['+', 'HJ02101080']);
+  });
+  it('複数の条件はすべて満たす行だけ', () => expect(nos({ chemStatus: '依頼済', name: 'cover' })).toEqual(['HJ02101070']));
+  it('選択肢は多い順で空欄が最後', () => {
+    expect(chemStatusOptions(rows).map(option => `${option.label}:${option.count}`)).toEqual(['依頼済:2', '完了:1', '（空欄）:2']);
   });
 });

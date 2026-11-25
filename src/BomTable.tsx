@@ -2,8 +2,9 @@ import { useState, type MouseEvent, type ReactNode } from 'react';
 import { displayMass, displayPrice, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact, type PartFile } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
-import { BOM_COLUMNS, MASS_COLUMN, PRICE_COLUMN, sumBomRows, type BomRow } from './bom';
+import { BOM_COLUMNS, EMPTY_BOM_FILTER, MASS_COLUMN, PRICE_COLUMN, isBomFilterActive, sumBomRows, type BomFilter, type BomRow } from './bom';
 import { partKey } from './csv';
+import { UNITBASE_NOTE_COLUMN, UNITBASE_STATUS_COLUMN } from './unitbase';
 import type { PartsList } from './types';
 
 /** 40レベル部品の中身を開くための入口。マトリックスBOM・単体BOMで同じものを使う。 */
@@ -24,6 +25,15 @@ type Props = {
   level40: Level40Access;
   /** 合計行に添える説明（「合計（表示中 12 部品）」など）。 */
   totalLabel: string;
+  /** 列ごとの絞り込み。渡したときだけ見出しの下に入力欄の行を出す（単体BOMのタブ）。 */
+  filter?: BomFilterAccess;
+};
+
+export type BomFilterAccess = {
+  value: BomFilter;
+  onChange: (filter: BomFilter) => void;
+  /** chemSHERPA調査状況の選択肢。絞り込む前の全行から作る。 */
+  chemOptions: { value: string; label: string; count: number }[];
 };
 
 
@@ -33,7 +43,7 @@ type Props = {
  * 40レベル部品の質量・単価は中身（50/60レベル）の合計で決まるため、その行は
  * 入力欄にせず、計算した値と内訳の注記を出します。
  */
-export default function BomTable({ rows, facts, onFactsChange, renderBadges, level40, totalLabel }: Props) {
+export default function BomTable({ rows, facts, onFactsChange, renderBadges, level40, totalLabel, filter }: Props) {
   /* 1つのセルを編集している間だけ下書きを持つ。入力のたびに保存すると同期の
      リビジョンが上がり続けるため、確定（フォーカスを外す・Enter）で書き込む。 */
   const [draft, setDraft] = useState<{ partNo: string; field: 'mass' | 'price'; value: string } | null>(null);
@@ -223,6 +233,23 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     </>;
   };
 
+  /** 見出しの下の絞り込み欄。絞り込める列だけ入力欄を出し、ほかの列は空ける。 */
+  const filterCell = (label: string, access: BomFilterAccess) => {
+    const { value, onChange, chemOptions } = access;
+    const textField = ({ '品番': 'partNo', '品名': 'name', '材質・メーカー': 'material', [UNITBASE_NOTE_COLUMN]: 'chemNote' } as Record<string, keyof BomFilter | undefined>)[label];
+    if (textField) return <input className={`bom-filter ${value[textField] ? 'is-active' : ''}`} type="search" value={value[textField]} placeholder="絞り込み"
+      aria-label={`${label}で絞り込む`} title={`${label}に含まれる文字で絞り込みます（部分一致）`}
+      onChange={event => onChange({ ...value, [textField]: event.target.value })} />;
+    if (label === UNITBASE_STATUS_COLUMN) return <select className={`bom-filter ${value.chemStatus ? 'is-active' : ''}`} value={value.chemStatus}
+      aria-label={`${label}で絞り込む`} onChange={event => onChange({ ...value, chemStatus: event.target.value })}>
+      <option value="">すべて</option>
+      {chemOptions.map(option => <option key={option.value} value={option.value}>{`${option.label}（${option.count}）`}</option>)}
+    </select>;
+    if (label === '風船' && isBomFilterActive(value)) return <button type="button" className="bom-filter-clear" title="列の絞り込みをすべて解除します"
+      onClick={() => onChange(EMPTY_BOM_FILTER)}>解除</button>;
+    return null;
+  };
+
   return <>
     <div className="bom-table"><table>
       <colgroup>
@@ -236,7 +263,8 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
           aria-label={`${label}を${unlocked[field] ? '編集できないようにする' : '編集できるようにする'}`}
           title={unlocked[field] ? `${label}の編集を止めます。書き換えないときは閉じておくと安全です。` : `${label}を編集できるようにします。`}
           onClick={() => toggleLock(field)}>{unlocked[field] ? '🔓' : '🔒'}</button>}</th>;
-      })}</tr></thead>
+      })}</tr>
+      {filter && <tr className="bom-filter-row">{BOM_COLUMNS.map(label => <th key={label}>{filterCell(label, filter)}</th>)}</tr>}</thead>
       <tbody>{rows.map((row, index) => {
         /* 目印は検索で絞り込んでも同じ行に残るよう、並び順ではなく明細の中身で見分ける。 */
         const key = partKey(row.part), picked = pickedKey === key;
