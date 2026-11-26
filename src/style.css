@@ -1079,6 +1079,10 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .bom-table col.bom-chem-status { width: 160px; }
 .bom-table col.bom-chem-note { width: 220px; }
 .bom-table td.bom-chem-cell { white-space: pre-line; font-size: 11.5px; color: #4a5568; }
+/* 備考(import)の「含有なし」「含有あり」。見間違えないよう色で分ける。 */
+.chem-content { padding: 0 4px; border-radius: 4px; font-weight: 700; }
+.chem-content.is-absent { background: #dbeafe; color: #1e40af; }
+.chem-content.is-present { background: #fde2e2; color: #b42318; }
 .chem-status { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #eef0f5; color: #4a5568; font-weight: 700; white-space: pre-line; }
 .chem-status.is-done { background: #e3f5ea; color: #1d7a45; }
 .chem-status.is-progress { background: #fff3e0; color: #a85b00; }
