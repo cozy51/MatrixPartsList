@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOM_COLUMNS, CHEM_STATUS_BLANK, PART_LEVEL_OTHER, partLevelOptions, EMPTY_BOM_FILTER, chemStatusOptions, filterBomRows, bomExcelRows, partFilesText, buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
+import { BOM_COLUMNS, CHEM_STATUS_BLANK, PART_LEVEL_OTHER, PART_LEVEL_PURCHASED, partLevelOptions, EMPTY_BOM_FILTER, chemStatusOptions, filterBomRows, bomExcelRows, partFilesText, buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
 import { emptyPartFact, upsertPartFact, type PartFact } from './drawings';
 import type { Part } from './types';
 
@@ -193,9 +193,10 @@ describe('単体BOMの列フィルタ', () => {
   });
   it('階層（9桁目）は選んだどれかに一致する行', () => {
     expect(nos({ levels: ['5060'] })).toEqual(['HJ02101060']);
-    expect(nos({ levels: ['5060', PART_LEVEL_OTHER] })).toHaveLength(5);
-    expect(nos({ levels: [PART_LEVEL_OTHER] })).toEqual(['+', 'Z080670500', 'HJ02101070', 'HJ02101080']);
-    expect(partLevelOptions(rows).map(option => `${option.label}:${option.count}`)).toEqual(['10レベル:0', '40レベル:0', '50/60レベル:1', 'その他:4']);
+    expect(nos({ levels: ['5060', PART_LEVEL_PURCHASED, PART_LEVEL_OTHER] })).toHaveLength(5);
+    expect(nos({ levels: [PART_LEVEL_OTHER] })).toEqual(['+', 'HJ02101070', 'HJ02101080']);
+    expect(nos({ levels: [PART_LEVEL_PURCHASED] })).toEqual(['Z080670500']);
+    expect(partLevelOptions(rows).map(option => `${option.label}:${option.count}`)).toEqual(['10レベル:0', '40レベル:0', '50/60レベル:1', '購入品（Z）:1', 'その他:3']);
   });
   it('材質は全角・半角を区別しない', () => expect(nos({ material: 'タキゲン' })).toEqual(['Z080670500']));
   it('chemSHERPAは選んだ値と一致、空欄は補材を含む', () => {
