@@ -184,6 +184,13 @@ describe('単体BOMの列フィルタ', () => {
     expect(nos({ partNo: 'hj021010' })).toEqual(['HJ02101060', 'HJ02101070', 'HJ02101080']);
     expect(nos({ name: 'bracket' })).toEqual(['HJ02101060', 'HJ02101080']);
   });
+  it('品番は ? * [..] で桁を合わせて絞れる', () => {
+    expect(nos({ partNo: '????????[78]' })).toEqual(['HJ02101070', 'HJ02101080']);
+    expect(nos({ partNo: '????????[6-7]0' })).toEqual(['HJ02101060', 'HJ02101070']);
+    expect(nos({ partNo: '？？？？？？？？？［５］' })).toEqual([]);
+    expect(nos({ partNo: 'z*05' })).toEqual(['Z080670500']);
+    expect(nos({ partNo: '+' })).toEqual(['+']);
+  });
   it('材質は全角・半角を区別しない', () => expect(nos({ material: 'タキゲン' })).toEqual(['Z080670500']));
   it('chemSHERPAは選んだ値と一致、空欄は補材を含む', () => {
     expect(nos({ chemStatuses: ['依頼済'] })).toEqual(['Z080670500', 'HJ02101070']);
