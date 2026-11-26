@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import BomTable, { type Level40Access } from './BomTable';
+import BomTable, { shortChemNote, type Level40Access } from './BomTable';
 import { buildBomRows, type Level40Parts } from './bom';
 import type { Part } from './types';
 
@@ -28,5 +28,12 @@ describe('40レベル部品の質量・価格表示', () => {
     const html = render(() => [child]);
     expect(html).toContain('bom-derived is-unregistered');
     expect(html).toContain('中身の合計（未登録）');
+  });
+});
+
+describe('備考(import)の表示', () => {
+  it('「資材調査品番」を省く', () => {
+    expect(shortChemNote('デクロランプラス資材調査品番：含有なし')).toBe('デクロランプラス：含有なし');
+    expect(shortChemNote('サプライヤ回答待ち')).toBe('サプライヤ回答待ち');
   });
 });

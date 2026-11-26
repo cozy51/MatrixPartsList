@@ -231,7 +231,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       <td className="bom-chem-cell">{status
         ? <span className={`chem-status ${tone}`} title={statusTitle}>{status}</span>
         : <span className="solo-blank" title="UnitBaseに一致する品番がない、または調査状況が空欄です。">—</span>}</td>
-      <td className="bom-chem-cell bom-chem-note" title={row.chemNote || undefined}>{row.chemNote || <span className="solo-blank">—</span>}</td>
+      <td className="bom-chem-cell bom-chem-note" title={row.chemNote || undefined}>{shortChemNote(row.chemNote) || <span className="solo-blank">—</span>}</td>
     </>;
   };
 
@@ -348,6 +348,12 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     </div>}
   </>;
 }
+
+/**
+ * 備考(import)を表で出すときの短い形。UnitBaseの備考は「デクロランプラス資材調査品番：含有なし」のように
+ * 長く、列が詰まるため「資材調査品番」を省く。省いた元の文はセルのツールチップとExcel出力にそのまま残す。
+ */
+export const shortChemNote = (note: string) => note.replace(/資材調査品番/g, '');
 
 type FilterOption = BomFilterAccess['chemOptions'][number];
 
