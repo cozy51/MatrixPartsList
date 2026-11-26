@@ -1261,7 +1261,8 @@ main.view-solo > .solo-view > .bom-table tfoot td { position: static; }
 .chem-filter-panel label { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border-radius: 5px; cursor: pointer; }
 .chem-filter-panel label:hover { background: #f0f2ff; }
 .chem-filter-panel label span { flex: 1; }
-.chem-filter-panel label small { color: #8a93a4; }
+.chem-filter-panel label small { min-width: 2em; color: #475467; font-size: 12px; font-weight: 700; text-align: right; }
+.chem-filter-panel label.is-empty small { color: #b9c0cf; }
 .chem-filter-panel label.is-empty { color: #98a0ad; }
 .chem-filter-actions { display: flex; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #eef0f4; }
 .chem-filter-actions button { padding: 3px 8px; font-size: 11px; }

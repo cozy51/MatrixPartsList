@@ -46,17 +46,20 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
   /* 明細の並びはマトリックスBOMと同じ。注記行（風船C）は除く。 */
   const parts = useMemo(() => sortPartsByBalloon(excludeNoteParts(list?.parts ?? [])), [list]);
   const rows = useMemo(() => buildBomRows(parts, facts, level40Parts, unitBaseLookup), [parts, facts, level40Parts, unitBaseLookup]);
-  const listed = useMemo(() => {
+  /* 上の検索だけで絞った行。chemSHERPAの選択肢の件数を、ほかの絞り込みと合わせた「今の件数」にするために分けて持つ。 */
+  const searched = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const searched = needle ? rows.filter(row => `${row.part.partNo} ${row.part.name} ${row.part.material} ${row.part.balloon}`.toLowerCase().includes(needle)) : rows;
-    return filterBomRows(searched, columnFilter);
-  }, [rows, search, columnFilter]);
-  /* 選んでいた調査状況がPLを切り替えて無くなっても、「すべて」に見えて絞り込みに気付けなくならないよう、0件として残す。 */
+    return needle ? rows.filter(row => `${row.part.partNo} ${row.part.name} ${row.part.material} ${row.part.balloon}`.toLowerCase().includes(needle)) : rows;
+  }, [rows, search]);
+  const listed = useMemo(() => filterBomRows(searched, columnFilter), [searched, columnFilter]);
+  /* 件数は、検索とchemSHERPA以外の列の絞り込みを満たす行で数える（chemSHERPA自体の選択では変わらない）。
+     今の条件で0件になった状況や、PLを切り替えて無くなった選択中の状況も、選択肢から消さず0件として残す。 */
   const chemOptions = useMemo(() => {
-    const options = chemStatusOptions(rows);
-    const missing = columnFilter.chemStatuses.filter(selected => !options.some(option => option.value === selected));
-    return [...options, ...missing.map(value => ({ value, label: chemStatusLabel(value), count: 0 }))];
-  }, [rows, columnFilter.chemStatuses]);
+    const options = chemStatusOptions(filterBomRows(searched, { ...columnFilter, chemStatuses: [] }));
+    const known = new Set(options.map(option => option.value));
+    const rest = [...chemStatusOptions(rows).map(option => option.value), ...columnFilter.chemStatuses].filter(value => !known.has(value) && (known.add(value), true));
+    return [...options, ...rest.map(value => ({ value, label: chemStatusLabel(value), count: 0 }))];
+  }, [rows, searched, columnFilter]);
   const filtering = search.trim() !== '' || isBomFilterActive(columnFilter);
 
   const massTotal = useMemo(() => sumBomRows(listed, row => row.totalMass), [listed]);
@@ -106,7 +109,7 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
         <b>入力できるセルで値が入っていないものは、背景を薄い橙</b>にしています。入れ忘れを探すときの目印にしてください。
         <b>行をクリックすると、その行に黄色い目印</b>が残ります。カーソルを外しても消えないため、長い明細を上から順に見ていくときの「どこまで見たか」に使えます（もう一度押すと外れます）。
         <b>chemSHERPA(import)・備考(import)</b>は、UnitBaseから出力したCSVの「chemSHERPA調査状況」「備考」を<b>品番（子品番単位）が一致</b>した部品に出しています（編集不可）。UnitBaseを更新したら、出力したCSVをスプレッドシートへ貼り付け（ファイル → インポート →「現在のシートを置換」）、<b>「スプレッドシートから更新」</b>を押すと置き換わります（取り込んだ内容はGoogle Driveへ同期します）。40レベル部品の中身のポップアップにも同じ2列を出します。
-        見出しのすぐ下の<b>絞り込み欄</b>で、品番・品名・材質・備考(import)は含まれる文字で、chemSHERPA(import)は一覧でチェックを付けた調査状況で行を絞り込めます（<b>複数選ぶと、いずれかに一致する行</b>を出します。右上の検索と同時に使え、合計・Excel出力も絞り込んだ行が対象です。「解除」ですべて戻ります）。
+        見出しのすぐ下の<b>絞り込み欄</b>で、品番・品名・材質・備考(import)は含まれる文字で、chemSHERPA(import)は一覧でチェックを付けた調査状況で行を絞り込めます（<b>複数選ぶと、いずれかに一致する行</b>を出します。一覧の件数は、検索とほかの列の絞り込みを満たす今の件数です。右上の検索と同時に使え、合計・Excel出力も絞り込んだ行が対象です。「解除」ですべて戻ります）。
         <b>40レベル部品</b>（品番が下線付き）は分解できる部品のため、質量・単価は<b>中身（50/60レベル）の合計</b>で決まります。品番を押すと中身を開いて、そこでも同じ入力ができます。
       </p>
 
