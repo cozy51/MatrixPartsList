@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { normalizePlVersion, versionMatchKey } from './csv';
 import { parseAmount, partFactFor, type PartFact, type PartFile } from './drawings';
-import { isLevel40No, levelNoKey } from './levels';
+import { isLevel40No, levelNoKey, partLevelOf } from './levels';
 import { excludeNoteParts, isSupplementPart } from './matrix';
 import type { Part, PartsList } from './types';
 import { UNITBASE_NOTE_COLUMN, UNITBASE_STATUS_COLUMN, type UnitBaseLookup } from './unitbase';
@@ -246,9 +246,23 @@ export function compareBomAmounts(common: BomRow[], baseOnly: BomRow[], targetOn
  * chemSHERPA調査状況は一覧から選んだ値（複数可）のどれかと完全一致する行に絞ります（OR）。
  * 空の条件は絞り込みに使いません。
  */
-export type BomFilter = { partNo: string; name: string; material: string; chemStatuses: string[]; chemNote: string };
+export type BomFilter = { partNo: string; levels: string[]; name: string; material: string; chemStatuses: string[]; chemNote: string };
 
-export const EMPTY_BOM_FILTER: BomFilter = { partNo: '', name: '', material: '', chemStatuses: [], chemNote: '' };
+export const EMPTY_BOM_FILTER: BomFilter = { partNo: '', levels: [], name: '', material: '', chemStatuses: [], chemNote: '' };
+
+/** 品番の階層（9桁目）で絞るときの値。階層が決まらない品番（補材・桁数の違う番号）は「その他」。 */
+export const PART_LEVEL_OTHER = 'other';
+const LEVEL_OPTIONS: { value: string; label: string }[] = [
+  { value: '10', label: '10レベル' }, { value: '40', label: '40レベル' }, { value: '5060', label: '50/60レベル' }, { value: PART_LEVEL_OTHER, label: 'その他' },
+];
+const levelValueOf = (row: BomRow) => partLevelOf(row.part.partNo) || PART_LEVEL_OTHER;
+
+/** 階層の選択肢と件数。並びは階層の順で固定し、選んだまま見失わないよう0件の階層も出す。 */
+export function partLevelOptions(rows: BomRow[]): { value: string; label: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) counts.set(levelValueOf(row), (counts.get(levelValueOf(row)) ?? 0) + 1);
+  return LEVEL_OPTIONS.map(option => ({ ...option, count: counts.get(option.value) ?? 0 }));
+}
 
 /** chemSHERPA調査状況の「空欄（UnitBaseに一致なし・未記入）」を選ぶときの値。 */
 export const CHEM_STATUS_BLANK = '\u0000blank';
@@ -263,7 +277,7 @@ const chemStatusOf = (row: BomRow) => isSupplementPart(row.part.partNo) ? '' : r
 const chemNoteOf = (row: BomRow) => isSupplementPart(row.part.partNo) ? '' : row.chemNote;
 
 export function isBomFilterActive(filter: BomFilter): boolean {
-  return filter.chemStatuses.length > 0 || [filter.partNo, filter.name, filter.material, filter.chemNote].some(value => value.trim() !== '');
+  return filter.chemStatuses.length > 0 || filter.levels.length > 0 || [filter.partNo, filter.name, filter.material, filter.chemNote].some(value => value.trim() !== '');
 }
 
 export function filterBomRows(rows: BomRow[], filter: BomFilter): BomRow[] {
@@ -280,6 +294,7 @@ export function filterBomRows(rows: BomRow[], filter: BomFilter): BomRow[] {
   return rows.filter(row => {
     if (statuses.size && !statuses.has(chemStatusOf(row))) return false;
     if (partNoMatch && !partNoMatch(row.part.partNo)) return false;
+    if (filter.levels.length && !filter.levels.includes(levelValueOf(row))) return false;
     return needles.every(([needle, get]) => foldText(get(row)).includes(needle));
   });
 }

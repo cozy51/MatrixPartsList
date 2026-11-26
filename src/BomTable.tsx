@@ -34,6 +34,8 @@ export type BomFilterAccess = {
   onChange: (filter: BomFilter) => void;
   /** chemSHERPA調査状況の選択肢。絞り込む前の全行から作る。 */
   chemOptions: { value: string; label: string; count: number }[];
+  /** 品番の階層（9桁目）の選択肢。件数はほかの絞り込みを満たす行で数える。 */
+  levelOptions: { value: string; label: string; count: number }[];
 };
 
 
@@ -235,15 +237,18 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
 
   /** 見出しの下の絞り込み欄。絞り込める列だけ入力欄を出し、ほかの列は空ける。 */
   const filterCell = (label: string, access: BomFilterAccess) => {
-    const { value, onChange, chemOptions } = access;
+    const { value, onChange, chemOptions, levelOptions } = access;
     const textField = ({ '品番': 'partNo', '品名': 'name', '材質・メーカー': 'material', [UNITBASE_NOTE_COLUMN]: 'chemNote' } as Record<string, keyof BomFilter | undefined>)[label];
-    if (textField) return <input className={`bom-filter ${value[textField] ? 'is-active' : ''}`} type="search" value={value[textField]} placeholder="絞り込み"
+    const levelFilter = <MultiSelectFilter label="品番の階層（9桁目）" options={levelOptions} selected={value.levels} compact empty="階層"
+      hint="品番の9桁目（階層）で絞り込みます。複数選ぶと、いずれかに一致する行を出します（1＝10レベル、4＝40レベル、5・6＝50/60レベル）"
+      onChange={levels => onChange({ ...value, levels })} />;
+    if (textField) return wrapPartNo(textField === 'partNo', levelFilter, <input className={`bom-filter ${value[textField] ? 'is-active' : ''}`} type="search" value={value[textField]} placeholder="絞り込み"
       aria-label={`${label}で絞り込む`} title={textField === 'partNo'
         ? '品番に含まれる文字で絞り込みます（部分一致）。\n? は任意の1文字、* は任意の文字列、[456] はどれか1文字（[4-6] も可）で、先頭から桁を合わせて比べます。\n例: ?????????[456] … 10桁目が4・5・6の品番'
         : `${label}に含まれる文字で絞り込みます（部分一致）`}
-      onChange={event => onChange({ ...value, [textField]: event.target.value })} />;
-    if (label === UNITBASE_STATUS_COLUMN) return <ChemStatusFilter label={label} options={chemOptions} selected={value.chemStatuses}
-      onChange={chemStatuses => onChange({ ...value, chemStatuses })} />;
+      onChange={event => onChange({ ...value, [textField]: event.target.value })} />);
+    if (label === UNITBASE_STATUS_COLUMN) return <MultiSelectFilter label={label} options={chemOptions} selected={value.chemStatuses}
+      hint="調査状況を選んで絞り込みます（複数選ぶと、いずれかに一致する行）" onChange={chemStatuses => onChange({ ...value, chemStatuses })} />;
     if (label === '風船' && isBomFilterActive(value)) return <button type="button" className="bom-filter-clear" title="列の絞り込みをすべて解除します"
       onClick={() => onChange(EMPTY_BOM_FILTER)}>解除</button>;
     return null;
@@ -344,14 +349,26 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
   </>;
 }
 
-type ChemOption = BomFilterAccess['chemOptions'][number];
+type FilterOption = BomFilterAccess['chemOptions'][number];
+
+/** 品番の欄は、文字の絞り込みの右に階層の選択を並べる。 */
+const wrapPartNo = (isPartNo: boolean, levelFilter: ReactNode, input: ReactNode) =>
+  isPartNo ? <div className="bom-filter-pair">{input}{levelFilter}</div> : input;
 
 /**
- * chemSHERPA調査状況の絞り込み。チェックを付けた状況の**どれか**に当てはまる行を出す（OR）。
+ * 一覧から複数選ぶ絞り込み（chemSHERPA調査状況・品番の階層）。チェックを付けた値の**どれか**に当てはまる行を出す（OR）。
  * 見出しのセルは内容をはみ出させない（overflow: hidden）ため、一覧は画面に固定して出し、
  * 外側をクリック・スクロールすると閉じる。
  */
-function ChemStatusFilter({ label, options, selected, onChange }: { label: string; options: ChemOption[]; selected: string[]; onChange: (values: string[]) => void }) {
+function MultiSelectFilter({ label, options, selected, onChange, hint, compact, empty = 'すべて' }: {
+  label: string; options: FilterOption[]; selected: string[]; onChange: (values: string[]) => void;
+  /** 何も選んでいないときのツールチップ。 */
+  hint: string;
+  /** 幅の狭いボタンにする（品番の欄で入力欄と並べるとき）。 */
+  compact?: boolean;
+  /** 何も選んでいないときのボタンの文字。 */
+  empty?: string;
+}) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -376,19 +393,20 @@ function ChemStatusFilter({ label, options, selected, onChange }: { label: strin
   }, [anchor]);
 
   const labelOf = (value: string) => options.find(option => option.value === value)?.label ?? value;
-  const summary = !selected.length ? 'すべて' : selected.length <= 2 ? selected.map(labelOf).join('・') : `${selected.length}件を選択`;
+  const shortLabel = (value: string) => compact ? labelOf(value).replace('レベル', '') : labelOf(value);
+  const summary = !selected.length ? empty : selected.length <= 2 ? selected.map(shortLabel).join('・') : `${selected.length}件を選択`;
   const toggle = (value: string) => onChange(selected.includes(value) ? selected.filter(item => item !== value)
     /* 並びは選択肢の順にそろえ、表示が押した順で変わらないようにする。 */
     : options.map(option => option.value).filter(item => item === value || selected.includes(item)));
 
-  return <div className="chem-filter" ref={root}>
+  return <div className={`chem-filter ${compact ? 'is-compact' : ''}`} ref={root}>
     <button type="button" className={`bom-filter chem-filter-toggle ${selected.length ? 'is-active' : ''}`} aria-haspopup="true" aria-expanded={!!anchor}
-      aria-label={`${label}で絞り込む`} title={selected.length ? `選択中: ${selected.map(labelOf).join('、')}（いずれかに一致する行を表示）` : '調査状況を選んで絞り込みます（複数選ぶと、いずれかに一致する行）'}
+      aria-label={`${label}で絞り込む`} title={selected.length ? `選択中: ${selected.map(labelOf).join('、')}（いずれかに一致する行を表示）` : hint}
       onClick={event => setAnchor(anchor ? null : event.currentTarget.getBoundingClientRect())}>
       <span>{summary}</span><i aria-hidden="true">▾</i>
     </button>
     {anchor && <div className="chem-filter-panel" ref={panel} role="group" aria-label={`${label}の選択`} style={{ top: anchor.bottom + 4, left: anchor.left, minWidth: anchor.width }}>
-      <p>複数選ぶと、いずれかに一致する行を出します</p>
+      <p>{compact ? '品番の9桁目（階層）。' : ''}複数選ぶと、いずれかに一致する行を出します</p>
       {options.map(option => <label key={option.value} className={option.count ? '' : 'is-empty'}>
         <input type="checkbox" checked={selected.includes(option.value)} onChange={() => toggle(option.value)} />
         <span>{option.label}</span><small>{option.count}</small>

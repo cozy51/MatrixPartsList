@@ -1266,3 +1266,8 @@ main.view-solo > .solo-view > .bom-table tfoot td { position: static; }
 .chem-filter-panel label.is-empty { color: #98a0ad; }
 .chem-filter-actions { display: flex; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #eef0f4; }
 .chem-filter-actions button { padding: 3px 8px; font-size: 11px; }
+/* 品番の絞り込み欄は、文字の入力と階層（9桁目）の選択を横に並べる。 */
+.bom-table .bom-filter-pair { display: flex; gap: 4px; }
+.bom-table .bom-filter-pair > input { flex: 1; min-width: 0; }
+.bom-table .chem-filter.is-compact { flex: none; }
+.bom-table .chem-filter.is-compact .chem-filter-toggle { width: auto; max-width: 92px; white-space: nowrap; }

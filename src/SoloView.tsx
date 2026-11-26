@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { normalizePlVersion, plLabel } from './csv';
 import { countParts, excludeNoteParts, plKindLabel, sortPartsByBalloon } from './matrix';
 import { formatAmount, type PartFact } from './drawings';
-import { EMPTY_BOM_FILTER, buildBomRows, chemStatusLabel, chemStatusOptions, exportBomExcel, filterBomRows, isBomFilterActive, sumBomRows, type BomFilter, type Level40Parts } from './bom';
+import { EMPTY_BOM_FILTER, buildBomRows, chemStatusLabel, chemStatusOptions, exportBomExcel, partLevelOptions, filterBomRows, isBomFilterActive, sumBomRows, type BomFilter, type Level40Parts } from './bom';
 import BomTable, { type Level40Access } from './BomTable';
 import type { PartsList } from './types';
 import UnitBaseBar from './UnitBaseBar';
@@ -60,6 +60,8 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
     const rest = [...chemStatusOptions(rows).map(option => option.value), ...columnFilter.chemStatuses].filter(value => !known.has(value) && (known.add(value), true));
     return [...options, ...rest.map(value => ({ value, label: chemStatusLabel(value), count: 0 }))];
   }, [rows, searched, columnFilter]);
+  /* 階層の件数も同じ考え方で、階層自体の選択を除いたほかの条件で数える。 */
+  const levelOptions = useMemo(() => partLevelOptions(filterBomRows(searched, { ...columnFilter, levels: [] })), [searched, columnFilter]);
   const filtering = search.trim() !== '' || isBomFilterActive(columnFilter);
 
   const massTotal = useMemo(() => sumBomRows(listed, row => row.totalMass), [listed]);
@@ -109,14 +111,14 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
         <b>入力できるセルで値が入っていないものは、背景を薄い橙</b>にしています。入れ忘れを探すときの目印にしてください。
         <b>行をクリックすると、その行に黄色い目印</b>が残ります。カーソルを外しても消えないため、長い明細を上から順に見ていくときの「どこまで見たか」に使えます（もう一度押すと外れます）。
         <b>chemSHERPA(import)・備考(import)</b>は、UnitBaseから出力したCSVの「chemSHERPA調査状況」「備考」を<b>品番（子品番単位）が一致</b>した部品に出しています（編集不可）。UnitBaseを更新したら、出力したCSVをスプレッドシートへ貼り付け（ファイル → インポート →「現在のシートを置換」）、<b>「スプレッドシートから更新」</b>を押すと置き換わります（取り込んだ内容はGoogle Driveへ同期します）。40レベル部品の中身のポップアップにも同じ2列を出します。
-        見出しのすぐ下の<b>絞り込み欄</b>で、品番・品名・材質・備考(import)は含まれる文字で（品番は <code>?</code>＝任意の1文字・<code>*</code>＝任意の文字列・<code>[456]</code>＝どれか1文字で先頭から桁を合わせて絞れます。例: <code>?????????[456]</code> で10桁目が4・5・6）、chemSHERPA(import)は一覧でチェックを付けた調査状況で行を絞り込めます（<b>複数選ぶと、いずれかに一致する行</b>を出します。一覧の件数は、検索とほかの列の絞り込みを満たす今の件数です。右上の検索と同時に使え、合計・Excel出力も絞り込んだ行が対象です。「解除」ですべて戻ります）。
+        見出しのすぐ下の<b>絞り込み欄</b>で、品番・品名・材質・備考(import)は含まれる文字で（品番は <code>?</code>＝任意の1文字・<code>*</code>＝任意の文字列・<code>[456]</code>＝どれか1文字で先頭から桁を合わせて絞れます。例: <code>?????????[456]</code> で10桁目が4・5・6。品番の階層＝9桁目は、入力欄の右の<b>「階層」</b>から40レベル・50/60レベルなどを選んで絞れます）、chemSHERPA(import)は一覧でチェックを付けた調査状況で行を絞り込めます（<b>複数選ぶと、いずれかに一致する行</b>を出します。一覧の件数は、検索とほかの列の絞り込みを満たす今の件数です。右上の検索と同時に使え、合計・Excel出力も絞り込んだ行が対象です。「解除」ですべて戻ります）。
         <b>40レベル部品</b>（品番が下線付き）は分解できる部品のため、質量・単価は<b>中身（50/60レベル）の合計</b>で決まります。品番を押すと中身を開いて、そこでも同じ入力ができます。
       </p>
 
       {/* 列の絞り込みで0件になっても入力欄を消さないよう、PLに部品があれば表は出し続ける。 */}
       {rows.length
         ? <BomTable rows={listed} facts={facts} onFactsChange={onFactsChange} renderBadges={renderBadges} level40={level40} totalLabel={`合計（表示中 ${listed.length} 部品）`}
-            filter={{ value: columnFilter, onChange: setColumnFilter, chemOptions }} />
+            filter={{ value: columnFilter, onChange: setColumnFilter, chemOptions, levelOptions }} />
         : <p className="drawings-empty">このPLに部品がありません。</p>}
       {rows.length > 0 && !listed.length && <p className="drawings-empty">検索・絞り込みの条件に一致する部品はありません。</p>}
     </> : <p className="drawings-empty">
