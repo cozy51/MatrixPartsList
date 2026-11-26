@@ -243,11 +243,12 @@ export function compareBomAmounts(common: BomRow[], baseOnly: BomRow[], targetOn
 
 /**
  * 単体BOMの列ごとの絞り込み条件。文字の列は部分一致（大文字・小文字、全角・半角を区別しない）、
- * chemSHERPA調査状況は一覧から選んだ値と完全一致で絞ります。空の条件は絞り込みに使いません。
+ * chemSHERPA調査状況は一覧から選んだ値（複数可）のどれかと完全一致する行に絞ります（OR）。
+ * 空の条件は絞り込みに使いません。
  */
-export type BomFilter = { partNo: string; name: string; material: string; chemStatus: string; chemNote: string };
+export type BomFilter = { partNo: string; name: string; material: string; chemStatuses: string[]; chemNote: string };
 
-export const EMPTY_BOM_FILTER: BomFilter = { partNo: '', name: '', material: '', chemStatus: '', chemNote: '' };
+export const EMPTY_BOM_FILTER: BomFilter = { partNo: '', name: '', material: '', chemStatuses: [], chemNote: '' };
 
 /** chemSHERPA調査状況の「空欄（UnitBaseに一致なし・未記入）」を選ぶときの値。 */
 export const CHEM_STATUS_BLANK = '\u0000blank';
@@ -262,7 +263,7 @@ const chemStatusOf = (row: BomRow) => isSupplementPart(row.part.partNo) ? '' : r
 const chemNoteOf = (row: BomRow) => isSupplementPart(row.part.partNo) ? '' : row.chemNote;
 
 export function isBomFilterActive(filter: BomFilter): boolean {
-  return Object.values(filter).some(value => value.trim() !== '');
+  return filter.chemStatuses.length > 0 || [filter.partNo, filter.name, filter.material, filter.chemNote].some(value => value.trim() !== '');
 }
 
 export function filterBomRows(rows: BomRow[], filter: BomFilter): BomRow[] {
@@ -274,11 +275,10 @@ export function filterBomRows(rows: BomRow[], filter: BomFilter): BomRow[] {
     [filter.chemNote, chemNoteOf],
   ];
   const needles = texts.map(([value, get]) => [foldText(value.trim()), get] as const).filter(([needle]) => needle);
+  /* 空欄は選択肢では CHEM_STATUS_BLANK で表すため、行の値（空文字）に合わせて比べる。 */
+  const statuses = new Set(filter.chemStatuses.map(value => value === CHEM_STATUS_BLANK ? '' : value));
   return rows.filter(row => {
-    if (filter.chemStatus) {
-      const status = chemStatusOf(row);
-      if (filter.chemStatus === CHEM_STATUS_BLANK ? status !== '' : status !== filter.chemStatus) return false;
-    }
+    if (statuses.size && !statuses.has(chemStatusOf(row))) return false;
     return needles.every(([needle, get]) => foldText(get(row)).includes(needle));
   });
 }

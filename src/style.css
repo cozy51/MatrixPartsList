@@ -1251,3 +1251,17 @@ main.view-solo > .solo-view > .bom-table tfoot td { position: static; }
 .bom-table .bom-filter { width: 100%; box-sizing: border-box; padding: 3px 6px; font-size: 11.5px; border: 1px solid #d3d8ea; border-radius: 5px; background: #fff; color: #2d3748; }
 .bom-table .bom-filter.is-active { border-color: #5b67e0; background: #f0f2ff; box-shadow: 0 0 0 1px #5b67e0 inset; }
 .bom-table .bom-filter-clear { padding: 2px 6px; font-size: 11px; border: 1px solid #d3d8ea; border-radius: 5px; background: #fff; color: #4651bc; cursor: pointer; }
+
+/* chemSHERPA調査状況の絞り込み（複数選択・OR）。見出しのセルからはみ出せないため、一覧は画面に固定して出す。 */
+.bom-table .chem-filter-toggle { display: flex; align-items: center; justify-content: space-between; gap: 6px; text-align: left; cursor: pointer; }
+.bom-table .chem-filter-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bom-table .chem-filter-toggle i { font-style: normal; color: #667085; font-size: 10px; }
+.chem-filter-panel { position: fixed; z-index: 40; max-height: 60vh; overflow: auto; padding: 8px; background: #fff; border: 1px solid #cfd6e3; border-radius: 8px; box-shadow: 0 12px 30px #16213629; color: #2d3748; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.chem-filter-panel p { margin: 0 0 6px; color: #8a93a4; font-size: 11px; }
+.chem-filter-panel label { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border-radius: 5px; cursor: pointer; }
+.chem-filter-panel label:hover { background: #f0f2ff; }
+.chem-filter-panel label span { flex: 1; }
+.chem-filter-panel label small { color: #8a93a4; }
+.chem-filter-panel label.is-empty { color: #98a0ad; }
+.chem-filter-actions { display: flex; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #eef0f4; }
+.chem-filter-actions button { padding: 3px 8px; font-size: 11px; }

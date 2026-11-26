@@ -54,10 +54,9 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
   /* 選んでいた調査状況がPLを切り替えて無くなっても、「すべて」に見えて絞り込みに気付けなくならないよう、0件として残す。 */
   const chemOptions = useMemo(() => {
     const options = chemStatusOptions(rows);
-    const selected = columnFilter.chemStatus;
-    return !selected || options.some(option => option.value === selected) ? options
-      : [...options, { value: selected, label: chemStatusLabel(selected), count: 0 }];
-  }, [rows, columnFilter.chemStatus]);
+    const missing = columnFilter.chemStatuses.filter(selected => !options.some(option => option.value === selected));
+    return [...options, ...missing.map(value => ({ value, label: chemStatusLabel(value), count: 0 }))];
+  }, [rows, columnFilter.chemStatuses]);
   const filtering = search.trim() !== '' || isBomFilterActive(columnFilter);
 
   const massTotal = useMemo(() => sumBomRows(listed, row => row.totalMass), [listed]);
@@ -79,7 +78,8 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
       </label>
       {/* 図面リンクの取り込みは表示中のPLに依らず全品番が対象のため、PL未選択でも押せる。 */}
       <button type="button" className="drawing-capture" onClick={onCaptureDrawings} title="社内システムでコピーした図面のリンクを、この画面のまま取り込みます">📋 図面リンク取得</button>
-      <button type="button" className="excel" onClick={exportExcel} disabled={!list}>Excel出力</button>
+      <button type="button" className="excel" onClick={exportExcel} disabled={!list || !listed.length}
+        title={filtering ? '検索・絞り込みで表示中の行だけをExcelに出力します' : '表示中のPLの明細をExcelに出力します'}>{filtering ? `Excel出力（表示中 ${listed.length} 部品）` : 'Excel出力'}</button>
     </div>
 
     <UnitBaseBar data={unitBase} onReplace={onUnitBaseReplace} />
@@ -106,7 +106,7 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
         <b>入力できるセルで値が入っていないものは、背景を薄い橙</b>にしています。入れ忘れを探すときの目印にしてください。
         <b>行をクリックすると、その行に黄色い目印</b>が残ります。カーソルを外しても消えないため、長い明細を上から順に見ていくときの「どこまで見たか」に使えます（もう一度押すと外れます）。
         <b>chemSHERPA(import)・備考(import)</b>は、UnitBaseから出力したCSVの「chemSHERPA調査状況」「備考」を<b>品番（子品番単位）が一致</b>した部品に出しています（編集不可）。UnitBaseを更新したら、出力したCSVをスプレッドシートへ貼り付け（ファイル → インポート →「現在のシートを置換」）、<b>「スプレッドシートから更新」</b>を押すと置き換わります（取り込んだ内容はGoogle Driveへ同期します）。40レベル部品の中身のポップアップにも同じ2列を出します。
-        見出しのすぐ下の<b>絞り込み欄</b>で、品番・品名・材質・備考(import)は含まれる文字で、chemSHERPA(import)は一覧から選んだ調査状況で行を絞り込めます（右上の検索と同時に使え、合計・Excel出力も絞り込んだ行が対象です。「解除」ですべて戻ります）。
+        見出しのすぐ下の<b>絞り込み欄</b>で、品番・品名・材質・備考(import)は含まれる文字で、chemSHERPA(import)は一覧でチェックを付けた調査状況で行を絞り込めます（<b>複数選ぶと、いずれかに一致する行</b>を出します。右上の検索と同時に使え、合計・Excel出力も絞り込んだ行が対象です。「解除」ですべて戻ります）。
         <b>40レベル部品</b>（品番が下線付き）は分解できる部品のため、質量・単価は<b>中身（50/60レベル）の合計</b>で決まります。品番を押すと中身を開いて、そこでも同じ入力ができます。
       </p>
 
