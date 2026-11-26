@@ -231,7 +231,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       <td className="bom-chem-cell">{status
         ? <span className={`chem-status ${tone}`} title={statusTitle}>{status}</span>
         : <span className="solo-blank" title="UnitBaseに一致する品番がない、または調査状況が空欄です。">—</span>}</td>
-      <td className="bom-chem-cell bom-chem-note" title={row.chemNote || undefined}>{shortChemNote(row.chemNote) || <span className="solo-blank">—</span>}</td>
+      <td className="bom-chem-cell bom-chem-note" title={row.chemNote || undefined}>{highlightChemNote(shortChemNote(row.chemNote)) || <span className="solo-blank">—</span>}</td>
     </>;
   };
 
@@ -354,6 +354,18 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
  * 長く、列が詰まるため「資材調査品番」を省く。省いた元の文はセルのツールチップとExcel出力にそのまま残す。
  */
 export const shortChemNote = (note: string) => note.replace(/資材調査品番/g, '');
+
+/**
+ * 備考(import)の「含有なし」を薄い青、「含有あり」を薄い赤で目立たせる（見間違いの防止）。
+ * 該当する語がなければ元の文字列をそのまま返す。
+ */
+export const highlightChemNote = (note: string): ReactNode => {
+  if (!/含有(なし|あり)/.test(note)) return note;
+  return note.split(/(含有なし|含有あり)/).map((part, index) =>
+    part === '含有なし' ? <mark key={index} className="chem-content is-absent">{part}</mark>
+      : part === '含有あり' ? <mark key={index} className="chem-content is-present">{part}</mark>
+        : part);
+};
 
 type FilterOption = BomFilterAccess['chemOptions'][number];
 

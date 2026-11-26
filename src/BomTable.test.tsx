@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import BomTable, { shortChemNote, type Level40Access } from './BomTable';
+import BomTable, { highlightChemNote, shortChemNote, type Level40Access } from './BomTable';
 import { buildBomRows, type Level40Parts } from './bom';
 import type { Part } from './types';
 
@@ -35,5 +35,12 @@ describe('備考(import)の表示', () => {
   it('「資材調査品番」を省く', () => {
     expect(shortChemNote('デクロランプラス資材調査品番：含有なし')).toBe('デクロランプラス：含有なし');
     expect(shortChemNote('サプライヤ回答待ち')).toBe('サプライヤ回答待ち');
+  });
+
+  it('「含有なし」を青、「含有あり」を赤で強調する', () => {
+    const html = renderToStaticMarkup(<>{highlightChemNote('デクロランプラス：含有なし\nPFAS：含有あり')}</>);
+    expect(html).toContain('<mark class="chem-content is-absent">含有なし</mark>');
+    expect(html).toContain('<mark class="chem-content is-present">含有あり</mark>');
+    expect(highlightChemNote('サプライヤ回答待ち')).toBe('サプライヤ回答待ち');
   });
 });
