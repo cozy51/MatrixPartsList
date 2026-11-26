@@ -182,7 +182,8 @@ export const isLongPartDrawingNo = (drawingNo: string): boolean => LONG_PART_DRA
  */
 export function normalizeDrawingNo(value: string): string {
   const key = drawingKey(value);
-  return /^[A-Z][A-Z0-9]{9}[\dT]\d$/.test(key) ? key.slice(0, 11) : key;
+  // 多品一葉図の `#` を含む図番（`HY13006#4303`）にも用紙サイズが付く。
+  return /^[A-Z][A-Z0-9#]{9}[\dT]\d$/.test(key) ? key.slice(0, 11) : key;
 }
 
 /**
@@ -273,8 +274,11 @@ export const wildcardPartNos = (drawingNo: string, knownPartNos: Iterable<string
 function wildcardPartNosOf(drawingNo: string, known: Set<string>): string[] {
   const value = normalizeDrawingNo(drawingNo);
   if (!value.includes('#')) return [];
-  const pattern = new RegExp(`^${[...value].map(char => char === '#' ? '[A-Z0-9]' : char.replace(/[^A-Z0-9]/, '\\$&')).join('')}$`);
-  return [...known].filter(partNo => pattern.test(partNo)).sort();
+  // 11桁の図番は11桁目が枚数なので、先頭10桁を品番の形として突き合わせる
+  // （図番 `HY13006#430` → 品番 `HY13006043`）。
+  const shapes = /^[A-Z][A-Z0-9#]{9}\d$/.test(value) ? [value, value.slice(0, 10)] : [value];
+  const patterns = shapes.map(shape => new RegExp(`^${[...shape].map(char => char === '#' ? '[A-Z0-9]' : char.replace(/[^A-Z0-9]/, '\\$&')).join('')}$`));
+  return [...known].filter(partNo => patterns.some(pattern => pattern.test(partNo))).sort();
 }
 
 /**
