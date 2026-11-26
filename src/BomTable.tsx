@@ -238,7 +238,9 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     const { value, onChange, chemOptions } = access;
     const textField = ({ '品番': 'partNo', '品名': 'name', '材質・メーカー': 'material', [UNITBASE_NOTE_COLUMN]: 'chemNote' } as Record<string, keyof BomFilter | undefined>)[label];
     if (textField) return <input className={`bom-filter ${value[textField] ? 'is-active' : ''}`} type="search" value={value[textField]} placeholder="絞り込み"
-      aria-label={`${label}で絞り込む`} title={`${label}に含まれる文字で絞り込みます（部分一致）`}
+      aria-label={`${label}で絞り込む`} title={textField === 'partNo'
+        ? '品番に含まれる文字で絞り込みます（部分一致）。\n? は任意の1文字、* は任意の文字列、[456] はどれか1文字（[4-6] も可）で、先頭から桁を合わせて比べます。\n例: ?????????[456] … 10桁目が4・5・6の品番'
+        : `${label}に含まれる文字で絞り込みます（部分一致）`}
       onChange={event => onChange({ ...value, [textField]: event.target.value })} />;
     if (label === UNITBASE_STATUS_COLUMN) return <ChemStatusFilter label={label} options={chemOptions} selected={value.chemStatuses}
       onChange={chemStatuses => onChange({ ...value, chemStatuses })} />;

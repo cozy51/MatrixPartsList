@@ -269,18 +269,47 @@ export function isBomFilterActive(filter: BomFilter): boolean {
 export function filterBomRows(rows: BomRow[], filter: BomFilter): BomRow[] {
   if (!isBomFilterActive(filter)) return rows;
   const texts: [string, (row: BomRow) => string][] = [
-    [filter.partNo, row => row.part.partNo],
     [filter.name, row => row.part.name],
     [filter.material, row => row.part.material],
     [filter.chemNote, chemNoteOf],
   ];
   const needles = texts.map(([value, get]) => [foldText(value.trim()), get] as const).filter(([needle]) => needle);
+  const partNoMatch = partNoMatcher(filter.partNo);
   /* 空欄は選択肢では CHEM_STATUS_BLANK で表すため、行の値（空文字）に合わせて比べる。 */
   const statuses = new Set(filter.chemStatuses.map(value => value === CHEM_STATUS_BLANK ? '' : value));
   return rows.filter(row => {
     if (statuses.size && !statuses.has(chemStatusOf(row))) return false;
+    if (partNoMatch && !partNoMatch(row.part.partNo)) return false;
     return needles.every(([needle, get]) => foldText(get(row)).includes(needle));
   });
+}
+
+/** 品番の絞り込みで、ワイルドカードを使っているか。 */
+export const isPartNoPattern = (value: string) => /[?？*＊]|\[[^\]]+\]/.test(value);
+
+/**
+ * 品番の絞り込み。ふつうは部分一致。`?`（任意の1文字）・`*`（任意の文字列）・`[456]`（どれか1文字、`[4-6]` も可）
+ * を含むときは**先頭から**桁を合わせて比べる（末尾は以降に何があってもよい）。
+ * 例: `?????????[456]` … 10桁目が4・5・6の品番。空なら undefined（絞り込まない）。
+ */
+export function partNoMatcher(value: string): ((partNo: string) => boolean) | undefined {
+  const needle = foldText(value.trim());
+  if (!needle) return undefined;
+  if (!isPartNoPattern(needle)) return partNo => foldText(partNo).includes(needle);
+  let source = '';
+  for (let index = 0; index < needle.length; index++) {
+    const char = needle[index];
+    const close = char === '[' ? needle.indexOf(']', index + 1) : -1;
+    if (close > index + 1) {
+      /* 角かっこの中は文字と範囲（a-z）だけを通し、ほかの記号はそのまま文字として扱う。 */
+      source += `[${needle.slice(index + 1, close).replace(/[\\^\]]/g, '\\$&')}]`;
+      index = close;
+    } else if (char === '?') source += '.';
+    else if (char === '*') source += '.*';
+    else source += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  const pattern = new RegExp(`^${source}`);
+  return partNo => pattern.test(foldText(partNo));
 }
 
 /** 絞り込みの選択肢に出すchemSHERPA調査状況と件数。多い順、同数は名前順。空欄は最後に1つだけ出す。 */
