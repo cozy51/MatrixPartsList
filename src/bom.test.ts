@@ -186,10 +186,14 @@ describe('単体BOMの列フィルタ', () => {
   });
   it('材質は全角・半角を区別しない', () => expect(nos({ material: 'タキゲン' })).toEqual(['Z080670500']));
   it('chemSHERPAは選んだ値と一致、空欄は補材を含む', () => {
-    expect(nos({ chemStatus: '依頼済' })).toEqual(['Z080670500', 'HJ02101070']);
-    expect(nos({ chemStatus: CHEM_STATUS_BLANK })).toEqual(['+', 'HJ02101080']);
+    expect(nos({ chemStatuses: ['依頼済'] })).toEqual(['Z080670500', 'HJ02101070']);
+    expect(nos({ chemStatuses: [CHEM_STATUS_BLANK] })).toEqual(['+', 'HJ02101080']);
   });
-  it('複数の条件はすべて満たす行だけ', () => expect(nos({ chemStatus: '依頼済', name: 'cover' })).toEqual(['HJ02101070']));
+  it('chemSHERPAは複数選ぶといずれかに一致する行（OR）', () => {
+    expect(nos({ chemStatuses: ['完了', CHEM_STATUS_BLANK] })).toEqual(['HJ02101060', '+', 'HJ02101080']);
+    expect(nos({ chemStatuses: ['依頼済', '完了'] })).toEqual(['HJ02101060', 'Z080670500', 'HJ02101070']);
+  });
+  it('複数の条件はすべて満たす行だけ', () => expect(nos({ chemStatuses: ['依頼済'], name: 'cover' })).toEqual(['HJ02101070']));
   it('選択肢は多い順で空欄が最後', () => {
     expect(chemStatusOptions(rows).map(option => `${option.label}:${option.count}`)).toEqual(['依頼済:2', '完了:1', '（空欄）:2']);
   });

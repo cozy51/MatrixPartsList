@@ -1,4 +1,4 @@
-import { useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { displayMass, displayPrice, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact, type PartFile } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
@@ -240,11 +240,8 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     if (textField) return <input className={`bom-filter ${value[textField] ? 'is-active' : ''}`} type="search" value={value[textField]} placeholder="絞り込み"
       aria-label={`${label}で絞り込む`} title={`${label}に含まれる文字で絞り込みます（部分一致）`}
       onChange={event => onChange({ ...value, [textField]: event.target.value })} />;
-    if (label === UNITBASE_STATUS_COLUMN) return <select className={`bom-filter ${value.chemStatus ? 'is-active' : ''}`} value={value.chemStatus}
-      aria-label={`${label}で絞り込む`} onChange={event => onChange({ ...value, chemStatus: event.target.value })}>
-      <option value="">すべて</option>
-      {chemOptions.map(option => <option key={option.value} value={option.value}>{`${option.label}（${option.count}）`}</option>)}
-    </select>;
+    if (label === UNITBASE_STATUS_COLUMN) return <ChemStatusFilter label={label} options={chemOptions} selected={value.chemStatuses}
+      onChange={chemStatuses => onChange({ ...value, chemStatuses })} />;
     if (label === '風船' && isBomFilterActive(value)) return <button type="button" className="bom-filter-clear" title="列の絞り込みをすべて解除します"
       onClick={() => onChange(EMPTY_BOM_FILTER)}>解除</button>;
     return null;
@@ -343,4 +340,61 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       </div>
     </div>}
   </>;
+}
+
+type ChemOption = BomFilterAccess['chemOptions'][number];
+
+/**
+ * chemSHERPA調査状況の絞り込み。チェックを付けた状況の**どれか**に当てはまる行を出す（OR）。
+ * 見出しのセルは内容をはみ出させない（overflow: hidden）ため、一覧は画面に固定して出し、
+ * 外側をクリック・スクロールすると閉じる。
+ */
+function ChemStatusFilter({ label, options, selected, onChange }: { label: string; options: ChemOption[]; selected: string[]; onChange: (values: string[]) => void }) {
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!anchor) return;
+    const close = (event: Event) => {
+      const target = event.target as Node;
+      if (root.current?.contains(target) || panel.current?.contains(target)) return;
+      setAnchor(null);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setAnchor(null); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [anchor]);
+
+  const labelOf = (value: string) => options.find(option => option.value === value)?.label ?? value;
+  const summary = !selected.length ? 'すべて' : selected.length <= 2 ? selected.map(labelOf).join('・') : `${selected.length}件を選択`;
+  const toggle = (value: string) => onChange(selected.includes(value) ? selected.filter(item => item !== value)
+    /* 並びは選択肢の順にそろえ、表示が押した順で変わらないようにする。 */
+    : options.map(option => option.value).filter(item => item === value || selected.includes(item)));
+
+  return <div className="chem-filter" ref={root}>
+    <button type="button" className={`bom-filter chem-filter-toggle ${selected.length ? 'is-active' : ''}`} aria-haspopup="true" aria-expanded={!!anchor}
+      aria-label={`${label}で絞り込む`} title={selected.length ? `選択中: ${selected.map(labelOf).join('、')}（いずれかに一致する行を表示）` : '調査状況を選んで絞り込みます（複数選ぶと、いずれかに一致する行）'}
+      onClick={event => setAnchor(anchor ? null : event.currentTarget.getBoundingClientRect())}>
+      <span>{summary}</span><i aria-hidden="true">▾</i>
+    </button>
+    {anchor && <div className="chem-filter-panel" ref={panel} role="group" aria-label={`${label}の選択`} style={{ top: anchor.bottom + 4, left: anchor.left, minWidth: anchor.width }}>
+      <p>複数選ぶと、いずれかに一致する行を出します</p>
+      {options.map(option => <label key={option.value} className={option.count ? '' : 'is-empty'}>
+        <input type="checkbox" checked={selected.includes(option.value)} onChange={() => toggle(option.value)} />
+        <span>{option.label}</span><small>{option.count}</small>
+      </label>)}
+      <div className="chem-filter-actions">
+        <button type="button" onClick={() => onChange(options.map(option => option.value))}>全選択</button>
+        <button type="button" onClick={() => onChange([])} disabled={!selected.length}>解除（すべて表示）</button>
+      </div>
+    </div>}
+  </div>;
 }
