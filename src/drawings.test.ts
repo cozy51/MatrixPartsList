@@ -342,6 +342,17 @@ describe('図面区分と図番からの品番', () => {
     expect(parsed.partNos).toEqual(['MVS5700260']);
   });
 
+  it('多品一葉図に枚数・用紙サイズが付いた12桁の図番も、品番へ結び付ける', () => {
+    // 図番 HY13006#43 の1枚目（0）・A3（3）。品番 HY13006043 の共通図面。
+    const url = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/pdf/HY1/2471265_HY13006%234303.pdf';
+    const parsed = parseDrawingUrl(url, ['HY13006043', 'HY0W0A5060']);
+    expect(parsed.drawingNo).toBe('HY13006#430');
+    expect(parsed.partNos).toEqual(['HY13006043']);
+    // 以前の版で12桁のまま登録された記録も、部品表の品番から引ける。
+    const link = drawing({ id: 'old', drawingNo: 'HY13006#4303', partNos: ['HY13006#4303'] });
+    expect(drawingsForPart(buildPartDrawingIndex([link], ['HY13006043']), 'HY13006043')).toEqual([link]);
+  });
+
   it('多品一葉図は、登録済みの記録でも部品表の品番から引ける', () => {
     // 部品表を渡さずに登録した記録は、対象品番が図番のままになっている。
     const link = drawing({ id: 'multi', drawingNo: 'MVS570##60', partNos: ['MVS570##60'] });
