@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { MACHINES, PL_MODES, defaultPlSelection, inferMachine, inferPlMode, loadPlSelection, plModeLabel, plModesForMachine } from './plModes';
 
 describe('PL display modes', () => {
-  it('contains the 27 supported modes', () => {
-    expect(PL_MODES).toHaveLength(27);
+  it('contains the 28 supported modes', () => {
+    expect(PL_MODES).toHaveLength(28);
     expect(plModeLabel('SRC350', '01')).toBe('01 DRIVE GEAR BOX');
     expect(plModeLabel('SRC350', '27')).toBe('27 LOGO STICKER');
+    expect(plModeLabel('SRC350', '30')).toBe('30 FIXTURE');
     expect(MACHINES.map(machine => machine.id)).toEqual(['SRC350', 'HU300']);
     expect(plModesForMachine('HU300').map(mode => mode.label)).toEqual([
       '01 HOIST UNIT', '02 HAND UNIT', '03 CARRY FIXTURE(JIG)', '04 FIXTURE',
@@ -19,7 +20,11 @@ describe('PL display modes', () => {
     // FIXTURE は CARRY FIXTURE(JIG) の一部なので、長い名称が優先されること。
     expect(inferPlMode('HU300', 'HH0003.csv', 'CARRY FIXTURE(JIG)')).toBe('03');
     expect(inferPlMode('HU300', 'HH0004.csv', 'FIXTURE')).toBe('04');
-    expect(inferMachine('HH0004.csv', 'FIXTURE')).toBe('HU300');
+    expect(inferPlMode('SRC350', 'HH0030.csv', 'FIXTURE')).toBe('30');
+    // FIXTURE は SRC350 と HU300 の両方にあるため、名称だけでは機種を決めない。
+    expect(inferMachine('HH0004.csv', 'FIXTURE')).toBe('');
+    expect(inferMachine('HH0004.csv', 'FIXTURE (HU300)')).toBe('HU300');
+    expect(inferMachine('HH0030.csv', 'FIXTURE (350M3)')).toBe('SRC350');
     expect(inferPlMode('SRC350', 'unknown.csv', 'unknown')).toBe('');
     expect(inferMachine('HU300_01_HOIST_UNIT.csv')).toBe('HU300');
     expect(inferMachine('DRIVE GEAR BOX (350M3)')).toBe('SRC350');
@@ -27,7 +32,11 @@ describe('PL display modes', () => {
     expect(inferMachine('HH0001.csv', 'HAND UNIT')).toBe('HU300');
     expect(inferMachine('HH0002.csv', 'HAND UNIT (350M3)')).toBe('SRC350');
     for (const machine of MACHINES) {
-      for (const mode of machine.modes) expect(inferMachine(mode.label)).toBe(machine.id);
+      for (const mode of machine.modes) {
+        // 両機種に同じ名称があるユニット（FIXTURE）は機種を決めない。
+        const shared = MACHINES.some(other => other !== machine && other.modes.some(m => m.label.replace(/^\d+\s+/, '') === mode.label.replace(/^\d+\s+/, '')));
+        expect(inferMachine(mode.label)).toBe(shared ? '' : machine.id);
+      }
     }
     expect(inferMachine('unknown.csv')).toBe('');
   });

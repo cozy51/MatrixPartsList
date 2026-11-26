@@ -10,7 +10,7 @@ const SRC350_MODES: PlMode[] = [
   ['16', 'E-84関係'], ['17', 'THETA UNIT'], ['18', 'LATERAL UNIT'],
   ['19', 'LATERAL GEAR BOX'], ['20', 'CRADLE'], ['21', 'HAND'], ['22', 'COVER'],
   ['23', 'HAZARD LABEL'], ['24', 'CARRY WAGON'], ['25', 'CLEANING NOZZLE UNIT'],
-  ['26', 'CLEANER UNIT'], ['27', 'LOGO STICKER'],
+  ['26', 'CLEANER UNIT'], ['27', 'LOGO STICKER'], ['30', 'FIXTURE'],
 ].map(([id, name]) => ({ id, label: `${id} ${name}` }));
 
 const HU300_MODES: PlMode[] = [
