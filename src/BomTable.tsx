@@ -240,7 +240,7 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     const { value, onChange, chemOptions, levelOptions } = access;
     const textField = ({ '品番': 'partNo', '品名': 'name', '材質・メーカー': 'material', [UNITBASE_NOTE_COLUMN]: 'chemNote' } as Record<string, keyof BomFilter | undefined>)[label];
     const levelFilter = <MultiSelectFilter label="品番の階層（9桁目）" options={levelOptions} selected={value.levels} compact empty="階層"
-      hint="品番の9桁目（階層）で絞り込みます。複数選ぶと、いずれかに一致する行を出します（1＝10レベル、4＝40レベル、5・6＝50/60レベル）"
+      hint="品番の9桁目（階層）で絞り込みます。複数選ぶと、いずれかに一致する行を出します（1＝10レベル、4＝40レベル、5・6＝50/60レベル。先頭がZの品番は購入品）"
       onChange={levels => onChange({ ...value, levels })} />;
     if (textField) return wrapPartNo(textField === 'partNo', levelFilter, <input className={`bom-filter ${value[textField] ? 'is-active' : ''}`} type="search" value={value[textField]} placeholder="絞り込み"
       aria-label={`${label}で絞り込む`} title={textField === 'partNo'
@@ -393,7 +393,7 @@ function MultiSelectFilter({ label, options, selected, onChange, hint, compact, 
   }, [anchor]);
 
   const labelOf = (value: string) => options.find(option => option.value === value)?.label ?? value;
-  const shortLabel = (value: string) => compact ? labelOf(value).replace('レベル', '') : labelOf(value);
+  const shortLabel = (value: string) => compact ? labelOf(value).replace(/レベル|（Z）/g, '') : labelOf(value);
   const summary = !selected.length ? empty : selected.length <= 2 ? selected.map(shortLabel).join('・') : `${selected.length}件を選択`;
   const toggle = (value: string) => onChange(selected.includes(value) ? selected.filter(item => item !== value)
     /* 並びは選択肢の順にそろえ、表示が押した順で変わらないようにする。 */

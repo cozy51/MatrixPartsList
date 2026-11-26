@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { normalizePlVersion, versionMatchKey } from './csv';
 import { parseAmount, partFactFor, type PartFact, type PartFile } from './drawings';
 import { isLevel40No, levelNoKey, partLevelOf } from './levels';
-import { excludeNoteParts, isSupplementPart } from './matrix';
+import { excludeNoteParts, isPurchasedPart, isSupplementPart } from './matrix';
 import type { Part, PartsList } from './types';
 import { UNITBASE_NOTE_COLUMN, UNITBASE_STATUS_COLUMN, type UnitBaseLookup } from './unitbase';
 
@@ -250,12 +250,17 @@ export type BomFilter = { partNo: string; levels: string[]; name: string; materi
 
 export const EMPTY_BOM_FILTER: BomFilter = { partNo: '', levels: [], name: '', material: '', chemStatuses: [], chemNote: '' };
 
-/** 品番の階層（9桁目）で絞るときの値。階層が決まらない品番（補材・桁数の違う番号）は「その他」。 */
+/**
+ * 品番の階層（9桁目）で絞るときの値。先頭がZの品番は購入品で、9桁目は階層を表さないため
+ * 階層より先に「購入品」に分ける。階層が決まらない品番（補材・桁数の違う番号）は「その他」。
+ */
+export const PART_LEVEL_PURCHASED = 'purchased';
 export const PART_LEVEL_OTHER = 'other';
 const LEVEL_OPTIONS: { value: string; label: string }[] = [
-  { value: '10', label: '10レベル' }, { value: '40', label: '40レベル' }, { value: '5060', label: '50/60レベル' }, { value: PART_LEVEL_OTHER, label: 'その他' },
+  { value: '10', label: '10レベル' }, { value: '40', label: '40レベル' }, { value: '5060', label: '50/60レベル' },
+  { value: PART_LEVEL_PURCHASED, label: '購入品（Z）' }, { value: PART_LEVEL_OTHER, label: 'その他' },
 ];
-const levelValueOf = (row: BomRow) => partLevelOf(row.part.partNo) || PART_LEVEL_OTHER;
+const levelValueOf = (row: BomRow) => isPurchasedPart(row.part.partNo) ? PART_LEVEL_PURCHASED : partLevelOf(row.part.partNo) || PART_LEVEL_OTHER;
 
 /** 階層の選択肢と件数。並びは階層の順で固定し、選んだまま見失わないよう0件の階層も出す。 */
 export function partLevelOptions(rows: BomRow[]): { value: string; label: string; count: number }[] {
