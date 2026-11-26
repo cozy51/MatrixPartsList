@@ -1055,6 +1055,10 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .solo-totals dd { margin: 3px 0 0; color: #3346ba; font-size: 17px; font-weight: 800; }
 .solo-totals dd small { display: block; margin-top: 2px; color: #8a93a4; font-size: 11px; font-weight: 600; }
 .solo-note { margin: 14px 0 0; color: #667085; font-size: 13px; line-height: 1.7; }
+.solo-note p { margin: 0; }
+.solo-note details { margin-top: 4px; }
+.solo-note details p { margin-top: 4px; }
+.solo-note summary { width: fit-content; cursor: pointer; color: #4651bc; font-weight: 600; }
 .solo-note code { padding: 1px 5px; border-radius: 5px; background: #eef0ff; color: #4651bc; }
 
 .bom-table { margin-top: 12px; min-height: 0; overflow: auto; border: 1px solid #e2e6ed; border-radius: 9px; }
