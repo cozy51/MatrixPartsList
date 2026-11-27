@@ -86,8 +86,15 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
     : expandBomRows(rows, facts, level40Parts, unitBaseLookup, expand.isOpen), [filtering, tree, matchedPaths, closedPaths, rows, facts, level40Parts, unitBaseLookup, expand]);
   /* Excelはマルチレベルで、40レベル部品の中身をすべて開いた形で出す。絞り込み中は一致した行とその親だけ。 */
   const exportRows = useMemo(() => filtering ? filterBomTree(tree, matchedPaths) : tree, [filtering, tree, matchedPaths]);
-  const openable = tree.filter(row => row.hasChildren);
-  const allOpen = openable.length > 0 && openable.every(row => openPaths.has(row.path));
+  /* まとめて開閉できる行。絞り込み中は、一致した中身を持つ行だけが対象。 */
+  const openable = (filtering ? exportRows : tree).filter(row => row.hasChildren);
+  const allOpen = openable.length > 0 && openable.every(row => expand.isOpen(row.path));
+  const toggleAll = () => {
+    const paths = openable.map(row => row.path);
+    /* 絞り込み中は「折りたたんだ行」を、そうでなければ「開いた行」を覚えている。 */
+    if (filtering) setClosedPaths(allOpen ? new Set(paths) : new Set());
+    else setOpenPaths(allOpen ? new Set() : new Set(paths));
+  };
   /* 表示中の件数。絞り込みがなければPLの明細そのものの件数。 */
   const count = filtering ? matched.length : rows.length;
 
@@ -114,7 +121,7 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
       <button type="button" className="drawing-capture" onClick={onCaptureDrawings} title="社内システムでコピーした図面のリンクを、この画面のまま取り込みます">📋 図面リンク取得</button>
       <button type="button" className="excel" onClick={exportExcel} disabled={!list || !count}
         title={`${filtering ? '検索・絞り込みで表示中の行' : '表示中のPLの明細'}を、40レベル部品の中身も含めたマルチレベルでExcelに出力します（中身はExcelのグループで折りたためます）`}>{filtering ? `Excel出力（表示中 ${count} 部品）` : 'Excel出力'}</button>
-      {openable.length > 0 && !filtering && <button type="button" className="level40-toggle-all" onClick={() => setOpenPaths(allOpen ? new Set() : new Set(openable.map(row => row.path)))}
+      {openable.length > 0 && <button type="button" className="level40-toggle-all" onClick={toggleAll}
         title="40レベル部品の中身（50/60レベル）を、表の中でまとめて展開・折りたたみます">{allOpen ? '▾ 中身をすべて折りたたむ' : '▸ 中身をすべて展開'}</button>}
     </div>
 
