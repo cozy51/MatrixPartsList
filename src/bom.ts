@@ -1,8 +1,8 @@
 import * as XLSX from 'xlsx';
-import { normalizePlVersion, versionMatchKey } from './csv';
+import { normalizePlVersion, partKey, versionMatchKey } from './csv';
 import { parseAmount, partFactFor, type PartFact, type PartFile } from './drawings';
 import { isLevel40No, levelNoKey, partLevelOf } from './levels';
-import { excludeNoteParts, isPurchasedPart, isSupplementPart } from './matrix';
+import { excludeNoteParts, isPurchasedPart, isSupplementPart, sortPartsByBalloon } from './matrix';
 import type { Part, PartsList } from './types';
 import { UNITBASE_NOTE_COLUMN, UNITBASE_STATUS_COLUMN, type UnitBaseLookup } from './unitbase';
 
@@ -139,6 +139,46 @@ export function buildBomRows(parts: Part[], facts: PartFact[], level40Parts: Lev
   });
 }
 
+/**
+ * 階層付きの行。40レベル部品の中身（50/60レベル）を、親の行のすぐ下に並べるために使う。
+ * - `depth`: PLの明細そのものが 0、40レベル部品の中身が 1、さらにその中身が 2 …
+ * - `path`: 開閉の状態と行の目印を覚えるための、親からたどった一意の名前
+ * - `hasChildren`: 中身が登録されていて、開けるかどうか
+ * - `balloonLabel`: 画面とExcelに出す風船。中身の行は「親の風船-中身の風船」（例: `7-1`）にする
+ */
+export type BomTreeRow = BomRow & { depth: number; path: string; hasChildren: boolean; balloonLabel: string };
+
+/** 中身の行の風船。親の風船につなげて、どの40レベル部品の中身かを分かるようにする（`7` の中身の `1` → `7-1`）。 */
+export const childBalloonLabel = (parent: string, child: string) => `${parent}-${child}`;
+
+/**
+ * 明細の行に、40レベル部品の中身を差し込んだ一覧を作る。`isOpen` が true を返した
+ * 40レベル部品だけ中身を下に並べる（Excelのマルチレベル出力では、すべて開いて使う）。
+ * 中身の並びは単体BOMと同じ（風船順・注記行を除く）。同じ40レベルが入れ子で現れても
+ * 繰り返さないよう、たどってきた40レベルは開けないものとして扱う。
+ */
+export function expandBomRows(rows: BomRow[], facts: PartFact[], level40Parts: Level40Parts, unitBase: UnitBaseLookup | undefined,
+  isOpen: (path: string) => boolean): BomTreeRow[] {
+  const out: BomTreeRow[] = [];
+  const walk = (items: BomRow[], depth: number, prefix: string, parentBalloon: string, seen: ReadonlySet<string>) => {
+    items.forEach((row, index) => {
+      const balloonLabel = depth ? childBalloonLabel(parentBalloon, row.part.balloon) : row.part.balloon;
+      const path = `${prefix}/${index}:${partKey(row.part)}`;
+      const key = level40Key(row.part);
+      const children = isLevel40No(row.part.partNo) && !seen.has(key) ? level40Parts(row.part.partNo, row.part.version) : undefined;
+      const parts = children ? sortPartsByBalloon(excludeNoteParts(children)) : [];
+      out.push({ ...row, depth, path, hasChildren: parts.length > 0, balloonLabel });
+      if (parts.length && isOpen(path)) walk(buildBomRows(parts, facts, level40Parts, unitBase), depth + 1, path, balloonLabel, new Set(seen).add(key));
+    });
+  };
+  walk(rows, 0, '', '', new Set());
+  return out;
+}
+
+/** 合計に入れるのはPLの明細そのもの（階層 0）だけ。中身は親の40レベル部品の値に含まれているため。 */
+export const topLevelRows = <T extends BomRow>(rows: T[]): T[] =>
+  rows.filter(row => !('depth' in row) || !(row as BomRow & { depth?: number }).depth);
+
 /** 合計は、数として読めた行だけを足す。未入力の行を0として足すと合計を見誤るため。 */
 export function sumBomRows(rows: BomRow[], pick: (row: BomRow) => number | undefined) {
   let total = 0, counted = 0;
@@ -206,6 +246,39 @@ export function exportBomExcel(list: PartsList, rows: BomRow[], sheetName: strin
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), sheetName);
   /* ファイル名に使えない文字はWindowsに合わせて置き換える。 */
+  const name = `${list.plNo}_v${normalizePlVersion(list.plVersion) || '-'}`.replace(/[\\/:*?"<>|]/g, '_');
+  XLSX.writeFile(workbook, `${sheetName}_${name}.xlsx`);
+}
+
+/** マルチレベルのExcelで、先頭に足す階層の列。1がPLの明細そのもの、2がその40レベル部品の中身。 */
+export const BOM_LEVEL_COLUMN = 'レベル';
+
+/**
+ * マルチレベルのExcelに入れる表。先頭に「レベル」の列を足し、40レベル部品の中身を
+ * 親の行のすぐ下に並べる。合計はPLの明細そのもの（レベル1）だけで出す
+ * （中身は親の40レベル部品の質量・単価にすでに含まれているため）。
+ */
+export function bomTreeExcelRows(rows: BomTreeRow[]): (string | number)[][] {
+  const [header, ...rest] = bomExcelRows(rows);
+  const total = bomExcelRows(topLevelRows(rows)).at(-1) ?? [];
+  return [
+    [BOM_LEVEL_COLUMN, ...header],
+    /* 風船は画面と同じく、中身の行を「親の風船-中身の風船」にする。 */
+    ...rest.slice(0, -1).map((line, index) => [rows[index].depth + 1, rows[index].balloonLabel, ...line.slice(1)]),
+    ['', ...total],
+  ];
+}
+
+/**
+ * 単体BOMをマルチレベルでExcelへ出す。40レベル部品の中身はExcelの「グループ化」で
+ * 折りたためるようにし、初めは開いた状態にする。
+ */
+export function exportBomTreeExcel(list: PartsList, rows: BomTreeRow[], sheetName: string) {
+  const sheet = XLSX.utils.aoa_to_sheet(bomTreeExcelRows(rows));
+  /* 見出しの1行ぶんずらして、明細の行にだけアウトラインの段を付ける。 */
+  sheet['!rows'] = [{}, ...rows.map(row => row.depth ? { level: Math.min(row.depth, 7) } : {})];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
   const name = `${list.plNo}_v${normalizePlVersion(list.plVersion) || '-'}`.replace(/[\\/:*?"<>|]/g, '_');
   XLSX.writeFile(workbook, `${sheetName}_${name}.xlsx`);
 }
