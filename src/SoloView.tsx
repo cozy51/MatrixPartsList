@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { normalizePlVersion, plLabel } from './csv';
 import { countParts, excludeNoteParts, plKindLabel, sortPartsByBalloon } from './matrix';
 import { formatAmount, type PartFact } from './drawings';
-import { EMPTY_BOM_FILTER, buildBomRows, chemStatusLabel, chemStatusOptions, expandBomRows, exportBomTreeExcel, partLevelOptions, filterBomRows, isBomFilterActive, sumBomRows, type BomFilter, type Level40Parts } from './bom';
+import { EMPTY_BOM_FILTER, buildBomRows, chemStatusLabel, chemStatusOptions, expandBomRows, exportBomTreeExcel, filterBomTree, partLevelOptions, filterBomRows, isBomFilterActive, sumBomTree, type BomFilter, type BomTreeRow, type Level40Parts } from './bom';
 import BomTable, { type Level40Access } from './BomTable';
 import type { PartsList } from './types';
 import UnitBaseBar from './UnitBaseBar';
@@ -46,47 +46,58 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
   /* 明細の並びはマトリックスBOMと同じ。注記行（風船C）は除く。 */
   const parts = useMemo(() => sortPartsByBalloon(excludeNoteParts(list?.parts ?? [])), [list]);
   const rows = useMemo(() => buildBomRows(parts, facts, level40Parts, unitBaseLookup), [parts, facts, level40Parts, unitBaseLookup]);
+  /* 40レベル部品の中身もすべて開いた一覧。検索・絞り込みは中身の行にも掛ける。 */
+  const tree = useMemo(() => expandBomRows(rows, facts, level40Parts, unitBaseLookup, () => true), [rows, facts, level40Parts, unitBaseLookup]);
   /* 上の検索だけで絞った行。chemSHERPAの選択肢の件数を、ほかの絞り込みと合わせた「今の件数」にするために分けて持つ。 */
   const searched = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return needle ? rows.filter(row => `${row.part.partNo} ${row.part.name} ${row.part.material} ${row.part.balloon}`.toLowerCase().includes(needle)) : rows;
-  }, [rows, search]);
-  const listed = useMemo(() => filterBomRows(searched, columnFilter), [searched, columnFilter]);
+    return needle ? tree.filter(row => `${row.part.partNo} ${row.part.name} ${row.part.material} ${row.balloonLabel}`.toLowerCase().includes(needle)) : tree;
+  }, [tree, search]);
+  const matched = useMemo(() => filterBomRows(searched, columnFilter), [searched, columnFilter]);
   /* 件数は、検索とchemSHERPA以外の列の絞り込みを満たす行で数える（chemSHERPA自体の選択では変わらない）。
      今の条件で0件になった状況や、PLを切り替えて無くなった選択中の状況も、選択肢から消さず0件として残す。 */
   const chemOptions = useMemo(() => {
     const options = chemStatusOptions(filterBomRows(searched, { ...columnFilter, chemStatuses: [] }));
     const known = new Set(options.map(option => option.value));
-    const rest = [...chemStatusOptions(rows).map(option => option.value), ...columnFilter.chemStatuses].filter(value => !known.has(value) && (known.add(value), true));
+    const rest = [...chemStatusOptions(tree).map(option => option.value), ...columnFilter.chemStatuses].filter(value => !known.has(value) && (known.add(value), true));
     return [...options, ...rest.map(value => ({ value, label: chemStatusLabel(value), count: 0 }))];
-  }, [rows, searched, columnFilter]);
+  }, [tree, searched, columnFilter]);
   /* 階層の件数も同じ考え方で、階層自体の選択を除いたほかの条件で数える。 */
   const levelOptions = useMemo(() => partLevelOptions(filterBomRows(searched, { ...columnFilter, levels: [] })), [searched, columnFilter]);
   const filtering = search.trim() !== '' || isBomFilterActive(columnFilter);
+  const matchedPaths = useMemo(() => new Set(matched.map(row => row.path)), [matched]);
 
-  /* 40レベル部品の中身は、ポップアップではなく表の中で開閉する。開いている行は親からたどった名前で覚え、PLを替えたら閉じる。 */
+  /* 40レベル部品の中身は、ポップアップではなく表の中で開閉する。開いている行は親からたどった名前で覚え、PLを替えたら閉じる。
+     絞り込み中は一致した中身が見えるよう初めから開いておき、利用者が折りたたんだ行だけを別に覚える。 */
   const [openPaths, setOpenPaths] = useState<Set<string>>(() => new Set());
-  useEffect(() => setOpenPaths(new Set()), [list?.id]);
-  const expand = useMemo(() => ({
-    isOpen: (path: string) => openPaths.has(path),
-    toggle: (path: string) => setOpenPaths(current => {
-      const next = new Set(current);
-      if (next.has(path)) next.delete(path); else next.add(path);
-      return next;
-    }),
-  }), [openPaths]);
-  /* 絞り込みはPLの明細そのものに掛け、開いた40レベル部品の中身はそのまま下に並べる。 */
-  const shown = useMemo(() => expandBomRows(listed, facts, level40Parts, unitBaseLookup, expand.isOpen), [listed, facts, level40Parts, unitBaseLookup, expand]);
-  /* Excelはマルチレベルで、40レベル部品の中身をすべて開いた形で出す。 */
-  const allRows = useMemo(() => expandBomRows(listed, facts, level40Parts, unitBaseLookup, () => true), [listed, facts, level40Parts, unitBaseLookup]);
-  const openable = allRows.filter(row => row.hasChildren);
+  const [closedPaths, setClosedPaths] = useState<Set<string>>(() => new Set());
+  useEffect(() => { setOpenPaths(new Set()); setClosedPaths(new Set()); }, [list?.id]);
+  const flip = (path: string) => (current: Set<string>) => {
+    const next = new Set(current);
+    if (next.has(path)) next.delete(path); else next.add(path);
+    return next;
+  };
+  const expand = useMemo(() => filtering
+    ? { isOpen: (path: string) => !closedPaths.has(path), toggle: (path: string) => setClosedPaths(flip(path)) }
+    : { isOpen: (path: string) => openPaths.has(path), toggle: (path: string) => setOpenPaths(flip(path)) }, [filtering, openPaths, closedPaths]);
+  /* 絞り込み中は、一致した行とその親（どの40レベル部品の中身か分かるように）を出す。 */
+  const shown = useMemo(() => filtering
+    ? filterBomTree(tree, matchedPaths, path => closedPaths.has(path))
+    : expandBomRows(rows, facts, level40Parts, unitBaseLookup, expand.isOpen), [filtering, tree, matchedPaths, closedPaths, rows, facts, level40Parts, unitBaseLookup, expand]);
+  /* Excelはマルチレベルで、40レベル部品の中身をすべて開いた形で出す。絞り込み中は一致した行とその親だけ。 */
+  const exportRows = useMemo(() => filtering ? filterBomTree(tree, matchedPaths) : tree, [filtering, tree, matchedPaths]);
+  const openable = tree.filter(row => row.hasChildren);
   const allOpen = openable.length > 0 && openable.every(row => openPaths.has(row.path));
+  /* 表示中の件数。絞り込みがなければPLの明細そのものの件数。 */
+  const count = filtering ? matched.length : rows.length;
 
-  const massTotal = useMemo(() => sumBomRows(listed, row => row.totalMass), [listed]);
-  const priceTotal = useMemo(() => sumBomRows(listed, row => row.totalPrice), [listed]);
+  /* 中身の行は親の数量を掛けてPL全体での量に直し、親と二重に数えない。 */
+  const counts = (row: BomTreeRow) => filtering ? matchedPaths.has(row.path) : true;
+  const massTotal = useMemo(() => sumBomTree(tree, counts, row => row.totalMass), [tree, matchedPaths, filtering]);
+  const priceTotal = useMemo(() => sumBomTree(tree, counts, row => row.totalPrice), [tree, matchedPaths, filtering]);
 
   /* 出すのは検索で絞ったあとの行。40レベル部品の中身も、レベルの列を付けてすべて出す。 */
-  const exportExcel = () => { if (list) exportBomTreeExcel(list, allRows, '単体BOM'); };
+  const exportExcel = () => { if (list) exportBomTreeExcel(list, exportRows, '単体BOM'); };
 
   return <section className="solo-view">
     <div className="solo-head">
@@ -101,9 +112,9 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
       </label>
       {/* 図面リンクの取り込みは表示中のPLに依らず全品番が対象のため、PL未選択でも押せる。 */}
       <button type="button" className="drawing-capture" onClick={onCaptureDrawings} title="社内システムでコピーした図面のリンクを、この画面のまま取り込みます">📋 図面リンク取得</button>
-      <button type="button" className="excel" onClick={exportExcel} disabled={!list || !listed.length}
-        title={`${filtering ? '検索・絞り込みで表示中の行' : '表示中のPLの明細'}を、40レベル部品の中身も含めたマルチレベルでExcelに出力します（中身はExcelのグループで折りたためます）`}>{filtering ? `Excel出力（表示中 ${listed.length} 部品）` : 'Excel出力'}</button>
-      {openable.length > 0 && <button type="button" className="level40-toggle-all" onClick={() => setOpenPaths(allOpen ? new Set() : new Set(openable.map(row => row.path)))}
+      <button type="button" className="excel" onClick={exportExcel} disabled={!list || !count}
+        title={`${filtering ? '検索・絞り込みで表示中の行' : '表示中のPLの明細'}を、40レベル部品の中身も含めたマルチレベルでExcelに出力します（中身はExcelのグループで折りたためます）`}>{filtering ? `Excel出力（表示中 ${count} 部品）` : 'Excel出力'}</button>
+      {openable.length > 0 && !filtering && <button type="button" className="level40-toggle-all" onClick={() => setOpenPaths(allOpen ? new Set() : new Set(openable.map(row => row.path)))}
         title="40レベル部品の中身（50/60レベル）を、表の中でまとめて展開・折りたたみます">{allOpen ? '▾ 中身をすべて折りたたむ' : '▸ 中身をすべて展開'}</button>}
     </div>
 
@@ -114,11 +125,11 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
         <div>
           <h3>{list.plNo}{renderBadges(list.plNo)}</h3>
           <p>{list.plName || list.fileName}</p>
-          <small>{plKindLabel(list.plNo) ? `${plKindLabel(list.plNo)} ・ ` : ''}Ver.{normalizePlVersion(list.plVersion) || '-'} ・ {countParts(list.parts)} 部品{filtering && ` ・ 絞り込み ${listed.length} 部品`}</small>
+          <small>{plKindLabel(list.plNo) ? `${plKindLabel(list.plNo)} ・ ` : ''}Ver.{normalizePlVersion(list.plVersion) || '-'} ・ {countParts(list.parts)} 部品{filtering && ` ・ 絞り込み ${count} 部品`}</small>
         </div>
         <dl className="solo-totals">
-          <div><dt>合計質量</dt><dd>{massTotal.counted ? `${formatAmount(massTotal.total)} kg` : '—'}<small>{massTotal.counted} / {listed.length} 部品</small></dd></div>
-          <div><dt>合計金額</dt><dd>{priceTotal.counted ? `${formatAmount(priceTotal.total, 0)} 円` : '—'}<small>{priceTotal.counted} / {listed.length} 部品</small></dd></div>
+          <div><dt>合計質量</dt><dd>{massTotal.counted ? `${formatAmount(massTotal.total)} kg` : '—'}<small>{massTotal.counted} / {count} 部品</small></dd></div>
+          <div><dt>合計金額</dt><dd>{priceTotal.counted ? `${formatAmount(priceTotal.total, 0)} 円` : '—'}<small>{priceTotal.counted} / {count} 部品</small></dd></div>
         </dl>
       </div>
 
@@ -145,10 +156,10 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
 
       {/* 列の絞り込みで0件になっても入力欄を消さないよう、PLに部品があれば表は出し続ける。 */}
       {rows.length
-        ? <BomTable rows={shown} expand={expand} facts={facts} onFactsChange={onFactsChange} renderBadges={renderBadges} level40={level40} totalLabel={`合計（表示中 ${listed.length} 部品）`}
+        ? <BomTable rows={shown} expand={expand} facts={facts} onFactsChange={onFactsChange} renderBadges={renderBadges} level40={level40} totalLabel={`合計（表示中 ${count} 部品）`} totals={{ mass: massTotal, price: priceTotal }}
             filter={{ value: columnFilter, onChange: setColumnFilter, chemOptions, levelOptions }} />
         : <p className="drawings-empty">このPLに部品がありません。</p>}
-      {rows.length > 0 && !listed.length && <p className="drawings-empty">検索・絞り込みの条件に一致する部品はありません。</p>}
+      {rows.length > 0 && !count && <p className="drawings-empty">検索・絞り込みの条件に一致する部品はありません。</p>}
     </> : <p className="drawings-empty">
       単体BOMに出すPLがありません。左の一覧でPLをクリックすると、そのPLを枠で囲んでここに表示します（表示チェックとは別に選べます）。
     </p>}

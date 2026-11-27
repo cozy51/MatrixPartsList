@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOM_COLUMNS, CHEM_STATUS_BLANK, PART_LEVEL_OTHER, PART_LEVEL_PURCHASED, partLevelOptions, EMPTY_BOM_FILTER, chemStatusOptions, filterBomRows, bomExcelRows, partFilesText, buildBomRows, bomTreeExcelRows, compareBomAmounts, expandBomRows, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
+import { BOM_COLUMNS, CHEM_STATUS_BLANK, PART_LEVEL_OTHER, PART_LEVEL_PURCHASED, partLevelOptions, EMPTY_BOM_FILTER, chemStatusOptions, filterBomRows, bomExcelRows, partFilesText, buildBomRows, bomTreeExcelRows, compareBomAmounts, expandBomRows, filterBomTree, sumBomTree, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
 import { emptyPartFact, upsertPartFact, type PartFact } from './drawings';
 import type { Part } from './types';
 
@@ -243,5 +243,19 @@ describe('単体BOMのマルチレベル（40レベル部品の中身を折り�
     // 7.5kg × 1 + 0.1kg × 3（中身の行は親に含まれるため足さない）
     expect(total[header.indexOf('合計質量（kg）')]).toBe(7.8);
     expect(total[header.indexOf('金額（円）')]).toBe(1300);
+  });
+
+  it('絞り込みは中身の行にも掛け、一致した行の親も残す', () => {
+    const matched = new Set(filterBomRows(all, { ...EMPTY_BOM_FILTER, partNo: 'HJ02192560' }).map(row => row.path));
+    const shown = filterBomTree(all, matched);
+    expect(shown.map(row => `${row.balloonLabel} ${row.part.partNo} ${row.context ? '親' : '一致'}`)).toEqual([
+      '7 HJ02193040 親', '7-1 HJ02192040 親', '7-1-1 HJ02192560 一致',
+    ]);
+    // 折りたたんだ行の下は出さない。
+    expect(filterBomTree(all, matched, path => path === shown[1].path).map(row => row.part.partNo)).toEqual(['HJ02193040', 'HJ02192040']);
+    // 合計は親の数量を掛けてPL全体の量に直す（0.5kg × 2個 × 親2個 × 親1個 = 2kg）。
+    expect(sumBomTree(all, row => matched.has(row.path), row => row.totalMass)).toEqual({ total: 2, counted: 1 });
+    // 絞り込みがなければ、PLの明細そのものの合計と同じ（中身を二重に足さない）。
+    expect(sumBomTree(all, () => true, row => row.totalMass).total).toBeCloseTo(7.8);
   });
 });

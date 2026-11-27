@@ -144,9 +144,12 @@ export function buildBomRows(parts: Part[], facts: PartFact[], level40Parts: Lev
  * - `depth`: PLの明細そのものが 0、40レベル部品の中身が 1、さらにその中身が 2 …
  * - `path`: 開閉の状態と行の目印を覚えるための、親からたどった一意の名前
  * - `hasChildren`: 中身が登録されていて、開けるかどうか
+ * - `parentPath`: 親の行の `path`（PLの明細そのものは空）
+ * - `multiplier`: 親をたどった数量の積。中身の行の合計を、PL全体での量に直すときに掛ける（読めない数量があれば undefined）
+ * - `context`: 絞り込みに一致していないが、一致した中身の親として出している行
  * - `balloonLabel`: 画面とExcelに出す風船。中身の行は「親の風船-中身の風船」（例: `7-1`）にする
  */
-export type BomTreeRow = BomRow & { depth: number; path: string; hasChildren: boolean; balloonLabel: string };
+export type BomTreeRow = BomRow & { depth: number; path: string; parentPath: string; multiplier: number | undefined; hasChildren: boolean; balloonLabel: string; context?: boolean };
 
 /** 中身の行の風船。親の風船につなげて、どの40レベル部品の中身かを分かるようにする（`7` の中身の `1` → `7-1`）。 */
 export const childBalloonLabel = (parent: string, child: string) => `${parent}-${child}`;
@@ -160,19 +163,64 @@ export const childBalloonLabel = (parent: string, child: string) => `${parent}-$
 export function expandBomRows(rows: BomRow[], facts: PartFact[], level40Parts: Level40Parts, unitBase: UnitBaseLookup | undefined,
   isOpen: (path: string) => boolean): BomTreeRow[] {
   const out: BomTreeRow[] = [];
-  const walk = (items: BomRow[], depth: number, prefix: string, parentBalloon: string, seen: ReadonlySet<string>) => {
+  const walk = (items: BomRow[], depth: number, prefix: string, parentBalloon: string, multiplier: number | undefined, seen: ReadonlySet<string>) => {
     items.forEach((row, index) => {
       const balloonLabel = depth ? childBalloonLabel(parentBalloon, row.part.balloon) : row.part.balloon;
       const path = `${prefix}/${index}:${partKey(row.part)}`;
       const key = level40Key(row.part);
       const children = isLevel40No(row.part.partNo) && !seen.has(key) ? level40Parts(row.part.partNo, row.part.version) : undefined;
       const parts = children ? sortPartsByBalloon(excludeNoteParts(children)) : [];
-      out.push({ ...row, depth, path, hasChildren: parts.length > 0, balloonLabel });
-      if (parts.length && isOpen(path)) walk(buildBomRows(parts, facts, level40Parts, unitBase), depth + 1, path, balloonLabel, new Set(seen).add(key));
+      out.push({ ...row, depth, path, parentPath: prefix, multiplier, hasChildren: parts.length > 0, balloonLabel });
+      const quantity = parseAmount(row.part.quantity);
+      const childMultiplier = multiplier !== undefined && quantity !== undefined ? multiplier * quantity : undefined;
+      if (parts.length && isOpen(path)) walk(buildBomRows(parts, facts, level40Parts, unitBase), depth + 1, path, balloonLabel, childMultiplier, new Set(seen).add(key));
     });
   };
-  walk(rows, 0, '', '', new Set());
+  walk(rows, 0, '', '', 1, new Set());
   return out;
+}
+
+/**
+ * 絞り込みを、40レベル部品の中身まで含めたすべての階層に掛ける。一致した行に加えて、
+ * どの40レベル部品の中身かが分かるよう、その親の行も（`context` を付けて）残す。
+ * `isClosed` が true の行は、その下を出さない（絞り込み中に利用者が折りたたんだ行）。
+ * `hasChildren` は、下に出せる行があるかどうかに付け直す。
+ */
+export function filterBomTree(tree: BomTreeRow[], matched: ReadonlySet<string>, isClosed: (path: string) => boolean = () => false): BomTreeRow[] {
+  const parentOf = new Map(tree.map(row => [row.path, row.parentPath]));
+  const keep = new Set<string>();
+  for (const path of matched) {
+    for (let current = path; current && !keep.has(current); current = parentOf.get(current) ?? '') keep.add(current);
+  }
+  const kept = tree.filter(row => keep.has(row.path));
+  const withChildren = new Set(kept.map(row => row.parentPath));
+  const hidden = new Set<string>();
+  const out: BomTreeRow[] = [];
+  for (const row of kept) {
+    if (row.parentPath && (hidden.has(row.parentPath) || isClosed(row.parentPath))) { hidden.add(row.path); continue; }
+    out.push({ ...row, hasChildren: withChildren.has(row.path), context: !matched.has(row.path) });
+  }
+  return out;
+}
+
+/**
+ * 階層付きの行の合計。`counts` を満たす行のうち、親が `counts` を満たしていない行だけを足す
+ * （親を数えたら、その中身は親の値に含まれているため）。中身の行は、親をたどった数量の積を掛けて
+ * PL全体での量に直す。絞り込みがなければPLの明細そのもの（階層 0）の合計と同じになる。
+ */
+export function sumBomTree(tree: BomTreeRow[], counts: (row: BomTreeRow) => boolean, pick: (row: BomRow) => number | undefined) {
+  const covered = new Set<string>();
+  let total = 0, counted = 0;
+  for (const row of tree) {
+    if (covered.has(row.parentPath)) { covered.add(row.path); continue; }
+    if (!counts(row)) continue;
+    covered.add(row.path);
+    const value = pick(row);
+    if (value === undefined || row.multiplier === undefined) continue;
+    total += value * row.multiplier;
+    counted += 1;
+  }
+  return { total, counted };
 }
 
 /** 合計に入れるのはPLの明細そのもの（階層 0）だけ。中身は親の40レベル部品の値に含まれているため。 */
@@ -258,9 +306,13 @@ export const BOM_LEVEL_COLUMN = 'レベル';
  * 親の行のすぐ下に並べる。合計はPLの明細そのもの（レベル1）だけで出す
  * （中身は親の40レベル部品の質量・単価にすでに含まれているため）。
  */
-export function bomTreeExcelRows(rows: BomTreeRow[]): (string | number)[][] {
+export function bomTreeExcelRows(rows: BomTreeRow[], counts: (row: BomTreeRow) => boolean = row => !row.context): (string | number)[][] {
   const [header, ...rest] = bomExcelRows(rows);
-  const total = bomExcelRows(topLevelRows(rows)).at(-1) ?? [];
+  const total = [...(rest.at(-1) ?? [])];
+  /* 合計は画面と同じく、中身を親の数量で直して二重に足さない形で出す。 */
+  const mass = sumBomTree(rows, counts, row => row.totalMass), price = sumBomTree(rows, counts, row => row.totalPrice);
+  total[BOM_COLUMNS.indexOf('合計質量（kg）')] = mass.total ? trimFloatNoise(mass.total) : '';
+  total[BOM_COLUMNS.indexOf('金額（円）')] = price.total ? trimFloatNoise(price.total) : '';
   return [
     [BOM_LEVEL_COLUMN, ...header],
     /* 風船は画面と同じく、中身の行を「親の風船-中身の風船」にする。 */
@@ -358,7 +410,7 @@ export function isBomFilterActive(filter: BomFilter): boolean {
   return filter.chemStatuses.length > 0 || filter.levels.length > 0 || [filter.partNo, filter.name, filter.material, filter.chemNote].some(value => value.trim() !== '');
 }
 
-export function filterBomRows(rows: BomRow[], filter: BomFilter): BomRow[] {
+export function filterBomRows<T extends BomRow>(rows: T[], filter: BomFilter): T[] {
   if (!isBomFilterActive(filter)) return rows;
   const texts: [string, (row: BomRow) => string][] = [
     [filter.name, row => row.part.name],
