@@ -971,6 +971,7 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
 .level40-toggle i { width: 12px; font-style: normal; font-size: 11px; color: #5b6bd6; }
 .level40-toggle:hover span { text-decoration: underline; }
 .bom-table tr.is-child td { background: #f7f8fd; }
+.bom-table tbody tr.is-context td { color: #98a2b3; }
 .bom-table tr.is-child td:first-child { color: #667085; font-size: 12px; }
 .level40-open:hover { color: #1a2a8f; text-decoration-style: solid; }
 /* 同じ番号でもVer.が違う40レベルは中身が別物のため、リンクにしない。

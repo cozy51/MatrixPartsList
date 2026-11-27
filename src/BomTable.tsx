@@ -32,6 +32,8 @@ type Props = {
    * 渡したときは `rows` に中身の行（BomTreeRow）も含めて渡す。
    */
   expand?: BomExpandAccess;
+  /** 合計行の値。渡さないときはPLの明細そのもの（階層 0）の行で合計する。 */
+  totals?: { mass: { total: number; counted: number }; price: { total: number; counted: number } };
 };
 
 export type BomExpandAccess = {
@@ -58,7 +60,7 @@ export type BomFilterAccess = {
  * 40レベル部品の質量・単価は中身（50/60レベル）の合計で決まるため、その行は
  * 入力欄にせず、計算した値と内訳の注記を出します。
  */
-export default function BomTable({ rows, facts, onFactsChange, renderBadges, level40, totalLabel, filter, expand }: Props) {
+export default function BomTable({ rows, facts, onFactsChange, renderBadges, level40, totalLabel, filter, expand, totals }: Props) {
   /* 1つのセルを編集している間だけ下書きを持つ。入力のたびに保存すると同期の
      リビジョンが上がり続けるため、確定（フォーカスを外す・Enter）で書き込む。 */
   const [draft, setDraft] = useState<{ partNo: string; field: 'mass' | 'price'; value: string } | null>(null);
@@ -85,8 +87,8 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
   };
 
   /* 中身の行は親の40レベル部品の値に含まれているため、合計にはPLの明細そのものだけを入れる。 */
-  const massTotal = sumBomRows(topLevelRows(rows), row => row.totalMass);
-  const priceTotal = sumBomRows(topLevelRows(rows), row => row.totalPrice);
+  const massTotal = totals?.mass ?? sumBomRows(topLevelRows(rows), row => row.totalMass);
+  const priceTotal = totals?.price ?? sumBomRows(topLevelRows(rows), row => row.totalPrice);
 
   const saveFact = (partNo: string, field: 'mass' | 'price' | 'shaiUrl', value: string) => {
     /* 単品質量は kg で持つため、`8.28g` のようにグラムで入れられたら kg へ直してから保存する。
@@ -296,9 +298,9 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
         const tree = treeOf(row), depth = tree?.depth ?? 0;
         /* 中身の行は親が違えば別の行なので、親からたどった名前で見分ける。 */
         const key = tree?.path ?? partKey(row.part), picked = pickedKey === key;
-        const className = [picked && 'is-picked', depth && 'is-child', tree?.hasChildren && expand?.isOpen(tree.path) && 'is-open'].filter(Boolean).join(' ') || undefined;
+        const className = [picked && 'is-picked', depth && 'is-child', tree?.context && 'is-context', tree?.hasChildren && expand?.isOpen(tree.path) && 'is-open'].filter(Boolean).join(' ') || undefined;
         return <tr key={`${key}-${index}`} className={className} aria-current={picked ? 'true' : undefined}
-          title={picked ? 'この行に目印を付けています。もう一度押すと外します。' : undefined} onClick={pickRow(key)}>
+          title={picked ? 'この行に目印を付けています。もう一度押すと外します。' : tree?.context ? '絞り込みには一致していませんが、一致した中身の親として表示しています。' : undefined} onClick={pickRow(key)}>
         <td>{tree?.balloonLabel ?? row.part.balloon}</td>
         <td className={isPurchasedPart(row.part.partNo) ? 'purchased-part' : undefined} style={depth ? { paddingLeft: 12 + depth * 18 } : undefined}>{partNoCell(row)}{renderBadges(row.part.partNo)}</td>
         <td>{row.part.version}</td>
