@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOM_COLUMNS, CHEM_STATUS_BLANK, PART_LEVEL_OTHER, PART_LEVEL_PURCHASED, partLevelOptions, EMPTY_BOM_FILTER, chemStatusOptions, filterBomRows, bomExcelRows, partFilesText, buildBomRows, compareBomAmounts, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
+import { BOM_COLUMNS, CHEM_STATUS_BLANK, PART_LEVEL_OTHER, PART_LEVEL_PURCHASED, partLevelOptions, EMPTY_BOM_FILTER, chemStatusOptions, filterBomRows, bomExcelRows, partFilesText, buildBomRows, bomTreeExcelRows, compareBomAmounts, expandBomRows, excelAmount, sumBomRows, totalsOf, trimFloatNoise, unitAmounts, type Level40Parts } from './bom';
 import { emptyPartFact, upsertPartFact, type PartFact } from './drawings';
 import type { Part } from './types';
 
@@ -210,5 +210,38 @@ describe('単体BOMの列フィルタ', () => {
   it('複数の条件はすべて満たす行だけ', () => expect(nos({ chemStatuses: ['依頼済'], name: 'cover' })).toEqual(['HJ02101070']));
   it('選択肢は多い順で空欄が最後', () => {
     expect(chemStatusOptions(rows).map(option => `${option.label}:${option.count}`)).toEqual(['依頼済:2', '完了:1', '（空欄）:2']);
+  });
+});
+
+describe('単体BOMのマルチレベル（40レベル部品の中身を折りたたみで並べる）', () => {
+  const facts = [fact('HJ02192560', '', '100'), fact('HJ02192660', '', '250'), fact('HJ02193560', '', '400')];
+  const top = buildBomRows([part('HJ02193040', '1', '', { balloon: '7' }), part('HH10010560', '3', '0.1', { balloon: '8' })], facts, level40Parts);
+  const all = expandBomRows(top, facts, level40Parts, undefined, () => true);
+
+  it('閉じているときは中身を出さず、開けることだけを持つ', () => {
+    const closed = expandBomRows(top, facts, level40Parts, undefined, () => false);
+    expect(closed.map(row => [row.part.partNo, row.depth, row.hasChildren])).toEqual([['HJ02193040', 0, true], ['HH10010560', 0, false]]);
+  });
+
+  it('開くと中身を親のすぐ下に並べ、風船は「親-中身」にする', () => {
+    expect(all.map(row => `${row.balloonLabel} ${row.part.partNo} ${row.depth}`)).toEqual([
+      '7 HJ02193040 0',
+      '7-1 HJ02192040 1', '7-1-1 HJ02192560 2', '7-1-1 HJ02192660 2', '7-1-1 + 2',
+      '7-1 HJ02193560 1',
+      '8 HH10010560 0',
+    ]);
+    // 開閉を覚える名前は、行ごとに重ならない。
+    expect(new Set(all.map(row => row.path)).size).toBe(all.length);
+  });
+
+  it('Excelは先頭にレベルの列を付け、合計はPLの明細そのものだけで出す', () => {
+    const [header, first, child, ...rest] = bomTreeExcelRows(all);
+    expect(header.slice(0, 3)).toEqual(['レベル', '風船', '品番']);
+    expect(first.slice(0, 3)).toEqual([1, '7', 'HJ02193040']);
+    expect(child.slice(0, 3)).toEqual([2, '7-1', 'HJ02192040']);
+    const total = rest.at(-1) ?? [];
+    // 7.5kg × 1 + 0.1kg × 3（中身の行は親に含まれるため足さない）
+    expect(total[header.indexOf('合計質量（kg）')]).toBe(7.8);
+    expect(total[header.indexOf('金額（円）')]).toBe(1300);
   });
 });

@@ -1,8 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { normalizePlVersion, plLabel } from './csv';
 import { countParts, excludeNoteParts, plKindLabel, sortPartsByBalloon } from './matrix';
 import { formatAmount, type PartFact } from './drawings';
-import { EMPTY_BOM_FILTER, buildBomRows, chemStatusLabel, chemStatusOptions, exportBomExcel, partLevelOptions, filterBomRows, isBomFilterActive, sumBomRows, type BomFilter, type Level40Parts } from './bom';
+import { EMPTY_BOM_FILTER, buildBomRows, chemStatusLabel, chemStatusOptions, expandBomRows, exportBomTreeExcel, partLevelOptions, filterBomRows, isBomFilterActive, sumBomRows, type BomFilter, type Level40Parts } from './bom';
 import BomTable, { type Level40Access } from './BomTable';
 import type { PartsList } from './types';
 import UnitBaseBar from './UnitBaseBar';
@@ -64,11 +64,29 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
   const levelOptions = useMemo(() => partLevelOptions(filterBomRows(searched, { ...columnFilter, levels: [] })), [searched, columnFilter]);
   const filtering = search.trim() !== '' || isBomFilterActive(columnFilter);
 
+  /* 40レベル部品の中身は、ポップアップではなく表の中で開閉する。開いている行は親からたどった名前で覚え、PLを替えたら閉じる。 */
+  const [openPaths, setOpenPaths] = useState<Set<string>>(() => new Set());
+  useEffect(() => setOpenPaths(new Set()), [list?.id]);
+  const expand = useMemo(() => ({
+    isOpen: (path: string) => openPaths.has(path),
+    toggle: (path: string) => setOpenPaths(current => {
+      const next = new Set(current);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    }),
+  }), [openPaths]);
+  /* 絞り込みはPLの明細そのものに掛け、開いた40レベル部品の中身はそのまま下に並べる。 */
+  const shown = useMemo(() => expandBomRows(listed, facts, level40Parts, unitBaseLookup, expand.isOpen), [listed, facts, level40Parts, unitBaseLookup, expand]);
+  /* Excelはマルチレベルで、40レベル部品の中身をすべて開いた形で出す。 */
+  const allRows = useMemo(() => expandBomRows(listed, facts, level40Parts, unitBaseLookup, () => true), [listed, facts, level40Parts, unitBaseLookup]);
+  const openable = allRows.filter(row => row.hasChildren);
+  const allOpen = openable.length > 0 && openable.every(row => openPaths.has(row.path));
+
   const massTotal = useMemo(() => sumBomRows(listed, row => row.totalMass), [listed]);
   const priceTotal = useMemo(() => sumBomRows(listed, row => row.totalPrice), [listed]);
 
-  /* 出すのは検索で絞ったあとの行。40レベル部品の中身のポップアップと同じ処理を使う。 */
-  const exportExcel = () => { if (list) exportBomExcel(list, listed, '単体BOM'); };
+  /* 出すのは検索で絞ったあとの行。40レベル部品の中身も、レベルの列を付けてすべて出す。 */
+  const exportExcel = () => { if (list) exportBomTreeExcel(list, allRows, '単体BOM'); };
 
   return <section className="solo-view">
     <div className="solo-head">
@@ -84,7 +102,9 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
       {/* 図面リンクの取り込みは表示中のPLに依らず全品番が対象のため、PL未選択でも押せる。 */}
       <button type="button" className="drawing-capture" onClick={onCaptureDrawings} title="社内システムでコピーした図面のリンクを、この画面のまま取り込みます">📋 図面リンク取得</button>
       <button type="button" className="excel" onClick={exportExcel} disabled={!list || !listed.length}
-        title={filtering ? '検索・絞り込みで表示中の行だけをExcelに出力します' : '表示中のPLの明細をExcelに出力します'}>{filtering ? `Excel出力（表示中 ${listed.length} 部品）` : 'Excel出力'}</button>
+        title={`${filtering ? '検索・絞り込みで表示中の行' : '表示中のPLの明細'}を、40レベル部品の中身も含めたマルチレベルでExcelに出力します（中身はExcelのグループで折りたためます）`}>{filtering ? `Excel出力（表示中 ${listed.length} 部品）` : 'Excel出力'}</button>
+      {openable.length > 0 && <button type="button" className="level40-toggle-all" onClick={() => setOpenPaths(allOpen ? new Set() : new Set(openable.map(row => row.path)))}
+        title="40レベル部品の中身（50/60レベル）を、表の中でまとめて展開・折りたたみます">{allOpen ? '▾ 中身をすべて折りたたむ' : '▸ 中身をすべて展開'}</button>}
     </div>
 
     <UnitBaseBar data={unitBase} onReplace={onUnitBaseReplace} />
@@ -107,7 +127,7 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
         <p>
           質量・価格・chemSHERPA（<code>.shai</code>）・その他ファイルは<b>品番ごと</b>に保存します。どのPLから入れても、同じ品番なら同じ値を表示します。
           取り違えを防ぐため、<b>単品質量と単価は初めは編集できません</b>。見出しの <b>🔒</b> を押すと、その列だけ編集できるようになります（🔓）。
-          <b>40レベル部品</b>（品番が下線付き）は分解できる部品のため、質量・単価は<b>中身（50/60レベル）の合計</b>で決まります。品番を押すと中身を開いて、そこでも同じ入力ができます。
+          <b>40レベル部品</b>は分解できる部品のため、質量・単価は<b>中身（50/60レベル）の合計</b>で決まります。品番の <b>▸</b> を押すと中身をすぐ下に展開し（風船は <code>7-1</code> のように親の風船につなげて表示）、そこでも同じ入力ができます。Excelは中身も含めたマルチレベルで出力します。
         </p>
         <details>
           <summary>そのほかの使い方</summary>
@@ -125,7 +145,7 @@ export default function SoloView({ list, lists, sequence, onSelect, facts, onFac
 
       {/* 列の絞り込みで0件になっても入力欄を消さないよう、PLに部品があれば表は出し続ける。 */}
       {rows.length
-        ? <BomTable rows={listed} facts={facts} onFactsChange={onFactsChange} renderBadges={renderBadges} level40={level40} totalLabel={`合計（表示中 ${listed.length} 部品）`}
+        ? <BomTable rows={shown} expand={expand} facts={facts} onFactsChange={onFactsChange} renderBadges={renderBadges} level40={level40} totalLabel={`合計（表示中 ${listed.length} 部品）`}
             filter={{ value: columnFilter, onChange: setColumnFilter, chemOptions, levelOptions }} />
         : <p className="drawings-empty">このPLに部品がありません。</p>}
       {rows.length > 0 && !listed.length && <p className="drawings-empty">検索・絞り込みの条件に一致する部品はありません。</p>}

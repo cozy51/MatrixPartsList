@@ -965,6 +965,13 @@ button.drawing-link { border: 0; cursor: pointer; font-family: inherit; line-hei
    その中身（50/60レベル）をポップアップで開く。列を広げないよう印は置かず、
    押せることは下線と色で示す。 */
 .level40-open { display: inline; padding: 0; border: 0; background: none; color: #3346ba; font: inherit; font-weight: 700; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
+.level40-toggle-all { padding: 8px 12px; border: 1px solid #c9cff5; border-radius: 10px; background: #fff; color: #3346ba; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.level40-toggle-all:hover { background: #eef0ff; }
+.level40-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: #3346ba; font: inherit; font-weight: 700; cursor: pointer; }
+.level40-toggle i { width: 12px; font-style: normal; font-size: 11px; color: #5b6bd6; }
+.level40-toggle:hover span { text-decoration: underline; }
+.bom-table tr.is-child td { background: #f7f8fd; }
+.bom-table tr.is-child td:first-child { color: #667085; font-size: 12px; }
 .level40-open:hover { color: #1a2a8f; text-decoration-style: solid; }
 /* 同じ番号でもVer.が違う40レベルは中身が別物のため、リンクにしない。
    未登録に気づけるよう赤い点線にし、登録済みのVer.は吹き出しで知らせる。 */

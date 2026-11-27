@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 're
 import { displayMass, displayPrice, emptyPartFact, formatAmount, normalizeMassInput, partFactFor, upsertPartFact, type PartFact, type PartFile } from './drawings';
 import { isPurchasedPart, isSupplementPart } from './matrix';
 import { isLevel40No } from './levels';
-import { BOM_COLUMNS, EMPTY_BOM_FILTER, MASS_COLUMN, PRICE_COLUMN, isBomFilterActive, sumBomRows, type BomFilter, type BomRow } from './bom';
+import { BOM_COLUMNS, EMPTY_BOM_FILTER, MASS_COLUMN, PRICE_COLUMN, isBomFilterActive, sumBomRows, topLevelRows, type BomFilter, type BomRow, type BomTreeRow } from './bom';
 import { partKey } from './csv';
 import { UNITBASE_NOTE_COLUMN, UNITBASE_STATUS_COLUMN } from './unitbase';
 import type { PartsList } from './types';
@@ -27,7 +27,20 @@ type Props = {
   totalLabel: string;
   /** 列ごとの絞り込み。渡したときだけ見出しの下に入力欄の行を出す（単体BOMのタブ）。 */
   filter?: BomFilterAccess;
+  /**
+   * 40レベル部品の中身を、ポップアップではなく表の中で開閉する（単体BOMのタブ）。
+   * 渡したときは `rows` に中身の行（BomTreeRow）も含めて渡す。
+   */
+  expand?: BomExpandAccess;
 };
+
+export type BomExpandAccess = {
+  isOpen: (path: string) => boolean;
+  toggle: (path: string) => void;
+};
+
+/** 階層付きの行かどうか。単体BOMのタブでは中身の行も同じ表に並ぶ。 */
+const treeOf = (row: BomRow): BomTreeRow | undefined => 'path' in row ? row as BomTreeRow : undefined;
 
 export type BomFilterAccess = {
   value: BomFilter;
@@ -45,7 +58,7 @@ export type BomFilterAccess = {
  * 40レベル部品の質量・単価は中身（50/60レベル）の合計で決まるため、その行は
  * 入力欄にせず、計算した値と内訳の注記を出します。
  */
-export default function BomTable({ rows, facts, onFactsChange, renderBadges, level40, totalLabel, filter }: Props) {
+export default function BomTable({ rows, facts, onFactsChange, renderBadges, level40, totalLabel, filter, expand }: Props) {
   /* 1つのセルを編集している間だけ下書きを持つ。入力のたびに保存すると同期の
      リビジョンが上がり続けるため、確定（フォーカスを外す・Enter）で書き込む。 */
   const [draft, setDraft] = useState<{ partNo: string; field: 'mass' | 'price'; value: string } | null>(null);
@@ -71,8 +84,9 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
     setUnlocked(current => ({ ...current, [field]: !current[field] }));
   };
 
-  const massTotal = sumBomRows(rows, row => row.totalMass);
-  const priceTotal = sumBomRows(rows, row => row.totalPrice);
+  /* 中身の行は親の40レベル部品の値に含まれているため、合計にはPLの明細そのものだけを入れる。 */
+  const massTotal = sumBomRows(topLevelRows(rows), row => row.totalMass);
+  const priceTotal = sumBomRows(topLevelRows(rows), row => row.totalPrice);
 
   const saveFact = (partNo: string, field: 'mass' | 'price' | 'shaiUrl', value: string) => {
     /* 単品質量は kg で持つため、`8.28g` のようにグラムで入れられたら kg へ直してから保存する。
@@ -124,6 +138,14 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
   const partNoCell = (row: BomRow) => {
     const { partNo, version } = row.part;
     const content = <span>{partNo}</span>;
+    const tree = treeOf(row);
+    /* 単体BOMのタブでは、中身を表の中で開閉する。 */
+    if (expand && tree?.hasChildren) {
+      const open = expand.isOpen(tree.path);
+      return <button type="button" className="level40-toggle" aria-expanded={open}
+        title={`${partNo} Ver.${version} の40レベル部品の中身（50/60レベル）を${open ? '折りたたみます' : '下に展開します'}`}
+        onClick={() => expand.toggle(tree.path)}><i aria-hidden="true">{open ? '▾' : '▸'}</i>{content}</button>;
+    }
     const match = level40.find(partNo, version);
     if (match) return <button type="button" className="level40-open" title={`${partNo} Ver.${version} の40レベル部品の中身（50/60レベル）を開きます`}
       aria-label={`${partNo} Ver.${version} の40レベル部品の中身を開く`} onClick={() => level40.open(match)}>{content}</button>;
@@ -271,11 +293,14 @@ export default function BomTable({ rows, facts, onFactsChange, renderBadges, lev
       {filter && <tr className="bom-filter-row">{BOM_COLUMNS.map(label => <th key={label}>{filterCell(label, filter)}</th>)}</tr>}</thead>
       <tbody>{rows.map((row, index) => {
         /* 目印は検索で絞り込んでも同じ行に残るよう、並び順ではなく明細の中身で見分ける。 */
-        const key = partKey(row.part), picked = pickedKey === key;
-        return <tr key={`${key}-${index}`} className={picked ? 'is-picked' : undefined} aria-current={picked ? 'true' : undefined}
+        const tree = treeOf(row), depth = tree?.depth ?? 0;
+        /* 中身の行は親が違えば別の行なので、親からたどった名前で見分ける。 */
+        const key = tree?.path ?? partKey(row.part), picked = pickedKey === key;
+        const className = [picked && 'is-picked', depth && 'is-child', tree?.hasChildren && expand?.isOpen(tree.path) && 'is-open'].filter(Boolean).join(' ') || undefined;
+        return <tr key={`${key}-${index}`} className={className} aria-current={picked ? 'true' : undefined}
           title={picked ? 'この行に目印を付けています。もう一度押すと外します。' : undefined} onClick={pickRow(key)}>
-        <td>{row.part.balloon}</td>
-        <td className={isPurchasedPart(row.part.partNo) ? 'purchased-part' : undefined}>{partNoCell(row)}{renderBadges(row.part.partNo)}</td>
+        <td>{tree?.balloonLabel ?? row.part.balloon}</td>
+        <td className={isPurchasedPart(row.part.partNo) ? 'purchased-part' : undefined} style={depth ? { paddingLeft: 12 + depth * 18 } : undefined}>{partNoCell(row)}{renderBadges(row.part.partNo)}</td>
         <td>{row.part.version}</td>
         <td title={row.part.name}>{row.part.name}</td>
         <td>{row.part.quantity}</td>
