@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseCsv } from './csv';
+import * as XLSX from 'xlsx';
+import { parseCsv, widenedSheetRange } from './csv';
 
 /**
  * UnitBase（技管の化学物質管理）から出力したCSVのうち、単体BOMに出す2列だけを持ちます。
@@ -8,7 +9,7 @@ import { parseCsv } from './csv';
  * - `備考(import)`: 「備考」
  *
  * UnitBaseは随時更新されるため、アプリ内で手入力はさせず、**CSVを丸ごと取り込み直す**ことで
- * 更新します（UnitBaseのCSVをGoogleスプレッドシートへ貼り付け、アプリでそのシートを読み込む）。取り込むたびに前回の内容をすべて置き換えるので、UnitBase側で消えた・変わった
+ * 更新します（UnitBaseから出力したCSV、またはExcelで保存し直したファイルを読み込む）。取り込むたびに前回の内容をすべて置き換えるので、UnitBase側で消えた・変わった
  * 値もそのまま反映されます。
  */
 
@@ -20,7 +21,7 @@ export type UnitBaseData = {
   fileName: string;
   /** 取り込んだ日時。 */
   importedAt: string;
-  /** 取り込み元のファイル（スプレッドシート）の更新日時。最新かどうかの判定に使う。 */
+  /** 取り込み元のファイル（CSV・Excel）の更新日時。最新かどうかの判定に使う。 */
   sourceModifiedAt?: string;
   /** CSVの行数（見出しを除く）。 */
   rowCount: number;
@@ -35,29 +36,6 @@ export type UnitBaseLookup = (partNo: string) => UnitBaseValue | undefined;
 /** 単体BOMの列名。Excel出力でも同じ名前を使う。 */
 export const UNITBASE_STATUS_COLUMN = 'chemSHERPA(import)';
 export const UNITBASE_NOTE_COLUMN = '備考(import)';
-
-/**
- * UnitBaseから手動で出力したCSVを貼り付けておくGoogleスプレッドシート。
- * 「スプレッドシートから更新」は、このシートの**先頭のシート**を読み込む。
- * 別のシートを使うときは、画面の「リンク変更」から差し替える（端末ごとに保存）。
- */
-export const DEFAULT_UNITBASE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1OYppqGm1iRDdK2z8_GwFfRUF1QAj4_-ird5_fb6O1Fk/edit';
-const SHEET_URL_KEY = 'matrix-parts-list.unitbase-sheet-url';
-
-/** スプレッドシートのリンク（`/spreadsheets/d/<ID>/…`）またはIDそのものから、ファイルIDを取り出す。 */
-export function spreadsheetIdFrom(value: string): string {
-  const text = value.trim();
-  const found = /\/spreadsheets\/d\/([A-Za-z0-9_-]{20,})/.exec(text) ?? /[?&]id=([A-Za-z0-9_-]{20,})/.exec(text);
-  if (found) return found[1];
-  return /^[A-Za-z0-9_-]{20,}$/.test(text) ? text : '';
-}
-
-export function loadSheetUrl(): string {
-  try { return localStorage.getItem(SHEET_URL_KEY) || DEFAULT_UNITBASE_SHEET_URL; } catch { return DEFAULT_UNITBASE_SHEET_URL; }
-}
-export function saveSheetUrl(url: string) {
-  try { if (url && url !== DEFAULT_UNITBASE_SHEET_URL) localStorage.setItem(SHEET_URL_KEY, url); else localStorage.removeItem(SHEET_URL_KEY); } catch { /* 保存できない環境では既定のリンクを使う。 */ }
-}
 
 const normalizeKey = (partNo: string) => partNo.trim().toUpperCase();
 
@@ -79,6 +57,21 @@ export function decodeUnitBaseCsv(buffer: ArrayBuffer): string {
  */
 const findColumn = (header: string[], ...names: string[]) =>
   header.findIndex(cell => names.some(name => cell.replace(/\s+/g, '').startsWith(name)));
+
+/** Excelのファイル（.xlsx・.xls・.xlsm）か。拡張子で見分ける。 */
+export const isExcelFileName = (fileName: string) => /\.(xlsx|xlsm|xls)$/i.test(fileName);
+
+/**
+ * 取り込むファイルをCSVの文字列にする。CSVはそのまま（文字コードは自動判定）、
+ * Excelは先頭のシートをCSVにする。書かれた範囲が実際のセルより狭いExcelがあるため、範囲を数え直す。
+ */
+export function unitBaseTextFromFile(fileName: string, buffer: ArrayBuffer): string {
+  if (!isExcelFileName(fileName)) return decodeUnitBaseCsv(buffer);
+  const workbook = XLSX.read(buffer, { type: 'array' }), sheet = workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet) throw Error('Excelにシートがありません。');
+  const range = widenedSheetRange(sheet as unknown as Record<string, unknown>);
+  return XLSX.utils.sheet_to_csv(range ? { ...sheet, '!ref': range } : sheet);
+}
 
 export function parseUnitBaseCsv(text: string, fileName: string, sourceModifiedAt?: string, at: Date = new Date()): UnitBaseData {
   const rows = parseCsv(text);
@@ -162,13 +155,13 @@ export const isNewerUnitBase = (candidate: UnitBaseData | undefined, current: Un
   !!candidate && (!current || candidate.importedAt > current.importedAt);
 
 /**
- * 取り込み済みのUnitBaseを持つ。正本はGoogle Drive（`MatrixPartsList-unitbase.json`）で、
+ * 取り込み済みのUnitBaseを持つ。正本はクラウド（Cloudflare D1の文書 `unitbase`）で、
  * 部品表・図面リンクと同じ同期で読み書きする。IndexedDBは、起動直後やオフラインでも
  * 表示できるようにするための写しとして使う。
  */
 export function useUnitBase() {
   const [data, setData] = useState<UnitBaseData | undefined>();
-  /* 端末の写しを読み終えるまでは、Driveとの同期で新旧を比べられないため待ってもらう。 */
+  /* 端末の写しを読み終えるまでは、クラウドとの同期で新旧を比べられないため待ってもらう。 */
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     loadUnitBase().then(saved => setData(current => current ?? saved)).catch(() => undefined).finally(() => setLoaded(true));

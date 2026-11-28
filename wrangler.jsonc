@@ -1,0 +1,32 @@
+{
+  // Cloudflare Workers の設定。画面（dist）と API（worker/index.ts）を1つのWorkerで配信する。
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "matrix-parts-list",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    // /api/* は必ずWorkerで処理する（Cloudflare Accessの確認を通すため）。
+    "run_worker_first": ["/api/*"]
+  },
+  // workers.dev のURLはCloudflare Accessの外になるため使わない。独自ドメイン（routes）で公開する。
+  "workers_dev": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "matrix-parts-list",
+      // `npx wrangler d1 create matrix-parts-list` で表示されたIDに置き換える。
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "IMAGES", "bucket_name": "matrix-parts-list-images" }
+  ],
+  "vars": {
+    // Cloudflare Access のチーム名ドメイン（例: example.cloudflareaccess.com）と、アプリのAUDタグ。
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": ""
+  }
+}

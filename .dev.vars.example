@@ -1,0 +1,4 @@
+# ローカル開発（npm run cf:dev）だけで使う。Cloudflare Accessを通さずにAPIを使えるようにする。
+# 本番では絶対に設定しないこと。
+ALLOW_UNAUTHENTICATED=true
+DEV_USER_EMAIL=dev@example.com
