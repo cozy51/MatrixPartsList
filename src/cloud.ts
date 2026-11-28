@@ -66,3 +66,16 @@ export async function uploadImageFile(fileName: string, image: Blob): Promise<{ 
   if (!r.ok) throw await failure(r, '画像の保存に失敗しました。');
   return (await r.json()) as { id: string; replaced: boolean };
 }
+
+/** R2の画像を削除する。`fileName` は `品番.png`（`r2:` は付けない）。もう無いときも成功とみなす。 */
+export async function deleteImageFile(fileName: string): Promise<void> {
+  const r = await api(`/api/images/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
+  if (!r.ok && r.status !== 404) throw await failure(r, `${fileName} を削除できませんでした。`);
+}
+
+/** R2に保存している画像のファイル名（`品番.png`）の一覧。 */
+export async function listImageFiles(): Promise<string[]> {
+  const r = await api('/api/images', { cache: 'no-store' });
+  if (!r.ok) throw await failure(r, '画像の一覧を取得できませんでした。');
+  return ((await r.json()) as { names?: string[] }).names ?? [];
+}

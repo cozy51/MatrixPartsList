@@ -16,6 +16,8 @@ import {
   modelImageUrl,
   modelThumbnailUrl,
   isR2ImageId,
+  orphanR2Images,
+  unusedR2Images,
   removePartModel,
   upsertPartModel,
   emptyPartFact,
@@ -967,5 +969,21 @@ describe('品番ごとの3Dモデル（Cloudflare R2）', () => {
     expect(modelThumbnailUrl('r2:HJ06158060.png', 160, '2026-11-28T00:00:00.000Z')).toBe('/api/images/HJ06158060.png?v=2026-11-28T00%3A00%3A00.000Z');
     expect(modelImageUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view');
     expect(modelThumbnailUrl('1AbCdEfGhIjKlMnOp', 160)).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w160');
+  });
+});
+
+describe('使われなくなったR2の画像', () => {
+  const m = (partNo: string, fileId: string) => ({ partNo, fileId, updatedAt: '' });
+  it('解除・差し替えで使われなくなったR2の画像だけを返す（Driveの画像は対象外）', () => {
+    const before = [m('A', 'r2:A.png'), m('B', 'r2:B.png'), m('C', '1AbCdEfGhIjKlMnOp')];
+    expect(unusedR2Images(before, [m('B', 'r2:B.png'), m('C', '1AbCdEfGhIjKlMnOp')])).toEqual(['A.png']);
+    expect(unusedR2Images(before, [m('A', 'r2:A.png'), m('B', '1XyZXyZXyZXyZ'), m('C', '1AbCdEfGhIjKlMnOp')])).toEqual(['B.png']);
+    expect(unusedR2Images(before, [m('A', 'r2:A.png'), m('B', 'r2:B.png')])).toEqual([]);
+  });
+  it('ほかの品番がまだ使っている画像は消さない', () => {
+    expect(unusedR2Images([m('A/1', 'r2:A_1.png'), m('A_1', 'r2:A_1.png')], [m('A_1', 'r2:A_1.png')])).toEqual([]);
+  });
+  it('R2にあって、どの品番にも使われていない画像を探す', () => {
+    expect(orphanR2Images(['HH01002R61.png', 'A.png', 'B.png'], [m('A', 'r2:A.png'), m('C', '1AbCdEfGhIjKlMnOp')])).toEqual(['B.png', 'HH01002R61.png']);
   });
 });
