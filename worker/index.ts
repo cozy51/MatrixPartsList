@@ -4,7 +4,9 @@ import { splitChunks } from './chunks';
 /**
  * Matrix Parts List の API（Cloudflare Workers）。
  *
- * - 画面（dist）はWorkerの静的アセットとして配信し、`/api/*` だけをこのコードで処理する。
+ * - 画面（dist）もAPI（`/api/*`）も、すべてのリクエストをまずこのコードで受け、Cloudflare AccessのJWTを
+ *   検証してから返す（`wrangler.jsonc` の `run_worker_first: true`）。Access側の設定が漏れていても、
+ *   ログインしていない人には画面そのものを返さない。
  * - 部品表・図面リンク・UnitBaseは、これまでGoogle Driveに置いていたJSONと同じ単位でD1へ保存する。
  * - アプリから保存する3Dモデルの画像はR2へ保存する（既存のDrive画像はファイルIDのまま表示する）。
  * - ログインはCloudflare Accessに任せ、ここではAccessが付けたJWTを検証して利用者を確かめる。
@@ -17,6 +19,8 @@ export interface Env {
   ACCESS_TEAM_DOMAIN?: string;
   /** Cloudflare AccessのアプリケーションのAUDタグ。 */
   ACCESS_AUD?: string;
+  /** 公開するホスト名（例: matrix-parts-list.<サブドメイン>.workers.dev）。 */
+  APP_HOST?: string;
   /** ローカル開発専用。`true` のときはAccessの確認をしない。 */
   ALLOW_UNAUTHENTICATED?: string;
   DEV_USER_EMAIL?: string;
@@ -34,14 +38,24 @@ const IMAGE_PREFIX = 'models/';
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 const fail = (status: number, message: string) => json({ error: message }, status);
+const escapeHtml = (text: string) => text.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+/** 画面へのアクセスを断るページ。アプリの中身（画面のファイル）は一切返さない。 */
+const denied = (message: string) => new Response(
+  `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>アクセスできません</title></head>`
+  + `<body style="font-family:system-ui,sans-serif;max-width:560px;margin:15vh auto;padding:0 16px;color:#2d3748"><h1 style="font-size:20px">Matrix Parts List にアクセスできません</h1>`
+  + `<p>${escapeHtml(message)}</p><p>Cloudflare Accessでログインできる正しいURLから開いてください。</p></body></html>`,
+  { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
+    const url = new URL(request.url), isApi = url.pathname.startsWith('/api/');
     let user: string;
     try { user = await authenticate(request, env); }
-    catch (error) { return fail(401, error instanceof Error ? error.message : 'ログインが必要です。'); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : 'ログインが必要です。';
+      return isApi ? fail(401, message) : denied(message);
+    }
+    if (!isApi) return env.ASSETS.fetch(request);
     try { return await route(request, env, url, user); }
     catch (error) {
       console.error(error);

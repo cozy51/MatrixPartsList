@@ -6,12 +6,18 @@
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./dist",
+    // Workerから画面のファイルを返すための参照（env.ASSETS）。
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    // /api/* は必ずWorkerで処理する（Cloudflare Accessの確認を通すため）。
-    "run_worker_first": ["/api/*"]
+    // 画面のファイルも含め、すべてのリクエストをWorkerで受けてAccessのJWTを検証してから返す。
+    // Access側の設定が漏れていても、ログインしていない人に画面を返さないため。
+    "run_worker_first": true
   },
-  // workers.dev のURLはCloudflare Accessの外になるため使わない。独自ドメイン（routes）で公開する。
-  "workers_dev": false,
+  // 独自ドメインは使わず、workers.dev（https://matrix-parts-list.<サブドメイン>.workers.dev）で公開する。
+  // workers.dev にはダッシュボードでCloudflare Accessを有効にする（README「Cloudflare設定」）。
+  "workers_dev": true,
+  // プレビューURL（<版>-matrix-parts-list.<サブドメイン>.workers.dev）は作らない。Workerも APP_HOST 以外のホストを拒否する。
+  "preview_urls": false,
   "d1_databases": [
     {
       "binding": "DB",
@@ -25,8 +31,12 @@
     { "binding": "IMAGES", "bucket_name": "matrix-parts-list-images" }
   ],
   "vars": {
-    // Cloudflare Access のチーム名ドメイン（例: example.cloudflareaccess.com）と、アプリのAUDタグ。
+    // 3つとも設定するまで、Workerはすべてのリクエストを拒否する（設定漏れのまま公開されないように）。
+    // Cloudflare Access のチームドメイン（例: example.cloudflareaccess.com）。
     "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
+    // workers.dev に有効にしたAccessアプリのAUDタグ。
+    "ACCESS_AUD": "",
+    // 公開するホスト名（例: matrix-parts-list.example.workers.dev）。これ以外のホストからは使えない。
+    "APP_HOST": ""
   }
 }

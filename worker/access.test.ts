@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { authenticate } from './access';
 
-const DOMAIN = 'team.cloudflareaccess.com', AUD = 'aud-123';
-const env = { ACCESS_TEAM_DOMAIN: DOMAIN, ACCESS_AUD: AUD };
+const DOMAIN = 'team.cloudflareaccess.com', AUD = 'aud-123', HOST = 'matrix-parts-list.example.workers.dev';
+const env = { ACCESS_TEAM_DOMAIN: DOMAIN, ACCESS_AUD: AUD, APP_HOST: HOST };
 let keys: CryptoKeyPair, jwk: JsonWebKey & { kid?: string };
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -12,8 +12,8 @@ async function sign(claims: Record<string, unknown>, kid = 'k1', key = keys.priv
   const signature = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${head}.${body}`)));
   return `${head}.${body}.${b64url(signature)}`;
 }
-const request = (token?: string, cookie = false) =>
-  new Request('https://parts.example.com/api/me', { headers: token ? (cookie ? { Cookie: `a=b; CF_Authorization=${token}` } : { 'Cf-Access-Jwt-Assertion': token }) : {} });
+const request = (token?: string, cookie = false, host = HOST) =>
+  new Request(`https://${host}/api/me`, { headers: token ? (cookie ? { Cookie: `a=b; CF_Authorization=${token}` } : { 'Cf-Access-Jwt-Assertion': token }) : {} });
 const valid = () => ({ aud: [AUD], iss: `https://${DOMAIN}`, exp: Math.floor(Date.now() / 1000) + 600, email: 'user@example.com' });
 
 beforeAll(async () => {
@@ -38,8 +38,29 @@ describe('Cloudflare AccessのJWT検証', () => {
     const other = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']) as CryptoKeyPair;
     await expect(authenticate(request(await sign(valid(), 'k1', other.privateKey)), env)).rejects.toThrow('確認できませんでした');
   });
-  it('設定がなければ拒否し、ローカル開発の指定があるときだけ通す', async () => {
-    await expect(authenticate(request(), {})).rejects.toThrow('ACCESS_TEAM_DOMAIN');
-    await expect(authenticate(request(), { ALLOW_UNAUTHENTICATED: 'true', DEV_USER_EMAIL: 'dev@example.com' })).resolves.toBe('dev@example.com');
+  it('発行元（iss）がない・違うJWTは拒否する', async () => {
+    stubCerts();
+    const { iss: _omit, ...noIss } = valid();
+    await expect(authenticate(request(await sign(noIss)), env)).rejects.toThrow('発行元');
+    await expect(authenticate(request(await sign({ ...valid(), iss: 'https://other.cloudflareaccess.com' })), env)).rejects.toThrow('発行元');
+  });
+  it('プレビューURLなど公開ホスト以外からは、正しいJWTがあっても拒否する', async () => {
+    stubCerts();
+    const token = await sign(valid());
+    await expect(authenticate(request(token, false, `abcd1234-${HOST}`), env)).rejects.toThrow('このURL');
+    await expect(authenticate(request(token, false, 'evil.example.com'), env)).rejects.toThrow('このURL');
+  });
+  it('設定（チームドメイン・AUD・公開ホスト）が1つでも欠けていれば拒否する', async () => {
+    stubCerts();
+    const token = await sign(valid());
+    await expect(authenticate(request(token), {})).rejects.toThrow('ACCESS_TEAM_DOMAIN');
+    await expect(authenticate(request(token), { ...env, ACCESS_AUD: '' })).rejects.toThrow('ACCESS_AUD');
+    await expect(authenticate(request(token), { ...env, APP_HOST: '' })).rejects.toThrow('APP_HOST');
+  });
+  it('開発用の認証の省略は、localhostからのリクエストにだけ効く', async () => {
+    const dev = { ALLOW_UNAUTHENTICATED: 'true', DEV_USER_EMAIL: 'dev@example.com' };
+    await expect(authenticate(request(undefined, false, 'localhost:8787'), dev)).resolves.toBe('dev@example.com');
+    await expect(authenticate(request(undefined, false, '127.0.0.1:8787'), dev)).resolves.toBe('dev@example.com');
+    await expect(authenticate(request(), { ...env, ...dev })).rejects.toThrow('ログインが必要');
   });
 });

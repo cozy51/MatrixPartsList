@@ -13,7 +13,7 @@ npm run cf:migrate:local
 npm run cf:dev
 ```
 
-`npm run cf:dev` は画面をビルドし、Worker・D1・R2のローカル版（`http://localhost:8787`）で起動します。画面を書き換えながら確かめるときは、`npm run cf:dev` を動かしたまま別の端末で `npm run dev` を実行します（`/api` は `localhost:8787` へ転送します）。`.dev.vars` の `ALLOW_UNAUTHENTICATED=true` は、ローカルでCloudflare Accessを通さずにAPIを使うためだけの設定です。**本番には設定しないでください。**
+`npm run cf:dev` は画面をビルドし、Worker・D1・R2のローカル版（`http://localhost:8787`）で起動します。画面を書き換えながら確かめるときは、`npm run cf:dev` を動かしたまま別の端末で `npm run dev` を実行します（`/api` は `localhost:8787` へ転送します）。`.dev.vars` の `ALLOW_UNAUTHENTICATED=true` は、ローカルでCloudflare Accessを通さずにAPIを使うためだけの設定で、`localhost` からのリクエストにしか効きません（本番のworkers.devでは無視されます）。**本番には設定しないでください。**
 
 本番ビルドは `npm run build`、テストは `npm test`、Workerの型チェックは `npm run typecheck:worker` です。本番の構成と公開手順は[Cloudflare設定](#cloudflare設定)を参照してください。
 
@@ -343,12 +343,24 @@ python3 scripts/generate-icons.py
 
 | 役割 | 使うもの | 中身 |
 | --- | --- | --- |
-| 画面・API | Workers（`worker/index.ts`、静的アセットは `dist`） | `/api/*` だけWorkerで処理し、それ以外は画面を返す |
+| 画面・API | Workers（`worker/index.ts`、静的アセットは `dist`） | `https://matrix-parts-list.<サブドメイン>.workers.dev` で公開。すべてのリクエストでログインを確かめてから、画面またはAPIを返す |
 | データ | D1（`matrix-parts-list`） | 文書 `data`（部品表）・`drawings`（図面リンク・CAD ID・3Dモデル・質量など）・`unitbase`（UnitBase） |
 | 画像 | R2（`matrix-parts-list-images`） | アプリから保存した3Dモデルの画像（`models/品番.png`） |
-| ログイン | Cloudflare Access | Googleアカウントやメールのワンタイムコードでログイン。期間内は再ログイン不要 |
+| ログイン | Cloudflare Access（workers.dev に有効化） | Googleアカウントやメールのワンタイムコードでログイン。期間内は再ログイン不要 |
 
 D1は1つの値に約2MBまでしか入らないため、各文書のJSONを分割して保存し（`docs`・`doc_chunks` テーブル、`migrations/0001_init.sql`）、読むときにつなげ直します。保存は1つのトランザクションで行うため、途中で失敗しても古い内容が残ります。同期のしかた（`revision`・取り込み日時が新しい方を採用）はGoogle Drive版と同じです。
+
+### 認証のしくみ（ログインしていない人には何も返さない）
+
+独自ドメインは使わず、Cloudflare標準の `workers.dev` で公開します。守りは次の二重にしています。
+
+1. **Cloudflare Access**: workers.dev のURLにAccessを有効にし、ログインした利用者だけを通します。
+2. **Worker自身の確認**: 画面のファイルも含めて**すべてのリクエスト**をWorkerで受け（`run_worker_first: true`）、AccessのJWTを検証してから返します。次の場合は、画面なら `403`（アプリの中身は返しません）、APIなら `401` で拒否します。
+   - `ACCESS_TEAM_DOMAIN`・`ACCESS_AUD`・`APP_HOST` のどれかが未設定（**設定が漏れたまま公開しても、閉じたままになります**）
+   - 公開ホスト名（`APP_HOST`）以外へのリクエスト（**プレビューURL** `<版>-matrix-parts-list.<サブドメイン>.workers.dev` など）
+   - JWTがない、署名が正しくない、別のAccessアプリ向け（AUD違い）、発行元違い、期限切れ
+
+プレビューURLは `wrangler.jsonc` の `preview_urls: false` で作らないようにしています。万一有効になっても、ホスト名が `APP_HOST` と違うため、Workerが拒否します。`.dev.vars` の `ALLOW_UNAUTHENTICATED=true`（ローカル開発用）は、`localhost` からのリクエストにしか効きません。
 
 ### 初回の公開手順
 
@@ -374,14 +386,36 @@ D1は1つの値に約2MBまでしか入らないため、各文書のJSONを分�
    npm run cf:migrate
    ```
 
-4. 公開するドメインを `wrangler.jsonc` の `routes` に追加します（例: `"routes": [{ "pattern": "parts.example.com", "custom_domain": true }]`）。`workers.dev` のURLはAccessの外になるため、無効にしています。
-5. Cloudflare Zero Trustの「Access → アプリケーション」で **セルフホスト** のアプリを作り、手順4のドメインを登録します。ポリシーで利用者（メールアドレスやドメイン）を許可し、セッション時間（例: 1か月）を決めます。ログイン方法には「ワンタイムPIN」や「Google」を追加できます。
-6. 作ったアプリの **AUDタグ** とチームドメイン（`<チーム名>.cloudflareaccess.com`）を `wrangler.jsonc` の `vars`（`ACCESS_AUD`・`ACCESS_TEAM_DOMAIN`）に書き込みます。WorkerはAccessが付けたJWTをこの値で検証し、正しくないリクエストは `401` で拒否します。
-7. 公開します。
+4. いったん公開します。この時点ではAccessの設定が空のため、Workerは**すべてのリクエストを拒否**します（誰にも画面は見えません）。表示された `https://matrix-parts-list.<サブドメイン>.workers.dev` を控えます。
 
    ```bash
    npm run deploy
    ```
+
+5. Cloudflareのダッシュボードで「Workers & Pages」→ `matrix-parts-list` →「設定」→「ドメインとルート」を開き、`workers.dev` の **Cloudflare Access を有効化**します。Accessのアプリが作られるので、「管理」から次を設定・確認します。
+   - ポリシー: 利用者（メールアドレスやドメイン）を許可する。セッション時間（例: 1か月）を決める
+   - ログイン方法: 「ワンタイムPIN」や「Google」を追加できる
+   - **AUDタグ** とチームドメイン（`<チーム名>.cloudflareaccess.com`）を控える
+   - プレビューURLが「有効」になっていないことを確かめる（`preview_urls: false` のため、通常は無効）
+6. `wrangler.jsonc` の `vars` に3つとも書き込みます。
+
+   | 変数 | 値の例 |
+   | --- | --- |
+   | `ACCESS_TEAM_DOMAIN` | `example.cloudflareaccess.com` |
+   | `ACCESS_AUD` | 手順5で控えたAUDタグ |
+   | `APP_HOST` | `matrix-parts-list.example.workers.dev`（手順4のURLのホスト名） |
+
+7. もう一度公開します。
+
+   ```bash
+   npm run deploy
+   ```
+
+8. 確認します。
+   - ブラウザーで手順4のURLを開くと、Accessのログイン画面が出て、ログイン後にアプリが表示される
+   - シークレットウィンドウなどでログインせずに `…/api/me` を開いても、データが返らない
+
+ダッシュボードの項目名は変わることがあります。最新の手順は公式ドキュメント（[workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)）を参照してください。
 
 ### Google Drive版からのデータ移行
 
