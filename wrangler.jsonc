@@ -22,8 +22,8 @@
     {
       "binding": "DB",
       "database_name": "matrix-parts-list",
-      // `npx wrangler d1 create matrix-parts-list` で表示されたIDに置き換える。
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // Cloudflareで作成したD1（matrix-parts-list）のID。
+      "database_id": "d4d50279-4773-49be-bdd1-274a9836afd6",
       "migrations_dir": "migrations"
     }
   ],
