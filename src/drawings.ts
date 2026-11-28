@@ -575,6 +575,25 @@ export const R2_IMAGE_PREFIX = 'r2:';
 export const isR2ImageId = (fileId: string): boolean => (fileId ?? '').trim().startsWith(R2_IMAGE_PREFIX);
 const R2_IMAGE_PATH = '/api/images/';
 
+/** R2の画像IDからファイル名（`品番.png`）を取り出す。R2の画像でなければ空文字。 */
+export const r2ImageName = (fileId: string): string =>
+  isR2ImageId(fileId) ? fileId.trim().slice(R2_IMAGE_PREFIX.length) : '';
+
+/**
+ * 登録の変更で使われなくなったR2の画像（ファイル名）。変更後もどこかの品番が使っている画像は含めない。
+ * Driveの画像は対象外（アプリの管理外のため消さない）。
+ */
+export function unusedR2Images(before: PartModelLink[], after: PartModelLink[]): string[] {
+  const used = new Set(after.map(item => r2ImageName(item.fileId)).filter(Boolean));
+  return [...new Set(before.map(item => r2ImageName(item.fileId)).filter(name => name && !used.has(name)))];
+}
+
+/** R2にある画像のうち、どの品番の登録にも使われていないもの。 */
+export function orphanR2Images(stored: string[], models: PartModelLink[]): string[] {
+  const used = new Set(models.map(item => r2ImageName(item.fileId)).filter(Boolean));
+  return stored.filter(name => !used.has(name)).sort();
+}
+
 /** R2の画像を表示するURL（同じサイトのAPI）。`version` は画像を上書きしたときに取り直させるため。 */
 export const r2ImageUrl = (fileId: string, version = ''): string =>
   `${R2_IMAGE_PATH}${encodeURIComponent(fileId.trim().slice(R2_IMAGE_PREFIX.length))}${version ? `?v=${encodeURIComponent(version)}` : ''}`;

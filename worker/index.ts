@@ -74,10 +74,12 @@ async function route(request: Request, env: Env, url: URL, user: string): Promis
     if (request.method === 'PUT') return writeDoc(env.DB, name, request, user);
     return fail(405, '使えない操作です。');
   }
+  if (kind === 'images' && parts.length === 1 && request.method === 'GET') return listImages(env.IMAGES);
   if (kind === 'images' && parts.length === 2) {
     if (!IMAGE_NAME.test(name)) return fail(400, '画像のファイル名が正しくありません。');
     if (request.method === 'GET' || request.method === 'HEAD') return readImage(env.IMAGES, name, request, url);
     if (request.method === 'PUT') return writeImage(env.IMAGES, name, request, user);
+    if (request.method === 'DELETE') { await env.IMAGES.delete(IMAGE_PREFIX + name); return json({ deleted: `r2:${name}` }); }
     return fail(405, '使えない操作です。');
   }
   return fail(404, 'APIが見つかりません。');
@@ -127,6 +129,18 @@ async function readImage(bucket: R2Bucket, name: string, request: Request, url: 
   headers.set('Cache-Control', url.searchParams.has('v') ? 'private, max-age=31536000, immutable' : 'private, no-cache');
   if (!('body' in object)) return new Response(null, { status: 304, headers });
   return new Response(request.method === 'HEAD' ? null : object.body, { headers });
+}
+
+/** 保存している画像のファイル名（品番.png）の一覧。使われていない画像を探すために使う。 */
+async function listImages(bucket: R2Bucket): Promise<Response> {
+  const names: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await bucket.list({ prefix: IMAGE_PREFIX, cursor, limit: 1000 });
+    for (const object of page.objects) names.push(object.key.slice(IMAGE_PREFIX.length));
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return json({ names });
 }
 
 async function writeImage(bucket: R2Bucket, name: string, request: Request, user: string): Promise<Response> {
