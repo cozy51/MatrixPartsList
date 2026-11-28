@@ -568,17 +568,43 @@ export const driveThumbnailUrl = (fileId: string, width = 320, version = ''): st
   `https://drive.google.com/thumbnail?id=${fileId.trim()}&sz=w${width}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
 
 /**
- * 3Dモデル画像の置き場所（Google Drive の WebAppsData/MatrixPartsList/Image）。
- * 登録画面からフォルダを開くリンクと、クリップボード画像の保存先に使う。
+ * アプリから保存した3Dモデル画像（Cloudflare R2）のID。`r2:品番.png` の形で、DriveのファイルIDと見分ける。
+ * 以前にGoogle Driveへ保存した画像は、これまでどおりDriveのファイルIDのまま表示する。
  */
-export const MODEL_FOLDER_ID = '118t77JHqWQVTv_Vi74kExovh7RM5vdEN';
+export const R2_IMAGE_PREFIX = 'r2:';
+export const isR2ImageId = (fileId: string): boolean => (fileId ?? '').trim().startsWith(R2_IMAGE_PREFIX);
+const R2_IMAGE_PATH = '/api/images/';
+
+/** R2の画像を表示するURL（同じサイトのAPI）。`version` は画像を上書きしたときに取り直させるため。 */
+export const r2ImageUrl = (fileId: string, version = ''): string =>
+  `${R2_IMAGE_PATH}${encodeURIComponent(fileId.trim().slice(R2_IMAGE_PREFIX.length))}${version ? `?v=${encodeURIComponent(version)}` : ''}`;
+
+/**
+ * 3Dモデルの登録欄に入れられた値からIDを取り出す。R2の画像（`r2:…` またはそのURL）と、
+ * Google Driveの共有リンク・ファイルIDに対応する。読み取れないときは空文字。
+ */
+export function parseModelImageId(value: string): string {
+  const text = (value ?? '').trim();
+  if (isR2ImageId(text)) return text.length > R2_IMAGE_PREFIX.length ? text : '';
+  const at = text.indexOf(R2_IMAGE_PATH);
+  if (at >= 0 && (at === 0 || /^https?:\/\/[^/]+$/.test(text.slice(0, at)))) {
+    const name = text.slice(at + R2_IMAGE_PATH.length).split(/[?#]/)[0];
+    try { return name ? R2_IMAGE_PREFIX + decodeURIComponent(name) : ''; } catch { return ''; }
+  }
+  return parseDriveFileId(text);
+}
+
+/** 3Dモデルの画像を開くURL。R2の画像はそのまま、Driveの画像はDriveのページで開く。 */
+export const modelImageUrl = (fileId: string): string =>
+  isR2ImageId(fileId) ? r2ImageUrl(fileId) : driveFileUrl(fileId);
+
+/** 3Dモデルのサムネイル。R2の画像は元の画像を縮小表示し、Driveの画像はDriveのサムネイルを使う。 */
+export const modelThumbnailUrl = (fileId: string, width = 320, version = ''): string =>
+  isR2ImageId(fileId) ? r2ImageUrl(fileId, version) : driveThumbnailUrl(fileId, width, version);
 
 /** クリップボード画像を保存するときのファイル名（品番.png）。ファイル名に使えない文字は _ にする。 */
 export const modelImageFileName = (partNo: string): string =>
   `${partNo.trim().replace(/[\\/:*?"<>|]/g, '_')}.png`;
-
-export const driveFolderUrl = (folderId: string): string =>
-  `https://drive.google.com/drive/folders/${folderId.trim()}`;
 
 export const modelLinkFor = (models: PartModelLink[], partNo: string): PartModelLink | undefined =>
   models.find(item => drawingKey(item.partNo) === drawingKey(partNo));

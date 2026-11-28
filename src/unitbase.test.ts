@@ -45,11 +45,20 @@ describe('UnitBaseのCSV取り込み', () => {
   });
 });
 
-describe('スプレッドシートのリンク', () => {
-  it('リンクからファイルIDを取り出す', async () => {
-    const { spreadsheetIdFrom } = await import('./unitbase');
-    expect(spreadsheetIdFrom('https://docs.google.com/spreadsheets/d/1OYppqGm1iRDdK2z8_GwFfRUF1QAj4_-ird5_fb6O1Fk/edit?usp=sharing')).toBe('1OYppqGm1iRDdK2z8_GwFfRUF1QAj4_-ird5_fb6O1Fk');
-    expect(spreadsheetIdFrom('1OYppqGm1iRDdK2z8_GwFfRUF1QAj4_-ird5_fb6O1Fk')).toBe('1OYppqGm1iRDdK2z8_GwFfRUF1QAj4_-ird5_fb6O1Fk');
-    expect(spreadsheetIdFrom('https://example.com/')).toBe('');
+describe('取り込むファイル', () => {
+  it('Excelは先頭のシートをCSVにして読む', async () => {
+    const XLSX = await import('xlsx');
+    const { unitBaseTextFromFile, isExcelFileName } = await import('./unitbase');
+    const sheet = XLSX.utils.aoa_to_sheet([['品番', 'chemSHERPA調査状況'], ['HJ00000060', '完了']]);
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, 'UnitBase');
+    const buffer = XLSX.write(book, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+    expect(isExcelFileName('UnitBase.XLSX')).toBe(true);
+    expect(isExcelFileName('UnitBase.csv')).toBe(false);
+    expect(unitBaseTextFromFile('UnitBase.xlsx', buffer).split('\n')[1]).toBe('HJ00000060,完了');
+  });
+  it('CSVはそのまま文字列にする', async () => {
+    const { unitBaseTextFromFile } = await import('./unitbase');
+    expect(unitBaseTextFromFile('a.csv', new TextEncoder().encode('品番\nHJ1').buffer as ArrayBuffer)).toBe('品番\nHJ1');
   });
 });

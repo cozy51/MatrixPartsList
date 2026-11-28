@@ -12,6 +12,10 @@ import {
   modelFileIdFor,
   modelImageFileName,
   parseDriveFileId,
+  parseModelImageId,
+  modelImageUrl,
+  modelThumbnailUrl,
+  isR2ImageId,
   removePartModel,
   upsertPartModel,
   emptyPartFact,
@@ -943,5 +947,25 @@ describe('openUrlFor', () => {
     const easm = 'https://lc-system-hybsog.muratec.co.jp/rg/jsp/file.proxy?url=https://lc-system-fsys.muratec.co.jp/drawing_mech32/main/eDrawings/HH1/5031809_HH11105B120.easm';
     expect(openUrlFor(easm)).toBe(easm);
     expect(openUrlFor('https://example.com/a.pdf')).toBe('https://example.com/a.pdf');
+  });
+});
+
+describe('品番ごとの3Dモデル（Cloudflare R2）', () => {
+  it('R2の画像IDとそのURLを読み取る', () => {
+    expect(parseModelImageId('r2:HJ06158060.png')).toBe('r2:HJ06158060.png');
+    expect(parseModelImageId('/api/images/HJ06158060.png')).toBe('r2:HJ06158060.png');
+    expect(parseModelImageId('https://parts.example.com/api/images/HJ0N%23517.png?v=1')).toBe('r2:HJ0N#517.png');
+    expect(parseModelImageId('r2:')).toBe('');
+    expect(parseModelImageId('https://example.com/x/api/images/a.png')).toBe('');
+  });
+  it('Google Driveのリンクは、これまでどおりファイルIDにする', () => {
+    expect(parseModelImageId('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view')).toBe('1AbCdEfGhIjKlMnOp');
+    expect(isR2ImageId('1AbCdEfGhIjKlMnOp')).toBe(false);
+  });
+  it('開くURLとサムネイルを、保存先ごとに組み立てる', () => {
+    expect(modelImageUrl('r2:HJ06158060.png')).toBe('/api/images/HJ06158060.png');
+    expect(modelThumbnailUrl('r2:HJ06158060.png', 160, '2026-11-28T00:00:00.000Z')).toBe('/api/images/HJ06158060.png?v=2026-11-28T00%3A00%3A00.000Z');
+    expect(modelImageUrl('1AbCdEfGhIjKlMnOp')).toBe('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view');
+    expect(modelThumbnailUrl('1AbCdEfGhIjKlMnOp', 160)).toBe('https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOp&sz=w160');
   });
 });
