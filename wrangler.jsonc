@@ -33,10 +33,10 @@
   "vars": {
     // 3つとも設定するまで、Workerはすべてのリクエストを拒否する（設定漏れのまま公開されないように）。
     // Cloudflare Access のチームドメイン（例: example.cloudflareaccess.com）。
-    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_TEAM_DOMAIN": "empty-fog-b24c.cloudflareaccess.com",
     // workers.dev に有効にしたAccessアプリのAUDタグ。
-    "ACCESS_AUD": "",
+    "ACCESS_AUD": "bc1d5fe8d64e028bb1f8532a95640afa0a5e34b8c695cf433a16365472ef3d4a",
     // 公開するホスト名（例: matrix-parts-list.example.workers.dev）。これ以外のホストからは使えない。
-    "APP_HOST": ""
+    "APP_HOST": "matrix-parts-list.cozy-apps.workers.dev"
   }
 }
