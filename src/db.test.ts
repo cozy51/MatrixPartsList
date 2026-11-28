@@ -68,3 +68,32 @@ describe('JSONバックアップの中身', () => {
     expect(JSON.stringify(backup).length).toBeLessThan(JSON.stringify(backup, null, 2).length);
   });
 });
+
+describe('Google Drive版のファイルの復元', () => {
+  it('部品表・図面リンク・UnitBaseを中身の形で見分ける', async () => {
+    const { parseRestoreFiles } = await import('./db');
+    const restored = parseRestoreFiles([
+      { name: 'MatrixPartsList-latest.json', text: JSON.stringify({ revision: 5, updatedAt: '2026-11-28T00:00:00.000Z', lists: [] }) },
+      { name: 'MatrixPartsList-drawings.json', text: JSON.stringify({ revision: 7, updatedAt: '2026-11-28T00:00:00.000Z', drawings: [], models: [{ partNo: 'HJ1', fileId: '1AbCdEfGhIjK', updatedAt: '' }] }) },
+      { name: 'MatrixPartsList-unitbase.json', text: JSON.stringify({ fileName: 'u.csv', importedAt: '2026-11-26T00:00:00.000Z', rowCount: 1, entries: { HJ1: [] } }) },
+    ]);
+    expect(restored.data?.revision).toBe(5);
+    expect(restored.drawings?.revision).toBe(7);
+    expect(restored.drawings?.models).toHaveLength(1);
+    expect(restored.drawings?.cadIds).toEqual([]);
+    expect(restored.unitBase?.fileName).toBe('u.csv');
+  });
+  it('選んだ種類だけを返す', async () => {
+    const { parseRestoreFiles } = await import('./db');
+    const restored = parseRestoreFiles([{ name: 'd.json', text: JSON.stringify({ revision: 1, drawings: [] }) }]);
+    expect(restored.data).toBeUndefined();
+    expect(restored.drawings?.revision).toBe(1);
+  });
+  it('同じ種類が2つ・読めないファイルは、何も変えずにエラーにする', async () => {
+    const { parseRestoreFiles } = await import('./db');
+    const list = { name: 'a.json', text: JSON.stringify({ lists: [] }) };
+    expect(() => parseRestoreFiles([list, { ...list, name: 'b.json' }])).toThrow('部品表のファイルが2つ');
+    expect(() => parseRestoreFiles([{ name: 'x.json', text: '{"foo":1}' }])).toThrow('復元できる形式ではありません');
+    expect(() => parseRestoreFiles([{ name: 'y.json', text: 'not json' }])).toThrow('JSONとして読めません');
+  });
+});

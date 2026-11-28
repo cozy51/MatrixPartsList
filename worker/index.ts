@@ -100,7 +100,10 @@ async function writeDoc(db: D1Database, name: string, request: Request, user: st
   if (length > MAX_DOC_BYTES) return fail(413, 'データが大きすぎます。');
   const text = await request.text();
   if (text.length > MAX_DOC_BYTES) return fail(413, 'データが大きすぎます。');
-  try { JSON.parse(text); } catch { return fail(400, 'JSONとして読めないデータは保存できません。'); }
+  /* 数MBのJSONを丸ごと解析するとWorkerのCPU時間の上限（無料プランは10ms）に触れるため、形だけ確かめる。
+     書き込むのはログイン済みの利用者のアプリだけで、中身はアプリ側で作ったJSON。 */
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return fail(400, 'JSONとして読めないデータは保存できません。');
   const chunks = splitChunks(text), now = new Date().toISOString();
   /* batchは1つのトランザクションで実行されるため、途中で失敗しても古い内容が残る。 */
   await db.batch([
